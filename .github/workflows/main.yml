@@ -1,0 +1,22 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Publish-Release
+
+# Controls when the workflow will run
+on:
+  push:
+    tags:
+      - '*.*.*'  # Match anything resembling semver
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  release-linux-amd64:
+    name: release linux/amd64
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: wangyoucao577/go-release-action@v1.25
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: linux
+        goarch: amd64
