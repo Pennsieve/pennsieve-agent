@@ -10,26 +10,28 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  releases-matrix:
-    name: Release Go Binary
-    runs-on: ubuntu-latest
+  xgo:
     strategy:
+      fail-fast: false
       matrix:
-        # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
-        goos: [linux, windows, darwin]
-        goarch: ["386", amd64, arm64]
-        exclude:
-          - goarch: "386"
-            goos: darwin
-          - goarch: arm64
-            goos: windows
+        go_version:
+          - 1.18
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: wangyoucao577/go-release-action@v1.25
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        goversion: "https://go.dev/dl/go1.18.linux-amd64.tar.gz"
-        binary_name: "pennsieve-agent"
-        extra_files: LICENSE README.md
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Build with xgo
+        uses: crazy-max/ghaction-xgo@v1
+        with:
+          xgo_version: latest
+          go_version: ${{ matrix.go_version }}
+          dest: build
+          prefix: myapp
+          targets: windows/386,windows/amd64,linux/386,linux/amd64,darwin/386,darwin/amd64
+          v: true
+          x: false
+          race: false
+          ldflags: -s -w
+          buildmode: default
