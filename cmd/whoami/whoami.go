@@ -30,25 +30,18 @@ var WhoamiCmd = &cobra.Command{
 	Long:  `Displays information about the logged in user.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		activeUser, _ := api.GetActiveUser()
-		prettyPrint(*activeUser)
+		showFull, _ := cmd.Flags().GetBool("full")
+		prettyPrint(*activeUser, showFull)
 	},
 }
 
 func init() {
-	//cmd.rootCmd.AddCommand(whoamiCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// whoamiCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// whoamiCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	WhoamiCmd.Flags().BoolP("full", "f",
+		false, "Show expanded information")
 }
 
-func prettyPrint(info models.UserInfo) {
+// prettyPrint renders a table with current userinfo to terminal
+func prettyPrint(info models.UserInfo, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{
@@ -57,5 +50,13 @@ func prettyPrint(info models.UserInfo) {
 		{"ORGANIZATION", info.OrganizationName},
 		{"ORGANIZATION ID", info.OrganizationId},
 	})
+	if showFull {
+		t.AppendRows([]table.Row{
+			{"PROFILE", info.Profile},
+			{"ENVIRONMENT", info.Environment},
+			{"UPDATED AT", info.UpdatedAt},
+		})
+	}
+
 	t.Render()
 }

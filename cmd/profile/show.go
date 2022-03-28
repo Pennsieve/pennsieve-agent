@@ -16,22 +16,20 @@ limitations under the License.
 package profile
 
 import (
+	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api"
 	"github.com/spf13/cobra"
 )
 
-var ProfileCmd = &cobra.Command{
-	Use:   "profile",
-	Short: "Manage Pennsieve profiles",
-	Long: `Profiles are used to store user-settings. They are stored in the ~/.pennsieve/config.ini file.
-
-`,
+var ShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Shows current profile",
+	Long:  `Shows current profile`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ShowCmd.Run(cmd, args)
+		activeUser, _ := api.GetActiveUser()
+		fmt.Println("Current profile: ", activeUser.Profile)
 	},
 }
 
 func init() {
-	ProfileCmd.AddCommand(SwitchCmd)
-	ProfileCmd.AddCommand(ShowCmd)
-	ProfileCmd.AddCommand(SetDefaultCmd)
 }

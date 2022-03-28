@@ -24,26 +24,25 @@ import (
 
 var SwitchCmd = &cobra.Command{
 	Use:   "switch",
-	Short: "Switch profile",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Switch between user profiles.",
+	Long:  `Switch between user profiles that are defined in the Pennsieve Config file.`,
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		selectedProfile := args[0]
 
-		selectedProfile, _ := cmd.Flags().GetString("profile")
+		// Check if profile exist
+		isSet := viper.IsSet(selectedProfile + ".api_token")
+		if !isSet {
+			fmt.Printf("Profile %s not found\n", selectedProfile)
+			return
+		}
+
+		// Profile exists, verify login and refresh token if necessary
 		apiToken := viper.GetString(selectedProfile + ".api_token")
 		apiSecret := viper.GetString(selectedProfile + ".api_secret")
 
 		fmt.Println("apiKey: " + apiToken + " \napiSecret: " + apiSecret)
-
-		//ps := pennsieve_go.Pennsieve{
-		//	ApiToken:  apiToken,
-		//	ApiSecret: apiSecret,
-		//	Profile:   selectedProfile,
-		//}
 
 		client := pennsieve.NewClient()
 		client.Authentication.Authenticate(apiToken, apiSecret)
@@ -51,33 +50,16 @@ to quickly create a Cobra application.`,
 		user, _ := client.User.GetUser(nil, nil)
 		fmt.Println(user)
 
+		// Update UserInfo if necessary
 		if client.Credentials.IsRefreshed {
 			//updateCredsInDB
 			client.Credentials.IsRefreshed = false
 		}
 
-		fmt.Printf("Organization Node Id: %s\n", client.OrganizationNodeId)
-		//_, err := config.InitializeDB()
-		//if err != nil {
-		//	log.Println("Driver creation failed", err.Error())
-		//} else {
-		//	// Run all migrations
-		//	migrations.Run()
-		//
-		//}
+		// Store current active profile in UserSettings
+
 	},
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// whoamiCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	SwitchCmd.PersistentFlags().StringP("profile", "p", "", "Set Pennsieve profile to use")
-	//viper.BindPFlag("activeProfile", SwitchCmd.PersistentFlags().Lookup("profile"))
-
 }

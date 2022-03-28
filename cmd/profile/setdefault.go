@@ -16,22 +16,31 @@ limitations under the License.
 package profile
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var ProfileCmd = &cobra.Command{
-	Use:   "profile",
-	Short: "Manage Pennsieve profiles",
-	Long: `Profiles are used to store user-settings. They are stored in the ~/.pennsieve/config.ini file.
-
-`,
+var SetDefaultCmd = &cobra.Command{
+	Use:   "set-default",
+	Short: "Update the default profile",
+	Long:  `Stores a default profile in the Pennsieve config.ini file`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		ShowCmd.Run(cmd, args)
+		profile := args[0]
+
+		// Check if profile exists --> Should have an API Token
+		isSet := viper.IsSet(profile + ".api_token")
+
+		if isSet {
+			viper.Set("global.default_profile", profile)
+			viper.WriteConfig()
+			fmt.Println("Default profile set to:", profile)
+		} else {
+			fmt.Printf("No profile with name %s exists.\n", profile)
+		}
 	},
 }
 
 func init() {
-	ProfileCmd.AddCommand(SwitchCmd)
-	ProfileCmd.AddCommand(ShowCmd)
-	ProfileCmd.AddCommand(SetDefaultCmd)
 }

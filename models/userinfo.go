@@ -1,7 +1,9 @@
 package models
 
 import (
+	"fmt"
 	"github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-go"
 	"log"
 	"time"
 )
@@ -92,4 +94,20 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 		return allUsers, err
 	}
 	return allUsers, err
+}
+
+func UpdateTokenForUser(user UserInfo, credentials pennsieve.Credentials) (*UserInfo, error) {
+	statement, _ := config.DB.Prepare(
+		"UPDATE user_record SET (session_token, refresh_token, token_expire) VALUES (?,?,?)")
+	_, err := statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration)
+	if err != nil {
+		fmt.Sprintln("Unable to update Sessiontoken in database")
+		return nil, err
+	}
+
+	user.SessionToken = credentials.Token
+	user.RefreshToken = credentials.RefreshToken
+	user.TokenExpire = credentials.Expiration
+
+	return &user, nil
 }
