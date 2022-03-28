@@ -16,25 +16,21 @@ limitations under the License.
 package whoami
 
 import (
-	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"os"
 )
 
 // whoamiCmd represents the whoami command
 var WhoamiCmd = &cobra.Command{
 	Use:   "whoami",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Displays information about the logged in user.",
+	Long:  `Displays information about the logged in user.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("whoami called")
-		fmt.Println(viper.AllKeys())
-
+		activeUser, _ := api.GetActiveUser()
+		prettyPrint(*activeUser)
 	},
 }
 
@@ -50,4 +46,16 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// whoamiCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func prettyPrint(info models.UserInfo) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendRows([]table.Row{
+		{"NAME", info.Name},
+		{"USER ID", info.Id},
+		{"ORGANIZATION", info.OrganizationName},
+		{"ORGANIZATION ID", info.OrganizationId},
+	})
+	t.Render()
 }

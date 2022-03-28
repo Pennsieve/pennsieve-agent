@@ -11,11 +11,12 @@ type UserInfo struct {
 	Id               string    `json:"id"`
 	Name             string    `json:"name"`
 	SessionToken     string    `json:"session_token"`
-	Profile          string    `json:"profile"`
+	RefreshToken     string    `json:"refresh_token"`
+	TokenExpire      time.Time `json:"token_expire"`
+	Profile          string    `json:"profile"'`
 	Environment      string    `json:"environment"`
 	OrganizationId   string    `json:"organization_id"`
 	OrganizationName string    `json:"organization_name"`
-	EncryptionKey    string    `json:"encryption_key"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
@@ -23,22 +24,27 @@ type UserInfoParams struct {
 	Id               string
 	Name             string
 	SessionToken     string
+	RefreshToken     string
 	Profile          string
+	tokenExpire      time.Time
 	Environment      string
 	OrganizationId   string
 	OrganizationName string
-	EncryptionKey    string
 }
 
-func (user *UserInfo) Create(data UserInfoParams) (*UserInfo, error) {
+func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
+
+	user := &UserInfo{}
+
 	var updatedAt = time.Now().UTC()
-	statement, _ := config.DB.Prepare("INSERT INTO user_record (id, name, session_token, profile, " +
-		"environment, organization_id, organization_name, encryption_key, updated_at) VALUES (?, ?, ?, ?)")
-	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.Profile,
-		data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
+	statement, _ := config.DB.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
+		"token_expire, environment, organization_id, organization_name, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.RefreshToken, data.Profile,
+		data.tokenExpire, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
 	if err == nil {
 		innerId, _ := result.LastInsertId()
 		user.InnerId = int(innerId)
+		user.Id = data.Id
 		user.Name = data.Name
 		user.SessionToken = data.SessionToken
 		user.Profile = data.Profile
@@ -52,7 +58,8 @@ func (user *UserInfo) Create(data UserInfoParams) (*UserInfo, error) {
 	return user, err
 }
 
-func (user *UserInfo) Fetch(id string) (*UserInfo, error) {
+func GetUserInfo(id int) (*UserInfo, error) {
+	user := &UserInfo{}
 	err := config.DB.QueryRow(
 		"SELECT "+
 			"inner_id, "+
@@ -63,11 +70,10 @@ func (user *UserInfo) Fetch(id string) (*UserInfo, error) {
 			"environment, "+
 			"organization_id, "+
 			"organization_name, "+
-			"encryption_key, "+
 			"updated_at "+
-			"FROM user_record WHERE id=?", id).Scan(
+			"FROM user_record WHERE inner_id=?", id).Scan(
 		&user.InnerId, &user.Id, &user.Name, &user.SessionToken, &user.Profile, &user.Environment,
-		&user.OrganizationId, &user.OrganizationName, &user.EncryptionKey, &user.UpdatedAt)
+		&user.OrganizationId, &user.OrganizationName, &user.UpdatedAt)
 	return user, err
 }
 
@@ -78,8 +84,9 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 		for rows.Next() {
 			var currentUser UserInfo
 			_ = rows.Scan(
-				&user.InnerId, &user.Id, &user.Name, &user.SessionToken, &user.Profile, &user.Environment,
-				&user.OrganizationId, &user.OrganizationName, &user.EncryptionKey, &user.UpdatedAt)
+				&currentUser.InnerId, &currentUser.Id, &currentUser.Name, &currentUser.SessionToken, &currentUser.RefreshToken, &currentUser.TokenExpire,
+				&currentUser.Profile, &currentUser.Environment, &currentUser.OrganizationId, &currentUser.OrganizationName,
+				&currentUser.UpdatedAt)
 			allUsers = append(allUsers, currentUser)
 		}
 		return allUsers, err

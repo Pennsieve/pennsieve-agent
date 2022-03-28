@@ -13,19 +13,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package config
+package profile
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/config"
-	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/spf13/cobra"
-	"log"
+	"github.com/spf13/viper"
 )
 
-var InitCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize Agent",
+var ProfileCmd = &cobra.Command{
+	Use:   "profile",
+	Short: "Methods for configuring the Pennsieve Agent",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -33,20 +31,14 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
-		_, err := config.InitializeDB()
-		if err != nil {
-			log.Println("Driver creation failed", err.Error())
-		} else {
-			// Run all migrations
-			migrations.Run()
+		fmt.Println("profile called")
+		fmt.Println(viper.GetString("profile"))
 
-		}
 	},
 }
 
 func init() {
-	//cmd.rootCmd.AddCommand(whoamiCmd)
+	ProfileCmd.AddCommand(SwitchCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -56,5 +48,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// whoamiCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// whoamiCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")[
 }

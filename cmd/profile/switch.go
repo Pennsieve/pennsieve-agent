@@ -13,19 +13,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package config
+package profile
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/config"
-	"github.com/pennsieve/pennsieve-agent/migrations"
+	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
-	"log"
+	"github.com/spf13/viper"
 )
 
-var InitCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize Agent",
+var SwitchCmd = &cobra.Command{
+	Use:   "switch",
+	Short: "Switch profile",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -33,21 +32,43 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
-		_, err := config.InitializeDB()
-		if err != nil {
-			log.Println("Driver creation failed", err.Error())
-		} else {
-			// Run all migrations
-			migrations.Run()
 
+		selectedProfile, _ := cmd.Flags().GetString("profile")
+		apiToken := viper.GetString(selectedProfile + ".api_token")
+		apiSecret := viper.GetString(selectedProfile + ".api_secret")
+
+		fmt.Println("apiKey: " + apiToken + " \napiSecret: " + apiSecret)
+
+		//ps := pennsieve_go.Pennsieve{
+		//	ApiToken:  apiToken,
+		//	ApiSecret: apiSecret,
+		//	Profile:   selectedProfile,
+		//}
+
+		client := pennsieve.NewClient()
+		client.Authentication.Authenticate(apiToken, apiSecret)
+
+		user, _ := client.User.GetUser(nil, nil)
+		fmt.Println(user)
+
+		if client.Credentials.IsRefreshed {
+			//updateCredsInDB
+			client.Credentials.IsRefreshed = false
 		}
+
+		fmt.Printf("Organization Node Id: %s\n", client.OrganizationNodeId)
+		//_, err := config.InitializeDB()
+		//if err != nil {
+		//	log.Println("Driver creation failed", err.Error())
+		//} else {
+		//	// Run all migrations
+		//	migrations.Run()
+		//
+		//}
 	},
 }
 
 func init() {
-	//cmd.rootCmd.AddCommand(whoamiCmd)
-
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -56,5 +77,7 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// whoamiCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	SwitchCmd.PersistentFlags().StringP("profile", "p", "", "Set Pennsieve profile to use")
+	//viper.BindPFlag("activeProfile", SwitchCmd.PersistentFlags().Lookup("profile"))
+
 }
