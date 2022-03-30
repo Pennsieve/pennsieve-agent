@@ -17,11 +17,15 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
+	dbConfig "github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -38,9 +42,16 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+
+		// if Pennsieve Client set --> check if token is updated
+		if api.PennsieveClient != nil {
+			fmt.Println("Client specified --> Check API Token")
+			user, _ := api.GetActiveUser()
+			models.UpdateTokenForUser(*user, api.PennsieveClient.Credentials)
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -54,20 +65,20 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	_, err := dbConfig.InitializeDB()
+	if err != nil {
+		log.Println("Driver creation failed", err.Error())
+	}
 
 	rootCmd.AddCommand(whoami.WhoamiCmd)
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(profile.ProfileCmd)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
+		"config file (default is $HOME/.pennsieve/config.ini)")
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.pennsieve/config.ini)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().BoolP("toggle", "t", false,
+		"Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -85,6 +96,9 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetConfigType("ini")
 		viper.AddConfigPath(filepath.Join(home, ".pennsieve"))
+
+		// Set viper defaults
+		viper.SetDefault("env", "prod")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

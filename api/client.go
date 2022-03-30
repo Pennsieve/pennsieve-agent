@@ -1,6 +1,8 @@
+// Package api provides methods that leverage the local SQLite DB ang the Pennsieve Client.
 package api
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/config"
 	"github.com/pennsieve/pennsieve-agent/models"
@@ -9,13 +11,10 @@ import (
 	"log"
 )
 
+// PennsieveClient represents the client from the Pennsieve-Go library
+var PennsieveClient *pennsieve.Client
+
 func GetActiveUser() (*models.UserInfo, error) {
-	// Get Active User or/and Authenticate
-	_, err := config.InitializeDB()
-	if err != nil {
-		log.Println("Driver creation failed", err.Error())
-		return nil, err
-	}
 
 	userSettings, _ := models.GetAllUserSettings()
 
@@ -29,57 +28,132 @@ func GetActiveUser() (*models.UserInfo, error) {
 		apiToken := viper.GetString(selectedProfile + ".api_token")
 		apiSecret := viper.GetString(selectedProfile + ".api_secret")
 
-		viper.SetDefault(selectedProfile+".environment", "prod")
-		environment := viper.GetString(selectedProfile + ".environment")
-
 		client := pennsieve.NewClient()
-		client.Authentication.Authenticate(apiToken, apiSecret)
-
-		user, _ := client.User.GetUser(nil, nil)
-		fmt.Println(user)
-
-		if client.Credentials.IsRefreshed {
-			client.Credentials.IsRefreshed = false
-		}
-
-		// Get Organization Information
-		org, err := client.Organization.Get(nil, client.OrganizationNodeId)
-
-		userParams := models.UserInfoParams{
-			Id:               user.ID,
-			Name:             user.Email,
-			SessionToken:     client.Credentials.Token,
-			RefreshToken:     client.Credentials.RefreshToken,
-			Profile:          selectedProfile,
-			Environment:      environment,
-			OrganizationId:   client.OrganizationNodeId,
-			OrganizationName: org.Organization.Name,
-		}
-
-		userInfo, err := models.CreateNewUserInfo(userParams)
+		_, err := client.Authentication.Authenticate(apiToken, apiSecret)
 		if err != nil {
-			log.Println("NewUserInfo failed", err.Error())
 			return nil, err
 		}
 
-		// Create userSettings
-		userSettingsParams := models.UserSettingsParams{
-			UserId:  userInfo.InnerId,
-			Profile: selectedProfile,
+		currentUser, err := SwitchUser(selectedProfile)
+		if err != nil {
+			fmt.Println("Error switching user.")
+			return nil, err
 		}
-		models.CreateNewUserSettings(userSettingsParams)
 
-		return userInfo, nil
+		return currentUser, nil
 
 	}
 
 	// If entries found in database, continue with active profile
-	fmt.Println("Found entry")
-
 	// Return first entry. There should always be only 1 or 0 entries for the activeUser.
 	currentUser := userSettings[0]
 
-	currentUserInfo, _ := models.GetUserInfo(currentUser.UserId)
+	currentUserInfo, err := models.GetUserInfo(currentUser.UserId, currentUser.Profile)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("No userInfo found for user settings")
+			_, err := SwitchUser(currentUser.Profile)
+			if err != nil {
+				fmt.Println("error switching user:", err)
+			}
+
+		} else {
+			log.Fatal(err)
+		}
+
+		return nil, err
+	}
 
 	return currentUserInfo, nil
+}
+
+// SwitchUser SwtichUser
+func SwitchUser(profile string) (*models.UserInfo, error) {
+	// Check if profile exist
+	isSet := viper.IsSet(profile + ".api_token")
+	if !isSet {
+		fmt.Printf("Profile %s not found\n", profile)
+		return nil, fmt.Errorf("")
+	}
+
+	// Profile exists, verify login and refresh token if necessary
+	apiToken := viper.GetString(profile + ".api_token")
+	apiSecret := viper.GetString(profile + ".api_secret")
+	environment := viper.GetString(profile + ".env")
+
+	PennsieveClient = pennsieve.NewClient()
+	client := *PennsieveClient
+	credentials, err := client.Authentication.Authenticate(apiToken, apiSecret)
+	if err != nil {
+		fmt.Println("Problem with authentication")
+		return nil, err
+	}
+	existingUser, err := PennsieveClient.User.GetUser(nil, nil)
+	if err != nil {
+		fmt.Println("Problem with getting user")
+		return nil, err
+	}
+
+	// Update the UserSettings DB entry
+	_, err = models.GetAllUserSettings()
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("No user settings found --> creating new user settings")
+		} else {
+			log.Fatal(err)
+			return nil, err
+		}
+	}
+
+	// Drop existing user settings
+	_, err = config.DB.Exec("DELETE FROM user_settings;")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new user settings
+	params := models.UserSettingsParams{
+		UserId:  existingUser.ID,
+		Profile: profile,
+	}
+	_, err = models.CreateNewUserSettings(params)
+	if err != nil {
+		fmt.Println("Error Creating new UserSettings")
+		return nil, err
+	}
+
+	// Get UserInfo associated with settings
+	newUserInfo, err := models.GetUserInfo(existingUser.ID, profile)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("No userInfo found --> Creating new userinfo")
+
+			org, err := PennsieveClient.Organization.Get(nil, PennsieveClient.OrganizationNodeId)
+			if err != nil {
+				fmt.Println("Error getting organization")
+				return nil, err
+			}
+
+			params := models.UserInfoParams{
+				Id:               existingUser.ID,
+				Name:             existingUser.FirstName + " " + existingUser.LastName,
+				SessionToken:     credentials.Token,
+				RefreshToken:     credentials.RefreshToken,
+				Profile:          profile,
+				Environment:      environment,
+				OrganizationId:   PennsieveClient.OrganizationNodeId,
+				OrganizationName: org.Organization.Name,
+			}
+			newUserInfo, err = models.CreateNewUserInfo(params)
+			if err != nil {
+				fmt.Println("Error creating new userinfo ")
+				return nil, err
+			}
+
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	return newUserInfo, nil
 }

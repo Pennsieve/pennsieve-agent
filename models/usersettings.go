@@ -7,13 +7,13 @@ import (
 )
 
 type UserSettings struct {
-	UserId       int    `json:"user_id"`
+	UserId       string `json:"user_id"`
 	Profile      string `json:"profile"`
 	UseDatasetId string `json:"use_dataset_id"`
 }
 
 type UserSettingsParams struct {
-	UserId  int
+	UserId  string
 	Profile string
 }
 

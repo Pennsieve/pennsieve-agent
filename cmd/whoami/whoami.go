@@ -31,7 +31,7 @@ var WhoamiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		activeUser, _ := api.GetActiveUser()
 		showFull, _ := cmd.Flags().GetBool("full")
-		prettyPrint(*activeUser, showFull)
+		PrettyPrint(*activeUser, showFull)
 	},
 }
 
@@ -41,7 +41,7 @@ func init() {
 }
 
 // prettyPrint renders a table with current userinfo to terminal
-func prettyPrint(info models.UserInfo, showFull bool) {
+func PrettyPrint(info models.UserInfo, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{

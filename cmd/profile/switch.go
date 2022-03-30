@@ -16,10 +16,9 @@ limitations under the License.
 package profile
 
 import (
-	"fmt"
-	"github.com/pennsieve/pennsieve-go"
+	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var SwitchCmd = &cobra.Command{
@@ -30,33 +29,8 @@ var SwitchCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		selectedProfile := args[0]
-
-		// Check if profile exist
-		isSet := viper.IsSet(selectedProfile + ".api_token")
-		if !isSet {
-			fmt.Printf("Profile %s not found\n", selectedProfile)
-			return
-		}
-
-		// Profile exists, verify login and refresh token if necessary
-		apiToken := viper.GetString(selectedProfile + ".api_token")
-		apiSecret := viper.GetString(selectedProfile + ".api_secret")
-
-		fmt.Println("apiKey: " + apiToken + " \napiSecret: " + apiSecret)
-
-		client := pennsieve.NewClient()
-		client.Authentication.Authenticate(apiToken, apiSecret)
-
-		user, _ := client.User.GetUser(nil, nil)
-		fmt.Println(user)
-
-		// Update UserInfo if necessary
-		if client.Credentials.IsRefreshed {
-			//updateCredsInDB
-			client.Credentials.IsRefreshed = false
-		}
-
-		// Store current active profile in UserSettings
+		userInfo, _ := api.SwitchUser(selectedProfile)
+		whoami.PrettyPrint(*userInfo, false)
 
 	},
 }

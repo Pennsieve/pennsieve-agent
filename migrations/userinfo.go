@@ -21,10 +21,9 @@ CREATE TABLE IF NOT EXISTS user_record (
 //UserSettings contains preferences for a particular user.
 const UserSettings = `
 CREATE TABLE IF NOT EXISTS user_settings (
-	user_id int NOT NULL,
+	user_id VARCHAR(255) NOT NULL,
 	profile VARCHAR(255) NOT NULL,
 	use_dataset_id VARCHAR(255) NULL,
-	PRIMARY KEY (user_id, profile),
-	FOREIGN KEY(user_id) REFERENCES user_record(inner_id)
+	PRIMARY KEY (user_id, profile)
 )
 `

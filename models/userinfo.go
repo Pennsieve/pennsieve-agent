@@ -60,7 +60,7 @@ func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
 	return user, err
 }
 
-func GetUserInfo(id int) (*UserInfo, error) {
+func GetUserInfo(id string, profile string) (*UserInfo, error) {
 	user := &UserInfo{}
 	err := config.DB.QueryRow(
 		"SELECT "+
@@ -73,7 +73,7 @@ func GetUserInfo(id int) (*UserInfo, error) {
 			"organization_id, "+
 			"organization_name, "+
 			"updated_at "+
-			"FROM user_record WHERE inner_id=?", id).Scan(
+			"FROM user_record WHERE id=? AND profile=?", id, profile).Scan(
 		&user.InnerId, &user.Id, &user.Name, &user.SessionToken, &user.Profile, &user.Environment,
 		&user.OrganizationId, &user.OrganizationName, &user.UpdatedAt)
 	return user, err
@@ -97,17 +97,27 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 }
 
 func UpdateTokenForUser(user UserInfo, credentials pennsieve.Credentials) (*UserInfo, error) {
-	statement, _ := config.DB.Prepare(
-		"UPDATE user_record SET (session_token, refresh_token, token_expire) VALUES (?,?,?)")
-	_, err := statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration)
-	if err != nil {
-		fmt.Sprintln("Unable to update Sessiontoken in database")
-		return nil, err
-	}
 
-	user.SessionToken = credentials.Token
-	user.RefreshToken = credentials.RefreshToken
-	user.TokenExpire = credentials.Expiration
+	if user.SessionToken != credentials.Token {
+		fmt.Println("Session token updated")
+
+		statement, err := config.DB.Prepare(
+			"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?")
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+
+		_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration)
+		if err != nil {
+			fmt.Sprintln("Unable to update Sessiontoken in database")
+			return nil, err
+		}
+
+		user.SessionToken = credentials.Token
+		user.RefreshToken = credentials.RefreshToken
+		user.TokenExpire = credentials.Expiration
+	}
 
 	return &user, nil
 }
