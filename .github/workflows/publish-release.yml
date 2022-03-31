@@ -44,7 +44,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve
+      PACKAGE_BINARY_NAME: pennsieve-agent
       PS_PATH: /usr/local/opt/pennsieve
       APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
       KEYCHAIN: "pennsieve.keychain"
