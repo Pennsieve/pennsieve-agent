@@ -76,9 +76,17 @@ jobs:
         with:
           path: ./target/release
           key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ‘1.18.0’
+      - name: Install dependencies
+        run: |
+          go version
+          go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build
+        run: go build .
       - name: Package assets
         id: package-assets
         env:
