@@ -1,0 +1,152 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  Copyright (C) 2017 Christopher R. Field.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<?if $(var.Platform) = x64 ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+  <?define Win64 = "no" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <Product
+        Id='*'
+        Name='$(var.ProductName)'
+        UpgradeCode='33AC4C4B-6D20-4B0D-8E00-76C718241A8D'
+        Manufacturer='$(var.Manufacturer)'
+        Language='1033'
+        Codepage='1252'
+        Version='$(var.Version)'>
+
+        <Package Id='*'
+            Keywords='Installer'
+            Description='$(var.Description)'
+            Manufacturer='$(var.Manufacturer)'
+            InstallerVersion='450'
+            Languages='1033'
+            Compressed='yes'
+            InstallScope='perMachine'
+            SummaryCodepage='1252'
+            Platform='$(var.Platform)'/>
+
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
+        <Property Id='DiskPrompt' Value='$(var.ProductName) Installation'/>
+
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='USERPROFILEFOLDER'>
+                <Directory Id='PennsieveAgentDir' Name='.pennsieve'>
+                    <Directory Id='CacheDir' Name='cache'>
+                        <Component Id='CreateCacheDir' Guid='A7B7C6B5-A522-4AF6-9383-6D2B7F05F2F1'>
+                            <RemoveFolder Id='RemoveCacheDir' Directory='CacheDir' On='uninstall'/>
+                            <RemoveFolder Id='RemovePennsieveAgentDir' Directory='PennsieveAgentDir' On='uninstall'/>
+                            <RegistryKey Action="none" Key="cacheDirKey" Root="HKCU">
+                                <RegistryValue Type="integer" Value="1" KeyPath="yes"/>
+                            </RegistryKey>
+                            <CreateFolder/>
+
+                        </Component>
+                    </Directory>
+                </Directory>
+            </Directory>
+            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
+                <Directory Id='APPLICATIONFOLDER' Name='$(var.ProductName)'>
+                    <Component Id='License' Guid='*' Win64='$(var.Win64)'>
+                        <File
+                            Id='LicenseFile'
+                            Name='$(var.LicenseName)'
+                            DiskId='1'
+                            Source='$(var.LicenseSource)'
+                            KeyPath='yes'/>
+                    </Component>
+                    <Component Id='$(var.BinaryName)Binary' Guid='*' Win64='$(var.Win64)'>
+                        <File
+                            Id='$(var.BinaryName)EXE'
+                            Name='$(var.BinaryName).exe'
+                            DiskId='1'
+                            Source='target\release\$(var.BinaryName).exe'
+                            KeyPath='yes'/>
+                    </Component>
+                </Directory>
+            </Directory>
+            <Component Id='AddPennsieveToPath' Guid='A7B7C6B5-A522-4AF6-9383-6D2B7F05F2F9' Win64='$(var.Win64)' KeyPath='yes'>
+                <!--
+                    Adds the binary to the system path. Note: upon uninstall, the Pennsieve directory will be removed.
+                    See:
+                    - https://stackoverflow.com/questions/1931586/can-anyone-give-me-a-example-of-modifying-windows-environment-system-variables-i
+                    - http://wixtoolset.org/documentation/manual/v3/xsd/wix/environment.html
+                -->
+                <Environment
+                    Id='Path'
+                    Name='PATH'
+                    Value='[APPLICATIONFOLDER]'
+                    Permanent='no'
+                    Part='last'
+                    Action='set'
+                    System='yes'/>
+            </Component>
+        </Directory>
+
+        <Feature
+            Id='MainProgram'
+            Title='Application'
+            Description='Installs the executable and license.'
+            Level='1'
+            ConfigurableDirectory='APPLICATIONFOLDER'
+            AllowAdvertise='no'
+            Display='expand'
+            Absent='disallow'>
+            <ComponentRef Id='License'/>
+            <ComponentRef Id='$(var.BinaryName)Binary'/>
+            <ComponentRef Id='CreateCacheDir'/>
+            <Feature
+                Id='Environment'
+                Title='PATH Environment Variable'
+                Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id='AddPennsieveToPath'/>
+            </Feature>
+        </Feature>
+
+        <SetDirectory Id="USERPROFILEFOLDER" Value="[%USERPROFILE]"/>
+
+        <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
+
+        <!--
+          Uncomment the next three lines to add a custom icon for the Add/Remove Programs.
+        -->
+        <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
+        <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
+        <!--<Property Id='ARPHELPLINK' Value='$(var.Help)'/>-->
+
+        <UIRef Id='WixUI_FeatureTree'/>
+        <WixVariable Id='WixUILicenseRtf' Value='ci\windows\wix\License.rtf'/>
+        <!--
+          Uncomment the next three lines to customize the installer's Graphical
+          User Interface (GUI). See the WiX Toolset documentation for details
+          about customization. The banner BMP dimensions are 493 x 58 pixels.
+          The dialog BMP dimensions are 493 x 312 pixels.
+        -->
+        <WixVariable Id='WixUIBannerBmp' Value='ci\windows\wix\Banner.bmp'/>
+        <WixVariable Id='WixUIDialogBmp' Value='ci\windows\wix\Dialog.bmp'/>
+    </Product>
+
+</Wix>

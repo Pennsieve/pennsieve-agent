@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+message Segment {
+  uint64 startTs = 1;
+  string source = 2;
+  uint64 lastUsed = 3;
+  string unit = 4;
+  double samplePeriod = 5;
+  double requestedSamplePeriod = 6;
+  uint64  pageStart = 7;
+  bool isMinMax = 8;
+  uint64 unitM = 9;
+  string segmentType = 10;
+  uint64 nrPoints = 11;
+  repeated double data = 12 [packed=true];
+  uint64 pageEnd = 13;
+}
+
+message TimeSeriesMessage {
+  Segment segment = 3;
+  uint64 totalResponses = 7;
+  uint64 responseSequenceId = 8;
+}
+
+message Datum {
+  uint64 time = 1;
+  double value = 2;
+}
+
+message ChannelChunk {
+  string id = 1;
+  repeated Datum data = 2;
+}
+
+message ChunkResponse {
+  repeated ChannelChunk channels = 1;
+}
+
+message StateMessage {
+  string status = 1;
+  string description = 2;
+}
+
+message AgentTimeSeriesResponse {
+  oneof response_oneof {
+    StateMessage state = 1;
+    ChunkResponse chunk = 2;
+  }
+}
