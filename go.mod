@@ -2,11 +2,10 @@ module github.com/pennsieve/pennsieve-agent
 
 go 1.18
 
-//replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
-
 require (
+	github.com/jedib0t/go-pretty/v6 v6.3.0
 	github.com/mattn/go-sqlite3 v1.14.12
-	github.com/pennsieve/pennsieve-go v0.0.0-00010101000000-000000000000
+	github.com/pennsieve/pennsieve-go v0.0.2
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1
 )
@@ -15,12 +14,9 @@ require (
 	github.com/aws/aws-sdk-go v1.43.25 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jedib0t/go-pretty/v6 v6.3.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/levenlabs/golib v0.0.0-20180911183212-0f8974794783 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
