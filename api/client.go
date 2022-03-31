@@ -14,16 +14,23 @@ import (
 // PennsieveClient represents the client from the Pennsieve-Go library
 var PennsieveClient *pennsieve.Client
 
+// GetActiveUser returns userInfo for active user and updates local SQlite DB
 func GetActiveUser() (*models.UserInfo, error) {
 
+	// Get current user-settings. This is either 0, or 1 entry.
 	userSettings, _ := models.GetAllUserSettings()
 
-	// If no entries are found in database, go with default profile in config
+	// If no entry is found in database, check default profile in config and setup DB
 	if len(userSettings) <= 0 {
-		fmt.Println("No record found in User Settings --> Creating new entry")
+		fmt.Println("No record found in User Settings --> Checking Default Profile.")
 
 		selectedProfile := viper.GetString("global.default_profile")
 		fmt.Println("Selected Profile: ", selectedProfile)
+
+		if selectedProfile == "" {
+			return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
+				viper.ConfigFileUsed())
+		}
 
 		apiToken := viper.GetString(selectedProfile + ".api_token")
 		apiSecret := viper.GetString(selectedProfile + ".api_secret")
