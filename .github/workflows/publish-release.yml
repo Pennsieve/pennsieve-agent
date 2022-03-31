@@ -68,7 +68,7 @@ jobs:
       - name: Read version
         id: read-version
         run: |
-          VERSION=${{read-tag.outputs.tag}}
+          VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
       - name: Cache build release
