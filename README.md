@@ -15,7 +15,7 @@ Second iteration of the Pennsieve Agent
 1. Merge updates into the main branch
 2. Create a new tag in main and name the tag: vx.x.x following [semantic versioning](https://semver.org/).
 
-    e.g ```git tag -a v0.0.1 -m "Initial release```
+    e.g ```git tag -a v0.0.1 -m "Initial release"```
 
     Given a version number MAJOR.MINOR.PATCH, increment the:
 
