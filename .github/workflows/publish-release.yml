@@ -134,22 +134,27 @@ jobs:
           # Decode and dump the base64 encoded contents of the Apple Developer certificate into a file:
           # (output in the log will be masked)
           echo "${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}" | base64 --decode > "${{ env.APPLE_CERTIFICATE_FILE }}"
+          
           # Remove the keychain if it exists:
           security delete-keychain "${{ env.KEYCHAIN }}" || true
+          
           # We do not have access to the system keychain on GitHub Actions, so
           # we have to create a temporary keychain to hold the cert
           security create-keychain -p "${{ env.KEYCHAIN_PASSWORD }}" "${{ env.KEYCHAIN }}"
           security unlock-keychain -p "${{ env.KEYCHAIN_PASSWORD }}" "${{ env.KEYCHAIN }}"
           security import "${{ env.APPLE_CERTIFICATE_FILE }}" -k "${{ env.KEYCHAIN }}" -P "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" -T /usr/bin/productsign
+          
           # Set the access control for our certificate so that keychain does
           # not prompt for the certificate password when used. See:
           # https://apple.stackexchange.com/a/285320
           # https://stackoverflow.com/a/40039594
           # https://www.jamf.com/jamf-nation/discussions/22304/yet-another-keychain-security-command-line-tool-question
           security set-key-partition-list -S apple-tool:,apple: -k "${{ env.KEYCHAIN_PASSWORD }}" -D "${{ env.APPLE_IDENTITY }}" -t private "${{ env.KEYCHAIN }}"
+          
           sudo productsign --keychain "${{ env.KEYCHAIN }}" --sign "${{ env.APPLE_IDENTITY }}" "${{ steps.package-assets.outputs.unsigned-asset-file }}" "${{ steps.package-assets.outputs.asset-file }}"
+          
           # Sanity check
-          pkgutil --check-signature "${{ steps.package-assets.outputs.asset-file }}" || exit 1
+          # pkgutil --check-signature "${{ steps.package-assets.outputs.asset-file }}" || exit 1
       - name: Publish assets
         id: publish-assets
         uses: actions/upload-release-asset@v1
