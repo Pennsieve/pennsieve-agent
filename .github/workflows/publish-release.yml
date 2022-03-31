@@ -52,6 +52,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Install dependencies
+        id: install-deps
+        run: |
+          sudo gem install fpm
+          brew install coreutils
       - name: Setup directories
         id: setup-dirs
         run: |
@@ -73,7 +78,7 @@ jobs:
           key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Build release
         id: build-release
-        run: go build --release
+        run: go build
       - name: Package assets
         id: package-assets
         env:
