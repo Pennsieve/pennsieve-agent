@@ -18,6 +18,7 @@ package profile
 import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,8 @@ var ShowCmd = &cobra.Command{
 	Short: "Shows current profile",
 	Long:  `Shows current profile`,
 	Run: func(cmd *cobra.Command, args []string) {
-		activeUser, _ := api.GetActiveUser()
+		client := pennsieve.NewClient()
+		activeUser, _ := api.GetActiveUser(client)
 		fmt.Println("Current profile: ", activeUser.Profile)
 	},
 }

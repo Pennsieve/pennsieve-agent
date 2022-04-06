@@ -20,9 +20,11 @@ import (
 	"github.com/pennsieve/pennsieve-agent/api"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
+	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	dbConfig "github.com/pennsieve/pennsieve-agent/config"
 	"github.com/pennsieve/pennsieve-agent/models"
+	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
@@ -46,11 +48,11 @@ to quickly create a Cobra application.`,
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
 
 		// if Pennsieve Client set --> check if token is updated
-		if api.PennsieveClient != nil {
-			fmt.Println("Client specified --> Check API Token")
-			user, _ := api.GetActiveUser()
-			models.UpdateTokenForUser(*user, api.PennsieveClient.Credentials)
-		}
+		client := pennsieve.NewClient()
+		fmt.Println("Client specified --> Check API Token")
+		user, _ := api.GetActiveUser(client)
+		models.UpdateTokenForUser(*user, client.Credentials)
+
 	},
 }
 
@@ -73,6 +75,7 @@ func init() {
 	rootCmd.AddCommand(whoami.WhoamiCmd)
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(profile.ProfileCmd)
+	rootCmd.AddCommand(upload.UploadCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file (default is $HOME/.pennsieve/config.ini)")

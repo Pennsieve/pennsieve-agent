@@ -11,11 +11,8 @@ import (
 	"log"
 )
 
-// PennsieveClient represents the client from the Pennsieve-Go library
-var PennsieveClient *pennsieve.Client
-
 // GetActiveUser returns userInfo for active user and updates local SQlite DB
-func GetActiveUser() (*models.UserInfo, error) {
+func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 
 	// Get current user-settings. This is either 0, or 1 entry.
 	userSettings, _ := models.GetAllUserSettings()
@@ -35,13 +32,12 @@ func GetActiveUser() (*models.UserInfo, error) {
 		apiToken := viper.GetString(selectedProfile + ".api_token")
 		apiSecret := viper.GetString(selectedProfile + ".api_secret")
 
-		client := pennsieve.NewClient()
 		_, err := client.Authentication.Authenticate(apiToken, apiSecret)
 		if err != nil {
 			return nil, err
 		}
 
-		currentUser, err := SwitchUser(selectedProfile)
+		currentUser, err := SwitchUser(client, selectedProfile)
 		if err != nil {
 			fmt.Println("Error switching user.")
 			return nil, err
@@ -59,7 +55,7 @@ func GetActiveUser() (*models.UserInfo, error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("No userInfo found for user settings")
-			_, err := SwitchUser(currentUser.Profile)
+			_, err := SwitchUser(client, currentUser.Profile)
 			if err != nil {
 				fmt.Println("error switching user:", err)
 			}
@@ -71,11 +67,18 @@ func GetActiveUser() (*models.UserInfo, error) {
 		return nil, err
 	}
 
+	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
+	customAPIHost := viper.GetString(currentUser.Profile + ".api_host")
+	if customAPIHost != "" {
+		fmt.Println("Using custom API-Host: ", customAPIHost)
+		client.BaseURL = customAPIHost
+	}
+
 	return currentUserInfo, nil
 }
 
-// SwitchUser SwtichUser
-func SwitchUser(profile string) (*models.UserInfo, error) {
+// SwitchUser switches between profiles and returns active userInfo.
+func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, error) {
 	// Check if profile exist
 	isSet := viper.IsSet(profile + ".api_token")
 	if !isSet {
@@ -88,14 +91,22 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	apiSecret := viper.GetString(profile + ".api_secret")
 	environment := viper.GetString(profile + ".env")
 
-	PennsieveClient = pennsieve.NewClient()
-	client := *PennsieveClient
+	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
+	customAPIHost := viper.GetString(profile + ".api_host")
+	if customAPIHost != "" {
+		fmt.Println("Using custom API-Host: ", customAPIHost)
+		client.BaseURL = customAPIHost
+	}
+
+	fmt.Println("CLIENT:", client.BaseURL)
+
 	credentials, err := client.Authentication.Authenticate(apiToken, apiSecret)
 	if err != nil {
 		fmt.Println("Problem with authentication")
 		return nil, err
 	}
-	existingUser, err := PennsieveClient.User.GetUser(nil, nil)
+
+	existingUser, err := client.User.GetUser(nil, nil)
 	if err != nil {
 		fmt.Println("Problem with getting user")
 		return nil, err
@@ -135,7 +146,7 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 		if err == sql.ErrNoRows {
 			fmt.Println("No userInfo found --> Creating new userinfo")
 
-			org, err := PennsieveClient.Organization.Get(nil, PennsieveClient.OrganizationNodeId)
+			org, err := client.Organization.Get(nil, client.OrganizationNodeId)
 			if err != nil {
 				fmt.Println("Error getting organization")
 				return nil, err
@@ -148,7 +159,7 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 				RefreshToken:     credentials.RefreshToken,
 				Profile:          profile,
 				Environment:      environment,
-				OrganizationId:   PennsieveClient.OrganizationNodeId,
+				OrganizationId:   client.OrganizationNodeId,
 				OrganizationName: org.Organization.Name,
 			}
 			newUserInfo, err = models.CreateNewUserInfo(params)

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS user_record (
 	session_token VARCHAR(255) NOT NULL,
 	refresh_token VARCHAR(255) NOT NULL,
 	token_expire TIMESTAMP NOT NULL,
+	id_token VARCHAR(255) NOT NULL,
 	profile VARCHAR(255) NOT NULL,
 	environment VARCHAR(10) NOT NULL,
 	organization_id VARCHAR(255) NOT NULL,
