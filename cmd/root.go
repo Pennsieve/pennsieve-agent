@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 University of Pennsylvania <support@pennsieve.io>>
+Copyright © 2022 University of Pennsylvania <support@pennsieve>>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-agent/cmd/agent"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
@@ -76,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(profile.ProfileCmd)
 	rootCmd.AddCommand(upload.UploadCmd)
+	rootCmd.AddCommand(agent.AgentCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file (default is $HOME/.pennsieve/config.ini)")

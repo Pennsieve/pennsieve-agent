@@ -7,9 +7,10 @@ import (
 )
 
 type UserSettings struct {
-	UserId       string `json:"user_id"`
-	Profile      string `json:"profile"`
-	UseDatasetId string `json:"use_dataset_id"`
+	UserId          string `json:"user_id"`
+	Profile         string `json:"profile"`
+	UseDatasetId    string `json:"use_dataset_id"`
+	UploadSessionId string `json:"upload_session_id"`
 }
 
 type UserSettingsParams struct {

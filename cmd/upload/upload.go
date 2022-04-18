@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 University of Pennsylvania <support@pennsieve.io>>
+Copyright © 2022 University of Pennsylvania <support@pennsieve>>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,23 +49,32 @@ var UploadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("upload called")
 
-		client := pennsieve.NewClient() // Create simple uninitialized client
-		activeUser, err := api.GetActiveUser(client)
+		useAgent, _ := cmd.Flags().GetBool("agent")
 
-		bucket = "pennsieve-dev-test-new-upload"
+		if useAgent {
+			fmt.Println("Use Agent to upload --> add upload sources to DB")
+			paths := args[0]
+			models.AddToUploadSession("1234", paths, true, "")
 
-		apiToken := viper.GetString(activeUser.Profile + ".api_token")
-		apiSecret := viper.GetString(activeUser.Profile + ".api_secret")
-		client.Authentication.Authenticate(apiToken, apiSecret)
+		} else {
+			client := pennsieve.NewClient() // Create simple suninitialized client
+			activeUser, err := api.GetActiveUser(client)
 
-		if err != nil {
-			fmt.Println("ERROR")
+			bucket = "pennsieve-dev-test-new-upload"
+
+			apiToken := viper.GetString(activeUser.Profile + ".api_token")
+			apiSecret := viper.GetString(activeUser.Profile + ".api_secret")
+			client.Authentication.Authenticate(apiToken, apiSecret)
+
+			if err != nil {
+				fmt.Println("ERROR")
+			}
+
+			client.Authentication.GetAWSCredsForUser()
+
+			paths := args[0]
+			uploadToAWS(*client, paths)
 		}
-
-		client.Authentication.GetAWSCredsForUser()
-
-		paths := args[0]
-		uploadToAWS(*client, paths)
 
 	},
 }
@@ -72,6 +82,9 @@ var UploadCmd = &cobra.Command{
 func init() {
 	UploadCmd.Flags().BoolP("recursive", "r",
 		false, "Upload folder recursively")
+
+	UploadCmd.Flags().BoolP("agent", "a",
+		false, "Use agent to upload")
 }
 
 type fileWalk chan string
@@ -128,10 +141,8 @@ func uploadToAWS(client pennsieve.Client, localPath string) {
 			log.Println("Failed opening file", path, err)
 			continue
 		}
-
-		fileInfo, err := file.Stat()
-
 		defer file.Close()
+		fileInfo, err := file.Stat()
 
 		p := mpb.New()
 		reader := &CustomReader{
@@ -146,7 +157,7 @@ func uploadToAWS(client pennsieve.Client, localPath string) {
 			),
 		}
 
-		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+		_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
 			Bucket: &bucket,
 			Key:    aws.String(filepath.Join(prefix, rel)),
 			Body:   reader,
@@ -154,7 +165,7 @@ func uploadToAWS(client pennsieve.Client, localPath string) {
 		if err != nil {
 			log.Fatalln("Failed to upload", path, err)
 		}
-		log.Println("Uploaded", path, result.Location)
+		//log.Println("Uploaded", path, result.Location)
 	}
 }
 
