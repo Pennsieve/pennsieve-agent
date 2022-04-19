@@ -1,17 +1,8 @@
 package agent
 
 import (
-	pb "github.com/pennsieve/pennsieve-agent/agent"
 	"github.com/spf13/cobra"
 )
-
-const (
-	port = ":9000"
-)
-
-type Server struct {
-	pb.UnimplementedAgentServer
-}
 
 // serverCmd represents the agent command
 var AgentCmd = &cobra.Command{

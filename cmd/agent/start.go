@@ -2,14 +2,13 @@ package agent
 
 import (
 	"fmt"
-	pb "github.com/pennsieve/pennsieve-agent/agent"
+	gp "github.com/pennsieve/pennsieve-agent/agent"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 var daemon bool
@@ -26,8 +25,36 @@ var startCmd = &cobra.Command{
 
 		// Code example from: https://developpaper.com/start-and-stop-operations-of-golang-daemon/
 		if daemon {
+			fmt.Println("daemon")
 			command := exec.Command("pennsieve-agent", "agent", "start")
-			command.Start()
+			stdout, _ := command.StdoutPipe()
+			command.Stderr = command.Stdout
+			err := command.Start()
+			fmt.Println(err)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+
+			for {
+				tmp := make([]byte, 1024)
+				_, err := stdout.Read(tmp)
+				message := string(tmp)
+				if strings.HasPrefix(message, "failed to listen") {
+					fmt.Print(message)
+					os.Exit(1)
+				} else if strings.HasPrefix(message, "failed to serve") {
+					fmt.Print(message)
+					os.Exit(1)
+				} else if strings.HasPrefix(message, "GRPC agent listening") {
+					break
+				}
+				fmt.Print(message)
+				if err != nil {
+					break
+				}
+			}
+
 			fmt.Printf("Agent start, [PID] %d running...\n", command.Process.Pid)
 			ioutil.WriteFile("agent.lock", []byte(fmt.Sprintf("%d", command.Process.Pid)), 0666)
 			daemon = false
@@ -35,30 +62,15 @@ var startCmd = &cobra.Command{
 		} else {
 			fmt.Println("agent start")
 		}
-		startAgent()
+		err := gp.StartAgent()
+		fmt.Println("Error: ", err)
+		if err != nil {
+			log.Fatalln(err)
+		}
 
 	},
 }
 
 func init() {
 	startCmd.Flags().BoolVarP(&daemon, "daemon", "d", false, "is daemon?")
-
-}
-
-func startAgent() {
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	grpcServer := grpc.NewServer()
-
-	// Register services
-	pb.RegisterAgentServer(grpcServer, &Server{})
-
-	log.Printf("GRPC agent listening on %v", lis.Addr())
-
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
 }

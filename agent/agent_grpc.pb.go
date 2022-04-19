@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
-	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
+	UploadPath(ctx context.Context, in *UploadRequest, opts ...grpc.CallOption) (Agent_UploadPathClient, error)
 }
 
 type agentClient struct {
@@ -33,20 +33,43 @@ func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
 	return &agentClient{cc}
 }
 
-func (c *agentClient) SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
-	out := new(HelloReply)
-	err := c.cc.Invoke(ctx, "/agent.Agent/SayHello", in, out, opts...)
+func (c *agentClient) UploadPath(ctx context.Context, in *UploadRequest, opts ...grpc.CallOption) (Agent_UploadPathClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Agent_ServiceDesc.Streams[0], "/agent.Agent/UploadPath", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &agentUploadPathClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
 
-// AgentServer is the agent API for Agent service.
+type Agent_UploadPathClient interface {
+	Recv() (*UploadStatus, error)
+	grpc.ClientStream
+}
+
+type agentUploadPathClient struct {
+	grpc.ClientStream
+}
+
+func (x *agentUploadPathClient) Recv() (*UploadStatus, error) {
+	m := new(UploadStatus)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
 type AgentServer interface {
-	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
+	UploadPath(*UploadRequest, Agent_UploadPathServer) error
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -54,8 +77,8 @@ type AgentServer interface {
 type UnimplementedAgentServer struct {
 }
 
-func (UnimplementedAgentServer) SayHello(context.Context, *HelloRequest) (*HelloReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
+func (UnimplementedAgentServer) UploadPath(*UploadRequest, Agent_UploadPathServer) error {
+	return status.Errorf(codes.Unimplemented, "method UploadPath not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -70,22 +93,25 @@ func RegisterAgentServer(s grpc.ServiceRegistrar, srv AgentServer) {
 	s.RegisterService(&Agent_ServiceDesc, srv)
 }
 
-func _Agent_SayHello_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HelloRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Agent_UploadPath_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(UploadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(AgentServer).SayHello(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/agent.Agent/SayHello",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).SayHello(ctx, req.(*HelloRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(AgentServer).UploadPath(m, &agentUploadPathServer{stream})
+}
+
+type Agent_UploadPathServer interface {
+	Send(*UploadStatus) error
+	grpc.ServerStream
+}
+
+type agentUploadPathServer struct {
+	grpc.ServerStream
+}
+
+func (x *agentUploadPathServer) Send(m *UploadStatus) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
@@ -94,12 +120,13 @@ func _Agent_SayHello_Handler(srv interface{}, ctx context.Context, dec func(inte
 var Agent_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "agent.Agent",
 	HandlerType: (*AgentServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "SayHello",
-			Handler:    _Agent_SayHello_Handler,
+			StreamName:    "UploadPath",
+			Handler:       _Agent_UploadPath_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "agent/agent.proto",
 }

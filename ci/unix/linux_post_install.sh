@@ -13,12 +13,12 @@
 #
 #   - ps_path : string =>
 #
-#     The path to the Pennsieve installation, e.g. "/usr/local/opt/pennsieve",
-#     "C:\Program Files\pennsieve", etc.
+#     The path to the Pennsieve installation, e.g. "/usr/local/opt/agent",
+#     "C:\Program Files\agent", etc.
 #
 #   - ps_release_name : string =>
 #
-#     The name of the binary itself ("pennsieve")
+#     The name of the binary itself ("agent")
 #
 #   - ps_version : string =>
 #
@@ -27,7 +27,7 @@
 #   - ps_executable : string =>
 #
 #     The absolute path to the Pennsieve binary, e.g
-#     /usr/local/opt/pennsieve/bin/${ps_release_name}
+#     /usr/local/opt/agent/bin/${ps_release_name}
 #
 ###############################################################################
 

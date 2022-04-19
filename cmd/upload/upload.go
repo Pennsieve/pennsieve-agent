@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 University of Pennsylvania <support@pennsieve>>
+Copyright © 2022 University of Pennsylvania <support@agent>>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,13 +23,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	pb "github.com/pennsieve/pennsieve-agent/agent"
 	"github.com/pennsieve/pennsieve-agent/api"
-	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/vbauerster/mpb/v5/decor"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -53,14 +56,45 @@ var UploadCmd = &cobra.Command{
 
 		if useAgent {
 			fmt.Println("Use Agent to upload --> add upload sources to DB")
-			paths := args[0]
-			models.AddToUploadSession("1234", paths, true, "")
+			//models.AddToUploadSession("1234", paths, true, "")
+			req := pb.UploadRequest{
+				BasePath:  args[0],
+				Recursive: true,
+			}
+
+			port := viper.GetString("agent.port")
+
+			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			client := pb.NewAgentClient(conn)
+			stream, err := client.UploadPath(context.Background(), &req)
+			if err != nil {
+				fmt.Println(err)
+			}
+			for {
+				feature, err := stream.Recv()
+
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					log.Fatalf("%v.UploadPath(_) = _, %v", client, err)
+				}
+				log.Println("Feature:", feature)
+
+			}
+
+			defer conn.Close()
 
 		} else {
 			client := pennsieve.NewClient() // Create simple suninitialized client
 			activeUser, err := api.GetActiveUser(client)
 
-			bucket = "pennsieve-dev-test-new-upload"
+			bucket = "agent-dev-test-new-upload"
 
 			apiToken := viper.GetString(activeUser.Profile + ".api_token")
 			apiSecret := viper.GetString(activeUser.Profile + ".api_secret")
