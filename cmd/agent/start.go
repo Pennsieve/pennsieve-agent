@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 var daemon bool
@@ -27,7 +26,10 @@ var startCmd = &cobra.Command{
 		if daemon {
 			fmt.Println("daemon")
 			command := exec.Command("pennsieve-agent", "agent", "start")
-			stdout, _ := command.StdoutPipe()
+			command.Stdout = os.Stdout
+			command.Stderr = os.Stderr
+
+			//stdout, _ := command.StdoutPipe()
 			command.Stderr = command.Stdout
 			err := command.Start()
 			fmt.Println(err)
@@ -36,24 +38,27 @@ var startCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			for {
-				tmp := make([]byte, 1024)
-				_, err := stdout.Read(tmp)
-				message := string(tmp)
-				if strings.HasPrefix(message, "failed to listen") {
-					fmt.Print(message)
-					os.Exit(1)
-				} else if strings.HasPrefix(message, "failed to serve") {
-					fmt.Print(message)
-					os.Exit(1)
-				} else if strings.HasPrefix(message, "GRPC agent listening") {
-					break
-				}
-				fmt.Print(message)
-				if err != nil {
-					break
-				}
-			}
+			outfile, err := os.Create("./out.txt")
+			command.Stdout = outfile
+
+			//for {
+			//	tmp := make([]byte, 1024)
+			//	_, err := stdout.Read(tmp)
+			//	message := string(tmp)
+			//	if strings.HasPrefix(message, "failed to listen") {
+			//		fmt.Print(message)
+			//		os.Exit(1)
+			//	} else if strings.HasPrefix(message, "failed to serve") {
+			//		fmt.Print(message)
+			//		os.Exit(1)
+			//	} else if strings.HasPrefix(message, "GRPC agent listening") {
+			//		break
+			//	}
+			//	fmt.Print(message)
+			//	if err != nil {
+			//		break
+			//	}
+			//}
 
 			fmt.Printf("Agent start, [PID] %d running...\n", command.Process.Pid)
 			ioutil.WriteFile("agent.lock", []byte(fmt.Sprintf("%d", command.Process.Pid)), 0666)

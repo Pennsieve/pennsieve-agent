@@ -2,6 +2,8 @@ package agent
 
 import (
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"net"
@@ -11,7 +13,28 @@ type server struct {
 	UnimplementedAgentServer
 }
 
+// UploadPath recursively uploads a folder to the Pennsieve Platform.
 func (s *server) UploadPath(req *UploadRequest, stream Agent_UploadPathServer) error {
+
+	client := pennsieve.NewClient() // Create simple suninitialized client
+	activeUser, err := api.GetActiveUser(client)
+	if err != nil {
+		fmt.Println(err)
+
+	}
+	fmt.Println(activeUser)
+
+	apiToken := viper.GetString(activeUser.Profile + ".api_token")
+	apiSecret := viper.GetString(activeUser.Profile + ".api_secret")
+	client.Authentication.Authenticate(apiToken, apiSecret)
+
+	if err != nil {
+		fmt.Println("ERROR")
+	}
+
+	client.Authentication.GetAWSCredsForUser()
+
+	uploadToAWS(*client, req.BasePath)
 
 	resp := UploadStatus{
 		Id:       "status 1",
@@ -24,6 +47,7 @@ func (s *server) UploadPath(req *UploadRequest, stream Agent_UploadPathServer) e
 	return nil
 }
 
+// StartAgent initiates the local gRPC server and checks if it runs.
 func StartAgent() error {
 
 	// Get port for gRPC server
