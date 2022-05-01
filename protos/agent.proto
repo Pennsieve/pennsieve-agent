@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+option go_package = "github.com/pennsieve/pennsieve-agent/protos";
+package protos;
+
+service Agent {
+	rpc CreateUploadManifest (CreateManifestRequest) returns (CreateManifestResponse) {}
+	rpc UploadPath (UploadRequest) returns (UploadResponse) {}
+	rpc CancelUpload (CancelRequest) returns (CancelResponse) {}
+	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
+	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
+}
+
+message SubscribeRequest {
+	int32 id = 1;
+}
+
+message SubsrcribeResponse {
+	message UploadResponse {
+		string FileId = 20;
+		int64 total = 21;
+		int64 current = 22;
+	}
+	enum MESSAGE_TYPE{
+		SERVER = 0;
+		UPLOAD = 1;
+	}
+	MESSAGE_TYPE type = 8;
+	oneof message_data {
+		UploadResponse uploadStatus = 9;
+		string data = 10;
+	}
+}
+
+message UploadRequest {
+	string basePath = 1;
+	bool recursive = 2;
+}
+
+message UploadResponse {
+	string status = 1;
+}
+
+message CancelRequest {
+}
+
+message CancelResponse {
+	string status = 1;
+}
+
+message CreateManifestRequest {
+	string basePath = 1;
+	bool recursive = 2;
+}
+
+message CreateManifestResponse {
+	string status = 1;
+}

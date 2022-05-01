@@ -24,51 +24,48 @@ var startCmd = &cobra.Command{
 
 		// Code example from: https://developpaper.com/start-and-stop-operations-of-golang-daemon/
 		if daemon {
-			fmt.Println("daemon")
 			command := exec.Command("pennsieve-agent", "agent", "start")
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
 
 			//stdout, _ := command.StdoutPipe()
-			command.Stderr = command.Stdout
+
+			//TODO: Remove when not testing
 			err := command.Start()
-			fmt.Println(err)
 			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				log.Fatalln(err)
 			}
 
-			outfile, err := os.Create("./out.txt")
-			command.Stdout = outfile
-
+			////Check output of the external process to ensure server is running
 			//for {
 			//	tmp := make([]byte, 1024)
 			//	_, err := stdout.Read(tmp)
 			//	message := string(tmp)
 			//	if strings.HasPrefix(message, "failed to listen") {
-			//		fmt.Print(message)
-			//		os.Exit(1)
+			//		log.Fatalln(message)
 			//	} else if strings.HasPrefix(message, "failed to serve") {
-			//		fmt.Print(message)
-			//		os.Exit(1)
+			//		log.Fatalln(message)
 			//	} else if strings.HasPrefix(message, "GRPC agent listening") {
+			//		log.Println(message)
 			//		break
 			//	}
-			//	fmt.Print(message)
+			//
 			//	if err != nil {
 			//		break
 			//	}
 			//}
 
+			//stdout = nil
+
+			// Check that We
+
+			// Store server PID in lock file, so we can terminate server when needed.
 			fmt.Printf("Agent start, [PID] %d running...\n", command.Process.Pid)
 			ioutil.WriteFile("agent.lock", []byte(fmt.Sprintf("%d", command.Process.Pid)), 0666)
 			daemon = false
 			os.Exit(0)
-		} else {
-			fmt.Println("agent start")
 		}
+
+		fmt.Println("Running Agent NOT as daemon")
 		err := gp.StartAgent()
-		fmt.Println("Error: ", err)
 		if err != nil {
 			log.Fatalln(err)
 		}

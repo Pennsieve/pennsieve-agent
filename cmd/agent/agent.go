@@ -20,5 +20,5 @@ var AgentCmd = &cobra.Command{
 func init() {
 	AgentCmd.AddCommand(startCmd)
 	AgentCmd.AddCommand(stopCmd)
-
+	AgentCmd.AddCommand(subscribeCmd)
 }

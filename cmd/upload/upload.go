@@ -18,25 +18,11 @@ package upload
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	pb "github.com/pennsieve/pennsieve-agent/agent"
-	"github.com/pennsieve/pennsieve-agent/api"
-	"github.com/pennsieve/pennsieve-go"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"io"
-	"log"
-	"os"
-	"path/filepath"
-	"sync"
 )
 
 var (
@@ -52,184 +38,32 @@ var UploadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("upload called")
 
-		useAgent, _ := cmd.Flags().GetBool("agent")
-
-		if useAgent {
-			fmt.Println("Use Agent to upload --> add upload sources to DB")
-			//models.AddToUploadSession("1234", paths, true, "")
-			req := pb.UploadRequest{
-				BasePath:  args[0],
-				Recursive: true,
-			}
-
-			port := viper.GetString("agent.port")
-
-			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			client := pb.NewAgentClient(conn)
-			stream, err := client.UploadPath(context.Background(), &req)
-			if err != nil {
-				fmt.Println(err)
-			}
-			for {
-				feature, err := stream.Recv()
-
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					log.Fatalf("%v.UploadPath(_) = _, %v", client, err)
-				}
-				log.Println("Feature:", feature)
-
-			}
-
-			defer conn.Close()
-
-		} else {
-			client := pennsieve.NewClient() // Create simple uninitialized client
-			activeUser, err := api.GetActiveUser(client)
-
-			apiToken := viper.GetString(activeUser.Profile + ".api_token")
-			apiSecret := viper.GetString(activeUser.Profile + ".api_secret")
-			client.Authentication.Authenticate(apiToken, apiSecret)
-
-			if err != nil {
-				fmt.Println("ERROR")
-			}
-
-			client.Authentication.GetAWSCredsForUser()
-
-			paths := args[0]
-			uploadToAWS(*client, paths)
+		req := pb.UploadRequest{
+			BasePath:  args[0],
+			Recursive: true,
 		}
 
+		port := viper.GetString("agent.port")
+
+		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			fmt.Println("Error connecting to GRPC Server: ", err)
+		}
+		defer conn.Close()
+
+		client := pb.NewAgentClient(conn)
+		uploadResponse, err := client.UploadPath(context.Background(), &req)
+		if err != nil {
+			fmt.Println("Error uploading file: ", err)
+		}
+		fmt.Println(uploadResponse)
 	},
 }
 
 func init() {
+
+	UploadCmd.AddCommand(CancelCmd)
+
 	UploadCmd.Flags().BoolP("recursive", "r",
 		false, "Upload folder recursively")
-
-	UploadCmd.Flags().BoolP("agent", "a",
-		false, "Use agent to upload")
-}
-
-type fileWalk chan string
-
-func (f fileWalk) Walk(path string, info os.FileInfo, err error) error {
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		f <- path
-	}
-	return nil
-}
-
-// uploadToAWS implements method to recursively upload path to S3 Bucket
-func uploadToAWS(client pennsieve.Client, localPath string) {
-	walker := make(fileWalk)
-	go func() {
-		// Gather the files to upload by walking the path recursively
-		if err := filepath.Walk(localPath, walker.Walk); err != nil {
-			log.Fatalln("Walk failed:", err)
-		}
-		close(walker)
-	}()
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(), // Hard coded credentials.
-		config.WithCredentialsProvider(
-			credentials.StaticCredentialsProvider{
-				Value: aws.Credentials{
-					AccessKeyID:     *client.AWSCredentials.AccessKeyId,
-					SecretAccessKey: *client.AWSCredentials.SecretKey,
-					SessionToken:    *client.AWSCredentials.SessionToken,
-					Source:          "example hard coded credentials",
-				},
-			}))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//cfg, err := config.LoadDefaultConfig(config.WithCredentialsProvider())
-	if err != nil {
-		log.Fatalln("error:", err)
-	}
-
-	// For each file found walking, upload it to Amazon S3
-	uploader := manager.NewUploader(s3.NewFromConfig(cfg))
-	for path := range walker {
-		rel, err := filepath.Rel(localPath, path)
-		if err != nil {
-			log.Fatalln("Unable to get relative path:", path, err)
-		}
-		file, err := os.Open(path)
-		if err != nil {
-			log.Println("Failed opening file", path, err)
-			continue
-		}
-		defer file.Close()
-		fileInfo, err := file.Stat()
-
-		p := mpb.New()
-		reader := &CustomReader{
-			fp:      file,
-			size:    fileInfo.Size(),
-			signMap: map[int64]struct{}{},
-			bar: p.AddBar(fileInfo.Size(),
-				mpb.PrependDecorators(
-					decor.Name("uploading..."),
-					decor.Percentage(decor.WCSyncSpace),
-				),
-			),
-		}
-
-		_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
-			Bucket: &bucket,
-			Key:    aws.String(filepath.Join(prefix, rel)),
-			Body:   reader,
-		})
-		if err != nil {
-			log.Fatalln("Failed to upload", path, err)
-		}
-		//log.Println("Uploaded", path, result.Location)
-	}
-}
-
-type CustomReader struct {
-	fp      *os.File
-	size    int64
-	read    int64
-	bar     *mpb.Bar
-	signMap map[int64]struct{}
-	mux     sync.Mutex
-}
-
-func (r *CustomReader) Read(p []byte) (int, error) {
-	return r.fp.Read(p)
-}
-
-func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
-	n, err := r.fp.ReadAt(p, off)
-	if err != nil {
-		return n, err
-	}
-
-	r.bar.SetTotal(r.size, false)
-
-	r.mux.Lock()
-	r.read += int64(n)
-	r.bar.SetCurrent(r.read)
-	r.mux.Unlock()
-
-	return n, err
-}
-
-func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
-	return r.fp.Seek(offset, whence)
 }

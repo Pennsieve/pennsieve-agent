@@ -7,13 +7,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/pkg/errors"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 
 type fileWalk chan string
 
-func (f fileWalk) Walk(path string, info os.FileInfo, err error) error {
+func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
 	if err != nil {
 		return err
 	}
@@ -34,15 +34,15 @@ func (f fileWalk) Walk(path string, info os.FileInfo, err error) error {
 }
 
 // uploadToAWS implements method to recursively upload path to S3 Bucket
-func uploadToAWS(client pennsieve.Client, localPath string) {
+func (s *server) uploadToAWS(client pennsieve.Client, localPath string) error {
 
 	bucket = "pennsieve-dev-test-new-upload"
 
 	walker := make(fileWalk)
 	go func() {
 		// Gather the files to upload by walking the path recursively
-		if err := filepath.Walk(localPath, walker.Walk); err != nil {
-			log.Fatalln("Walk failed:", err)
+		if err := filepath.WalkDir(localPath, walker.Walk); err != nil {
+			log.Println("Walk failed:", err)
 		}
 		close(walker)
 	}()
@@ -54,24 +54,25 @@ func uploadToAWS(client pennsieve.Client, localPath string) {
 					AccessKeyID:     *client.AWSCredentials.AccessKeyId,
 					SecretAccessKey: *client.AWSCredentials.SecretKey,
 					SessionToken:    *client.AWSCredentials.SessionToken,
-					Source:          "example hard coded credentials",
+					Source:          "Pennsieve Agent",
 				},
 			}))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//cfg, err := config.LoadDefaultConfig(config.WithCredentialsProvider())
-	if err != nil {
-		log.Fatalln("error:", err)
-	}
-
 	// For each file found walking, upload it to Amazon S3
+	ctx, cancelFnc := context.WithCancel(context.Background())
+	s.cancelFnc = cancelFnc
+	defer cancelFnc()
+
 	uploader := manager.NewUploader(s3.NewFromConfig(cfg))
 	for path := range walker {
+
 		rel, err := filepath.Rel(localPath, path)
 		if err != nil {
-			log.Fatalln("Unable to get relative path:", path, err)
+			log.Println("Unable to get relative path:", path, err)
+			continue
 		}
 		file, err := os.Open(path)
 		if err != nil {
@@ -81,38 +82,78 @@ func uploadToAWS(client pennsieve.Client, localPath string) {
 		defer file.Close()
 		fileInfo, err := file.Stat()
 
-		p := mpb.New()
 		reader := &CustomReader{
 			fp:      file,
 			size:    fileInfo.Size(),
 			signMap: map[int64]struct{}{},
-			bar: p.AddBar(fileInfo.Size(),
-				mpb.PrependDecorators(
-					decor.Name("uploading..."),
-					decor.Percentage(decor.WCSyncSpace),
-				),
-			),
+			s:       s,
 		}
 
-		_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
+		s3Key := aws.String(filepath.Join(prefix, rel))
+
+		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket: &bucket,
-			Key:    aws.String(filepath.Join(prefix, rel)),
+			Key:    s3Key,
 			Body:   reader,
 		})
 		if err != nil {
-			log.Fatalln("Failed to upload", path, err)
+			messageSubscribers(s, err.Error())
+			log.Println("Failed to upload", path, err)
+
+			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
+			// is done automatically by the manager.
+			if errors.Is(err, context.Canceled) {
+				var mu manager.MultiUploadFailure
+				if errors.As(err, &mu) {
+					// Process error and its associated uploadID
+
+					s3Session := s3.NewFromConfig(cfg)
+
+					input := &s3.AbortMultipartUploadInput{
+						Bucket:   aws.String(bucket),
+						Key:      aws.String(*s3Key),
+						UploadId: aws.String(mu.UploadID()),
+					}
+
+					_, err := s3Session.AbortMultipartUpload(context.Background(), input)
+					if err != nil {
+						log.Println("Failed to abort multipart after cancelling: ", err)
+						return err
+					}
+
+					inputListParts := &s3.ListPartsInput{
+						Bucket:   aws.String(bucket),
+						Key:      aws.String(*s3Key),
+						UploadId: aws.String(mu.UploadID()),
+					}
+
+					listPartsOutput, err := s3Session.ListParts(context.Background(), inputListParts)
+					if err != nil {
+						log.Println("ListPartError:", err)
+					}
+					log.Println("ListPartResponse: ", listPartsOutput)
+
+				} else {
+					// Process error generically
+					log.Println("Error:", err.Error())
+				}
+				break
+			}
+
+			continue
+
 		}
-		//log.Println("Uploaded", path, result.Location)
 	}
+
+	return nil
 }
 
 type CustomReader struct {
 	fp      *os.File
 	size    int64
 	read    int64
-	bar     *mpb.Bar
 	signMap map[int64]struct{}
-	mux     sync.Mutex
+	s       *server
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -125,16 +166,99 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 		return n, err
 	}
 
-	r.bar.SetTotal(r.size, false)
-
-	r.mux.Lock()
 	r.read += int64(n)
-	r.bar.SetCurrent(r.read)
-	r.mux.Unlock()
+	updateSubscribers(r.s, r.size, r.read, r.fp.Name())
 
 	return n, err
 }
 
 func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 	return r.fp.Seek(offset, whence)
+}
+
+// messageSubscribers sends a string message to all grpc-update subscribers
+func messageSubscribers(s *server, message string) {
+	// A list of clients to unsubscribe in case of error
+	var unsubscribe []int32
+
+	// Iterate over all subscribers and send data to each client
+	s.subscribers.Range(func(k, v interface{}) bool {
+		id, ok := k.(int32)
+		if !ok {
+			log.Printf("Failed to cast subscriber key: %T", k)
+			return false
+		}
+		sub, ok := v.(sub)
+		if !ok {
+			log.Printf("Failed to cast subscriber value: %T", v)
+			return false
+		}
+		// Send data over the gRPC stream to the client
+		if err := sub.stream.Send(&pb.SubsrcribeResponse{
+			Type:        0,
+			MessageData: &pb.SubsrcribeResponse_Data{Data: message},
+		}); err != nil {
+			log.Printf("Failed to send data to client: %v", err)
+			select {
+			case sub.finished <- true:
+				log.Printf("Unsubscribed client: %d", id)
+			default:
+				// Default case is to avoid blocking in case client has already unsubscribed
+			}
+			// In case of error the client would re-subscribe so close the subscriber stream
+			unsubscribe = append(unsubscribe, id)
+		}
+		return true
+	})
+
+	// Unsubscribe erroneous client streams
+	for _, id := range unsubscribe {
+		s.subscribers.Delete(id)
+	}
+}
+
+// updateSubscribers sends upload-progress updates to all grpc-update subscribers.
+func updateSubscribers(s *server, total int64, current int64, name string) {
+	// A list of clients to unsubscribe in case of error
+	var unsubscribe []int32
+
+	// Iterate over all subscribers and send data to each client
+	s.subscribers.Range(func(k, v interface{}) bool {
+		id, ok := k.(int32)
+		if !ok {
+			log.Printf("Failed to cast subscriber key: %T", k)
+			return false
+		}
+		sub, ok := v.(sub)
+		if !ok {
+			log.Printf("Failed to cast subscriber value: %T", v)
+			return false
+		}
+		// Send data over the gRPC stream to the client
+		if err := sub.stream.Send(&pb.SubsrcribeResponse{
+			Type: 1,
+			MessageData: &pb.SubsrcribeResponse_UploadStatus{
+				UploadStatus: &pb.SubsrcribeResponse_UploadResponse{
+					FileId:  name,
+					Total:   total,
+					Current: current,
+				}},
+		}); err != nil {
+			log.Printf("Failed to send data to client: %v", err)
+			select {
+			case sub.finished <- true:
+				log.Printf("Unsubscribed client: %d", id)
+			default:
+				// Default case is to avoid blocking in case client has already unsubscribed
+			}
+			// In case of error the client would re-subscribe so close the subscriber stream
+			unsubscribe = append(unsubscribe, id)
+		}
+		return true
+	})
+
+	// Unsubscribe erroneous client streams
+	for _, id := range unsubscribe {
+		s.subscribers.Delete(id)
+	}
 }

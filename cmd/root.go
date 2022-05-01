@@ -17,15 +17,12 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api"
 	"github.com/pennsieve/pennsieve-agent/cmd/agent"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	dbConfig "github.com/pennsieve/pennsieve-agent/config"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
@@ -46,15 +43,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 
-	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-
-		// if Pennsieve Client set --> check if token is updated
-		client := pennsieve.NewClient()
-		fmt.Println("Client specified --> Check API Token")
-		user, _ := api.GetActiveUser(client)
-		models.UpdateTokenForUser(*user, client.Credentials)
-
-	},
+	// TODO: Bring back to prevent reauth on every CLI invokation
+	//PersistentPostRun: func(cmd *cobra.Command, args []string) {
+	//
+	//	// if Pennsieve Client set --> check if token is updated
+	//	client := pennsieve.NewClient()
+	//	fmt.Println("Client specified --> Check API Token")
+	//	user, _ := api.GetActiveUser(client)
+	//	models.UpdateTokenForUser(*user, client.Credentials)
+	//
+	//},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
