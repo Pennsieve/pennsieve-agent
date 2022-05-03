@@ -122,7 +122,7 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 	for {
 		item, ok := <-walker
 		if !ok {
-			log.Println("Final Batch of items:\n\n")
+			log.Println("Final Batch of items:")
 			log.Println(items)
 
 			api.AddUploadRecords(items, "", uploadSessionID.String())
@@ -132,7 +132,7 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 		items = append(items, item)
 		i++
 		if i == batchSize {
-			log.Println("Batch of items:\n\n")
+			log.Println("Batch of items:")
 			log.Println(items)
 
 			api.AddUploadRecords(items, "", uploadSessionID.String())
