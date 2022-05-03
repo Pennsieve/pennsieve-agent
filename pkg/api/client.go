@@ -182,9 +182,9 @@ func AddUploadRecords(paths []string, basePath string, sessionId string) error {
 	var records []models.UploadRecordParams
 	for _, row := range paths {
 		newRecord := models.UploadRecordParams{
-			SourcePath:      row,
-			TargetPath:      filepath.Join(basePath, row),
-			ImportSessionID: sessionId,
+			SourcePath: row,
+			TargetPath: filepath.Join(basePath, row),
+			SessionID:  sessionId,
 		}
 		records = append(records, newRecord)
 	}

@@ -14,6 +14,6 @@ func InitializeDB() (*sql.DB, error) {
 	var err error
 	home, err := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
-	DB, err = sql.Open("sqlite3", dbPath)
+	DB, err = sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
 	return DB, err
 }

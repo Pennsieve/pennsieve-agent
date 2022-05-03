@@ -10,8 +10,8 @@ func Run() {
 	// Iterate over migration steps
 	migrate(config.DB, UserInfo)
 	migrate(config.DB, UserSettings)
-	migrate(config.DB, UploadRecords)
 	migrate(config.DB, UploadSessions)
+	migrate(config.DB, UploadRecords)
 	// Other migrations can be added here.
 }
 func migrate(dbDriver *sql.DB, query string) {

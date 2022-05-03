@@ -4,17 +4,21 @@ package migrations
 // Primary key: primary key in the DB
 // Source_Path: location of file on local machine
 // Target_Path: Optional path in Dataset on Pennsieve
-// Import_Session_ID: ID for upload session
+// Session_ID: ID for upload session
 // Status: Upload status for file (LOCAL, PENDING, UPLOADING, COMPLETED, CANCELED)
 const UploadRecords = `
 CREATE TABLE IF NOT EXISTS upload_record (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	source_path TEXT NOT NULL,
 	target_path TEXT,
-	import_session_id VARCHAR(255) NOT NULL,
+	session_id VARCHAR(255) NOT NULL,
 	status VARCHAR(255) NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT fk_sessions
+		FOREIGN KEY (session_id)
+		REFERENCES upload_sessions(session_id)
+		ON DELETE CASCADE
 )
 `
 

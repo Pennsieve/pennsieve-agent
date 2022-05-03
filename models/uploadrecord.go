@@ -8,23 +8,23 @@ import (
 )
 
 type UploadRecord struct {
-	Id              int       `json:"id"`
-	SourcePath      string    `json:"source_path"`
-	TargetPath      string    `json:"target_path"`
-	ImportSessionID string    `json:"import_session_id"`
-	Status          string    `json:"status"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	Id         int       `json:"id"`
+	SourcePath string    `json:"source_path"`
+	TargetPath string    `json:"target_path"`
+	SessionID  string    `json:"session_id"`
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type UploadRecordParams struct {
-	SourcePath      string `json:"source_path"`
-	TargetPath      string `json:"target_path"`
-	ImportSessionID string `json:"import_session_id"`
+	SourcePath string `json:"source_path"`
+	TargetPath string `json:"target_path"`
+	SessionID  string `json:"session_id"`
 }
 
 // GetAll returns all rows in the Upload Record Table
-func (record *UploadRecord) GetAll() ([]UploadRecord, error) {
+func (*UploadRecord) GetAll() ([]UploadRecord, error) {
 	rows, err := config.DB.Query("SELECT * FROM upload_record")
 	var allRecords []UploadRecord
 	if err == nil {
@@ -34,7 +34,7 @@ func (record *UploadRecord) GetAll() ([]UploadRecord, error) {
 				&currentRecord.Id,
 				&currentRecord.SourcePath,
 				&currentRecord.TargetPath,
-				&currentRecord.ImportSessionID,
+				&currentRecord.SessionID,
 				&currentRecord.Status,
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
@@ -58,10 +58,11 @@ func (*UploadRecord) Add(records []UploadRecordParams) error {
 	var vals []interface{}
 	var inserts []string
 
-	sqlInsert := "INSERT INTO upload_record(source_path, target_path, import_session_id, status, created_at, updated_at) VALUES "
+	sqlInsert := "INSERT INTO upload_record(source_path, target_path, " +
+		"session_id, status, created_at, updated_at) VALUES "
 	for _, row := range records {
 		inserts = append(inserts, rowSQL)
-		vals = append(vals, row.SourcePath, row.TargetPath, row.ImportSessionID,
+		vals = append(vals, row.SourcePath, row.TargetPath, row.SessionID,
 			"INITIALIZED", currentTime, currentTime)
 	}
 	sqlInsert = sqlInsert + strings.Join(inserts, ",")
