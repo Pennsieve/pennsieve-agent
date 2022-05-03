@@ -2,7 +2,7 @@ package agent
 
 import (
 	"fmt"
-	gp "github.com/pennsieve/pennsieve-agent/agent"
+	gp "github.com/pennsieve/pennsieve-agent/pkg/agent"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"

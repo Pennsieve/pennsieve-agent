@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/agent"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
+	"github.com/pennsieve/pennsieve-agent/cmd/manifest"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
@@ -76,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(profile.ProfileCmd)
 	rootCmd.AddCommand(upload.UploadCmd)
 	rootCmd.AddCommand(agent.AgentCmd)
+	rootCmd.AddCommand(manifest.ManifestCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file (default is $HOME/.pennsieve/config.ini)")

@@ -17,8 +17,8 @@ package whoami
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/api"
 	"github.com/pennsieve/pennsieve-agent/models"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"os"

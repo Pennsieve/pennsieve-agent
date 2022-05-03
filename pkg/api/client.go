@@ -9,6 +9,7 @@ import (
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/viper"
 	"log"
+	"path/filepath"
 )
 
 // GetActiveUser returns userInfo for active user and updates local SQlite DB
@@ -174,4 +175,26 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 	}
 
 	return newUserInfo, nil
+}
+
+func AddUploadRecords(paths []string, basePath string, sessionId string) error {
+
+	var records []models.UploadRecordParams
+	for _, row := range paths {
+		newRecord := models.UploadRecordParams{
+			SourcePath:      row,
+			TargetPath:      filepath.Join(basePath, row),
+			ImportSessionID: sessionId,
+		}
+		records = append(records, newRecord)
+	}
+
+	var record models.UploadRecord
+	err := record.Add(records)
+	if err != nil {
+		log.Println("Error with AddUploadRecords: ", err)
+		return err
+	}
+
+	return nil
 }

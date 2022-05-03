@@ -16,8 +16,8 @@ limitations under the License.
 package profile
 
 import (
-	"github.com/pennsieve/pennsieve-agent/api"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 )

@@ -17,7 +17,7 @@ package profile
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 )

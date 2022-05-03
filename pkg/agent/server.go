@@ -3,7 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api"
+	"github.com/google/uuid"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/viper"
@@ -14,7 +15,6 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sync"
-	"time"
 )
 
 type Config struct {
@@ -69,16 +69,18 @@ func (s *server) UploadPath(ctx context.Context, request *pb.UploadRequest) (*pb
 	return &response, nil
 }
 
-func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
+// CreateUploadManifest recursively adds paths from folder into local DB
+func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 
 	//TODO replace with real call to server
-	//uploadSessionID := uuid.New()
+	uploadSessionID := uuid.New()
 
 	// 2. Walk over folder and populate DB with file-paths.
+	batchSize := 10 // Update DB with 50 paths per batch
 	localPath := request.BasePath
-	walker := make(fileWalk)
+	walker := make(fileWalk, batchSize)
 	go func() {
 		// Gather the files to upload by walking the path recursively
 		if err := filepath.WalkDir(localPath, walker.Walk); err != nil {
@@ -86,6 +88,38 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 		}
 		close(walker)
 	}()
+
+	// Get paths from channel, and when <batchSize> number of paths,
+	// store these in the local DB.
+	i := 0
+	var items []string
+	for {
+		item, ok := <-walker
+		if !ok {
+			log.Println("Final Batch of items:\n\n")
+			log.Println(items)
+
+			api.AddUploadRecords(items, "", uploadSessionID.String())
+			break
+		}
+
+		items = append(items, item)
+		i++
+		if i == batchSize {
+			log.Println("Batch of items:\n\n")
+			log.Println(items)
+
+			api.AddUploadRecords(items, "", uploadSessionID.String())
+
+			i = 0
+			items = nil
+		}
+	}
+
+	log.Println("Finished Processing files.")
+
+	response := pb.CreateManifestResponse{Status: "Success"}
+	return &response, nil
 
 }
 
@@ -140,51 +174,6 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 	}
 	s.subscribers.Delete(request.Id)
 	return &pb.SubsrcribeResponse{}, nil
-}
-
-func (s *server) mockDataGenerator() {
-	log.Printf("Starting data generation")
-	for {
-		time.Sleep(time.Second)
-
-		// A list of clients to unsubscribe in case of error
-		var unsubscribe []int32
-
-		// Iterate over all subscribers and send data to each client
-		s.subscribers.Range(func(k, v interface{}) bool {
-			id, ok := k.(int32)
-			if !ok {
-				log.Printf("Failed to cast subscriber key: %T", k)
-				return false
-			}
-			sub, ok := v.(sub)
-			if !ok {
-				log.Printf("Failed to cast subscriber value: %T", v)
-				return false
-			}
-			// Send data over the gRPC stream to the client
-			if err := sub.stream.Send(&pb.SubsrcribeResponse{
-				Type:        0,
-				MessageData: &pb.SubsrcribeResponse_Data{Data: fmt.Sprintf("data mock for: %d", id)},
-			}); err != nil {
-				log.Printf("Failed to send data to client: %v", err)
-				select {
-				case sub.finished <- true:
-					log.Printf("Unsubscribed client: %d", id)
-				default:
-					// Default case is to avoid blocking in case client has already unsubscribed
-				}
-				// In case of error the client would re-subscribe so close the subscriber stream
-				unsubscribe = append(unsubscribe, id)
-			}
-			return true
-		})
-
-		// Unsubscribe erroneous client streams
-		for _, id := range unsubscribe {
-			s.subscribers.Delete(id)
-		}
-	}
 }
 
 // StartAgent initiates the local gRPC server and checks if it runs.

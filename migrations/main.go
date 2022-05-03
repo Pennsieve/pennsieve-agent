@@ -7,10 +7,11 @@ import (
 )
 
 func Run() {
-	// Migrate notes
+	// Iterate over migration steps
 	migrate(config.DB, UserInfo)
 	migrate(config.DB, UserSettings)
 	migrate(config.DB, UploadRecords)
+	migrate(config.DB, UploadSessions)
 	// Other migrations can be added here.
 }
 func migrate(dbDriver *sql.DB, query string) {

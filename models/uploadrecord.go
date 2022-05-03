@@ -1,70 +1,88 @@
 package models
 
 import (
-	"fmt"
-	"io/fs"
+	"github.com/pennsieve/pennsieve-agent/config"
 	"log"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
 type UploadRecord struct {
 	Id              int       `json:"id"`
-	OrganizationID  string    `json:"organization_id"`
-	DatasetID       string    `json:"dataset_id"`
-	PackageID       string    `json:"package_id"`
 	SourcePath      string    `json:"source_path"`
 	TargetPath      string    `json:"target_path"`
-	ImportID        string    `json:"import_id"`
 	ImportSessionID string    `json:"import_session_id"`
-	progress        int       `json:"status"`
+	Status          string    `json:"status"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type UploadRecordParams struct {
-	OrganizationID  string `json:"organization_id"`
-	DatasetID       string `json:"dataset_id"`
 	SourcePath      string `json:"source_path"`
 	TargetPath      string `json:"target_path"`
 	ImportSessionID string `json:"import_session_id"`
 }
 
-// AddToUploadSession adds files to upload manifest in local DB
-func AddToUploadSession(session string, path string, recursive bool, targetPath string) {
-	walker := make(fileWalk)
+// GetAll returns all rows in the Upload Record Table
+func (record *UploadRecord) GetAll() ([]UploadRecord, error) {
+	rows, err := config.DB.Query("SELECT * FROM upload_record")
+	var allRecords []UploadRecord
+	if err == nil {
+		for rows.Next() {
+			var currentRecord UploadRecord
+			err = rows.Scan(
+				&currentRecord.Id,
+				&currentRecord.SourcePath,
+				&currentRecord.TargetPath,
+				&currentRecord.ImportSessionID,
+				&currentRecord.Status,
+				&currentRecord.CreatedAt,
+				&currentRecord.UpdatedAt)
 
-	// Use absolute path to support '.' as the initial path without ignoring it
-	absPath, _ := filepath.Abs(path)
+			if err != nil {
+				log.Println("ERROR: ", err)
+			}
 
-	go func() {
-		// Gather the files to upload by walking the path recursively
-		if err := filepath.WalkDir(absPath, walker.Walk); err != nil {
-			log.Fatalln("Walk failed:", err)
+			allRecords = append(allRecords, currentRecord)
 		}
-		close(walker)
-	}()
-
-	for path := range walker {
-		fmt.Println(path)
+		return allRecords, err
 	}
+	return allRecords, err
 }
 
-type fileWalk chan string
+// Add adds multiple rows to the UploadRecords database.
+func (*UploadRecord) Add(records []UploadRecordParams) error {
 
-//Walk provides walker function and skips hidden files/folders.
-func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
-	if err != nil {
-		return err
+	currentTime := time.Now()
+	const rowSQL = "(?, ?, ?, ?, ?, ?)"
+	var vals []interface{}
+	var inserts []string
+
+	sqlInsert := "INSERT INTO upload_record(source_path, target_path, import_session_id, status, created_at, updated_at) VALUES "
+	for _, row := range records {
+		inserts = append(inserts, rowSQL)
+		vals = append(vals, row.SourcePath, row.TargetPath, row.ImportSessionID,
+			"INITIALIZED", currentTime, currentTime)
 	}
-	if !info.IsDir() {
-		if !strings.HasPrefix(info.Name(), ".") {
-			f <- path
-		}
-	} else if strings.HasPrefix(info.Name(), ".") {
-		return filepath.SkipDir
+	sqlInsert = sqlInsert + strings.Join(inserts, ",")
+
+	//prepare the statement
+	stmt, err := config.DB.Prepare(sqlInsert)
+	if err != nil {
+		log.Fatalln("ERROR: ", err)
+	}
+	defer stmt.Close()
+
+	// format all vals at once
+	_, err = stmt.Exec(vals...)
+	if err != nil {
+		log.Println(err)
 	}
 
 	return nil
+
 }
+
+// TODO: Remove uploadsession
+
+// TODO:
