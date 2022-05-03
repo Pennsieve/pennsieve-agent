@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"github.com/pennsieve/pennsieve-agent/config"
 	"log"
 )
@@ -18,10 +17,11 @@ type UserSettingsParams struct {
 	Profile string
 }
 
-func GetAllUserSettings() ([]UserSettings, error) {
+// Get returns the UserSettings object or nil if no user-settings are defined.
+func (*UserSettings) Get() (*UserSettings, error) {
 	rows, err := config.DB.Query("SELECT * FROM user_settings")
 	if err != nil {
-		fmt.Println("Error getting all rows from User_Settings table")
+		log.Println("Error getting all rows from User_Settings table")
 		return nil, err
 	}
 
@@ -32,10 +32,16 @@ func GetAllUserSettings() ([]UserSettings, error) {
 			&currentConfig.UserId, &currentConfig.Profile, &currentConfig.UseDatasetId)
 		allConfigs = append(allConfigs, currentConfig)
 	}
-	return allConfigs, err
 
+	// Return first element as UserSettings should always have 0 or 1 rows
+	if len(allConfigs) > 0 {
+		return &allConfigs[0], err
+	} else {
+		return nil, &NoClientSessionError{}
+	}
 }
 
+// CreateNewUserSettings creates or replaces existing user-settings row in db.
 func CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings := &UserSettings{}
 	statement, _ := config.DB.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
@@ -49,4 +55,10 @@ func CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings.Profile = data.Profile
 
 	return userSettings, err
+}
+
+type NoClientSessionError struct{}
+
+func (m *NoClientSessionError) Error() string {
+	return "No client session found in the database."
 }

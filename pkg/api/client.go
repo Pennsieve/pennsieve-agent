@@ -7,6 +7,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/config"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-go"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
 	"path/filepath"
@@ -16,47 +17,49 @@ import (
 func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 
 	// Get current user-settings. This is either 0, or 1 entry.
-	userSettings, _ := models.GetAllUserSettings()
+	var clientSession models.UserSettings
+	userSettings, err := clientSession.Get()
 
-	// If no entry is found in database, check default profile in config and setup DB
-	if len(userSettings) <= 0 {
-		fmt.Println("No record found in User Settings --> Checking Default Profile.")
+	if err != nil {
+		// If no entry is found in database, check default profile in config and setup DB
+		if errors.Is(err, &models.NoClientSessionError{}) {
+			fmt.Println("No record found in User Settings --> Checking Default Profile.")
 
-		selectedProfile := viper.GetString("global.default_profile")
-		fmt.Println("Selected Profile: ", selectedProfile)
+			selectedProfile := viper.GetString("global.default_profile")
+			fmt.Println("Selected Profile: ", selectedProfile)
 
-		if selectedProfile == "" {
-			return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
-				viper.ConfigFileUsed())
+			if selectedProfile == "" {
+				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
+					viper.ConfigFileUsed())
+			}
+
+			apiToken := viper.GetString(selectedProfile + ".api_token")
+			apiSecret := viper.GetString(selectedProfile + ".api_secret")
+
+			_, err := client.Authentication.Authenticate(apiToken, apiSecret)
+			if err != nil {
+				return nil, err
+			}
+
+			currentUser, err := SwitchUser(client, selectedProfile)
+			if err != nil {
+				fmt.Println("Error switching user.")
+				return nil, err
+			}
+
+			return currentUser, nil
+		} else {
+			log.Fatalln("Error Getting Client Session.")
 		}
-
-		apiToken := viper.GetString(selectedProfile + ".api_token")
-		apiSecret := viper.GetString(selectedProfile + ".api_secret")
-
-		_, err := client.Authentication.Authenticate(apiToken, apiSecret)
-		if err != nil {
-			return nil, err
-		}
-
-		currentUser, err := SwitchUser(client, selectedProfile)
-		if err != nil {
-			fmt.Println("Error switching user.")
-			return nil, err
-		}
-
-		return currentUser, nil
 
 	}
 
 	// If entries found in database, continue with active profile
-	// Return first entry. There should always be only 1 or 0 entries for the activeUser.
-	currentUser := userSettings[0]
-
-	currentUserInfo, err := models.GetUserInfo(currentUser.UserId, currentUser.Profile)
+	currentUserInfo, err := models.GetUserInfo(userSettings.UserId, userSettings.Profile)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("No userInfo found for user settings")
-			_, err := SwitchUser(client, currentUser.Profile)
+			_, err := SwitchUser(client, userSettings.Profile)
 			if err != nil {
 				fmt.Println("error switching user:", err)
 			}
@@ -69,7 +72,7 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 	}
 
 	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
-	customAPIHost := viper.GetString(currentUser.Profile + ".api_host")
+	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
 	if customAPIHost != "" {
 		fmt.Println("Using custom API-Host: ", customAPIHost)
 		client.BaseURL = customAPIHost
@@ -113,16 +116,17 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 		return nil, err
 	}
 
-	// Update the UserSettings DB entry
-	_, err = models.GetAllUserSettings()
-	if err != nil {
-		if err == sql.ErrNoRows {
-			fmt.Println("No user settings found --> creating new user settings")
-		} else {
-			log.Fatal(err)
-			return nil, err
-		}
-	}
+	//// Update the UserSettings DB entry
+	//var clientSession models.UserSettings
+	//_, err = clientSession.Get()
+	//if err != nil {
+	//	if errors.Is(err, &models.NoClientSessionError{}) {
+	//		fmt.Println("No user settings found --> creating new user settings")
+	//	} else {
+	//		log.Fatal(err)
+	//		return nil, err
+	//	}
+	//}
 
 	// Drop existing user settings
 	_, err = config.DB.Exec("DELETE FROM user_settings;")

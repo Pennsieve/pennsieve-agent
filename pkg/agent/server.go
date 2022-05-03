@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go"
@@ -73,11 +74,36 @@ func (s *server) UploadPath(ctx context.Context, request *pb.UploadRequest) (*pb
 func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
 
 	// 1. Get new Upload Session ID from Pennsieve Server
+	// --------------------------------------------------
 
 	//TODO replace with real call to server
 	uploadSessionID := uuid.New()
 
+	client := pennsieve.NewClient()
+	activeUser, _ := api.GetActiveUser(client)
+
+	var clientSession models.UserSettings
+	curClientSession, err := clientSession.Get()
+	if err != nil {
+		log.Fatalln("Unable to get Client Session")
+	}
+
+	newSession := models.UploadSessionParams{
+		SessionId:      uploadSessionID.String(),
+		UserId:         activeUser.Id,
+		OrganizationId: activeUser.OrganizationId,
+		DatasetId:      curClientSession.UseDatasetId,
+	}
+
+	var uploadSession models.UploadSession
+	err = uploadSession.Add(newSession)
+	if err != nil {
+		log.Fatalln("Unable to create Upload Session")
+	}
+
 	// 2. Walk over folder and populate DB with file-paths.
+	// --------------------------------------------------
+
 	batchSize := 10 // Update DB with 50 paths per batch
 	localPath := request.BasePath
 	walker := make(fileWalk, batchSize)
