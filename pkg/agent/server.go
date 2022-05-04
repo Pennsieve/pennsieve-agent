@@ -239,6 +239,14 @@ func StartAgent() error {
 }
 
 func SetupLogger() {
-	logFileLocation, _ := os.OpenFile("~/.pennsieve/agent.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
+
+	homedir, _ := os.UserHomeDir()
+	logFilePath := homedir + "/.pennsieve/agent.log"
+	_, err := os.Stat(logFilePath)
+
+	logFileLocation, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	log.SetOutput(logFileLocation)
 }
