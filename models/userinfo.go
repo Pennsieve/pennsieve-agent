@@ -126,8 +126,6 @@ func UpdateTokenForUser(user UserInfo, credentials *pennsieve.APISession) (*User
 		return nil, err
 	}
 
-	fmt.Println("Expiration in update", credentials.Expiration)
-
 	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken)
 	if err != nil {
 		fmt.Sprintln("Unable to update Sessiontoken in database")

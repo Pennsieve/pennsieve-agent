@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"log"
 )
@@ -55,6 +56,23 @@ func CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings.Profile = data.Profile
 
 	return userSettings, err
+}
+
+func (*UserSettings) UpdateActiveDataset(datasetId string) error {
+	statement, err := db.DB.Prepare(
+		"UPDATE user_settings SET use_dataset_id = ?")
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(datasetId)
+	if err != nil {
+		fmt.Sprintln("Unable to update ActiveDataset in database")
+		return err
+	}
+
+	return nil
+
 }
 
 type NoClientSessionError struct{}
