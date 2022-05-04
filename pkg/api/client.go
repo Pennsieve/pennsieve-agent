@@ -4,8 +4,8 @@ package api
 import (
 	"database/sql"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/config"
 	"github.com/pennsieve/pennsieve-agent/models"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -21,7 +21,7 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 	userSettings, err := clientSession.Get()
 
 	if err != nil {
-		// If no entry is found in database, check default profile in config and setup DB
+		// If no entry is found in database, check default profile in db and setup DB
 		if errors.Is(err, &models.NoClientSessionError{}) {
 			fmt.Println("No record found in User Settings --> Checking Default Profile.")
 
@@ -71,11 +71,29 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 		return nil, err
 	}
 
-	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
+	fmt.Println("UserInfo: ", currentUserInfo.TokenExpire)
+
+	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
 	if customAPIHost != "" {
 		fmt.Println("Using custom API-Host: ", customAPIHost)
 		client.BaseURL = customAPIHost
+	}
+
+	apiToken := viper.GetString(userSettings.Profile + ".api_token")
+	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
+
+	client.APISession = pennsieve.APISession{
+		Token:        currentUserInfo.SessionToken,
+		IdToken:      currentUserInfo.IdToken,
+		Expiration:   currentUserInfo.TokenExpire,
+		RefreshToken: currentUserInfo.RefreshToken,
+		IsRefreshed:  false,
+	}
+
+	client.APICredentials = pennsieve.APICredentials{
+		ApiKey:    apiToken,
+		ApiSecret: apiSecret,
 	}
 
 	return currentUserInfo, nil
@@ -95,7 +113,7 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 	apiSecret := viper.GetString(profile + ".api_secret")
 	environment := viper.GetString(profile + ".env")
 
-	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
+	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
 		fmt.Println("Using custom API-Host: ", customAPIHost)
@@ -129,7 +147,7 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 	//}
 
 	// Drop existing user settings
-	_, err = config.DB.Exec("DELETE FROM user_settings;")
+	_, err = db.DB.Exec("DELETE FROM user_settings;")
 	if err != nil {
 		return nil, err
 	}

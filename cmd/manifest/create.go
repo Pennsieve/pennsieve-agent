@@ -11,7 +11,7 @@ import (
 )
 
 var CreateCmd = &cobra.Command{
-	Use:   "Create [flags] [PATH] [...PATH]",
+	Use:   "create [flags] [PATH] [...PATH]",
 	Short: "Creates manifest for upload.",
 	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {

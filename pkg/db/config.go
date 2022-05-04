@@ -1,4 +1,4 @@
-package config
+package db
 
 import (
 	"database/sql"
@@ -15,5 +15,6 @@ func InitializeDB() (*sql.DB, error) {
 	home, err := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 	DB, err = sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
+
 	return DB, err
 }

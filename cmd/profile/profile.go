@@ -22,7 +22,7 @@ import (
 var ProfileCmd = &cobra.Command{
 	Use:   "profile",
 	Short: "Manage Pennsieve profiles",
-	Long: `Profiles are used to store user-settings. They are stored in the ~/.agent/config.ini file.
+	Long: `Profiles are used to store user-settings. They are stored in the ~/.agent/db.ini file.
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {

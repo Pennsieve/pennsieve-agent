@@ -18,7 +18,6 @@ package profile
 import (
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ var SwitchCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		selectedProfile := args[0]
-		client := pennsieve.NewClient()
+		client := api.PennsieveClient
 		userInfo, _ := api.SwitchUser(client, selectedProfile)
 		whoami.PrettyPrint(*userInfo, false)
 

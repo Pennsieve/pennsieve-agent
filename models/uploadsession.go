@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"log"
 	"time"
 )
@@ -25,7 +25,7 @@ type UploadSessionParams struct {
 
 // GetAll returns all rows in the Upload Record Table
 func (*UploadSession) GetAll() ([]UploadSession, error) {
-	rows, err := config.DB.Query("SELECT * FROM upload_sessions")
+	rows, err := db.DB.Query("SELECT * FROM upload_sessions")
 	var allSessions []UploadSession
 	if err == nil {
 		for rows.Next() {
@@ -54,7 +54,7 @@ func (*UploadSession) GetAll() ([]UploadSession, error) {
 func (*UploadSession) Add(s UploadSessionParams) error {
 	sqlInsert := "INSERT INTO upload_sessions(session_id, user_id, organization_id, dataset_id, " +
 		"status, created_at,updated_at) VALUES (?,?,?,?,?,?,?)"
-	stmt, err := config.DB.Prepare(sqlInsert)
+	stmt, err := db.DB.Prepare(sqlInsert)
 	if err != nil {
 		log.Fatalln("ERROR: ", err)
 	}

@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"log"
 )
 
@@ -19,7 +19,7 @@ type UserSettingsParams struct {
 
 // Get returns the UserSettings object or nil if no user-settings are defined.
 func (*UserSettings) Get() (*UserSettings, error) {
-	rows, err := config.DB.Query("SELECT * FROM user_settings")
+	rows, err := db.DB.Query("SELECT * FROM user_settings")
 	if err != nil {
 		log.Println("Error getting all rows from User_Settings table")
 		return nil, err
@@ -44,7 +44,7 @@ func (*UserSettings) Get() (*UserSettings, error) {
 // CreateNewUserSettings creates or replaces existing user-settings row in db.
 func CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings := &UserSettings{}
-	statement, _ := config.DB.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
+	statement, _ := db.DB.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
 	_, err := statement.Exec(data.UserId, data.Profile)
 	if err != nil {
 		log.Println("Unable to create user_record", err.Error())

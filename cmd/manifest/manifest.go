@@ -13,7 +13,7 @@ var ManifestCmd = &cobra.Command{
 	Short: "Lists upload sessions.",
 	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Manifest Create called")
+		fmt.Println("Manifest called")
 
 		var uploadSession models.UploadSession
 		sessions, _ := uploadSession.GetAll()
@@ -22,7 +22,6 @@ var ManifestCmd = &cobra.Command{
 		t.SetOutputMirror(os.Stdout)
 		t.AppendHeader(table.Row{"Session ID", "User ID", "Organization ID", "Dataset ID", "Status"})
 		//t.SetAllowedRowLength(200)
-		t.SetAutoIndex(true)
 		for _, s := range sessions {
 			t.AppendRow([]interface{}{s.SessionId, s.UserId, s.OrganizationId, s.DatasetId, s.Status})
 		}

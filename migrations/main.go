@@ -2,16 +2,16 @@ package migrations
 
 import (
 	"database/sql"
-	"github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"log"
 )
 
 func Run() {
 	// Iterate over migration steps
-	migrate(config.DB, UserInfo)
-	migrate(config.DB, UserSettings)
-	migrate(config.DB, UploadSessions)
-	migrate(config.DB, UploadRecords)
+	migrate(db.DB, UserInfo)
+	migrate(db.DB, UserSettings)
+	migrate(db.DB, UploadSessions)
+	migrate(db.DB, UploadRecords)
 	// Other migrations can be added here.
 }
 func migrate(dbDriver *sql.DB, query string) {

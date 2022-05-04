@@ -2,11 +2,25 @@ package models
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go"
 	"log"
 	"time"
 )
+
+/*
+1. Every call should get active UserInfo
+2. This UserInfo has session-token and expiry
+3. If expired, then we should re-authenticate
+4. when re-authenticated, we should update the UserInfo table with new session.
+
+1. Each request in Go-Library checks expiry
+2. When expired, then reauthenticate and set "updated" flag in APISession struct
+3. CLI should check post-run if we need to update info table
+
+
+
+*/
 
 type UserInfo struct {
 	InnerId          int       `json:"inner_id"`
@@ -41,7 +55,7 @@ func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
 	user := &UserInfo{}
 
 	var updatedAt = time.Now().UTC()
-	statement, _ := config.DB.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
+	statement, _ := db.DB.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
 		"token_expire, id_token, environment, organization_id, organization_name, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.RefreshToken, data.Profile,
 		data.tokenExpire, data.IdToken, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
@@ -53,6 +67,7 @@ func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
 		user.SessionToken = data.SessionToken
 		user.IdToken = data.IdToken
 		user.Profile = data.Profile
+		user.TokenExpire = data.tokenExpire
 		user.Environment = data.Environment
 		user.OrganizationId = data.OrganizationId
 		user.OrganizationName = data.OrganizationName
@@ -65,12 +80,13 @@ func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
 
 func GetUserInfo(id string, profile string) (*UserInfo, error) {
 	user := &UserInfo{}
-	err := config.DB.QueryRow(
+	err := db.DB.QueryRow(
 		"SELECT "+
 			"inner_id, "+
 			"id, "+
 			"name, "+
 			"session_token, "+
+			"token_expire,"+
 			"id_token, "+
 			"profile, "+
 			"environment, "+
@@ -78,13 +94,13 @@ func GetUserInfo(id string, profile string) (*UserInfo, error) {
 			"organization_name, "+
 			"updated_at "+
 			"FROM user_record WHERE id=? AND profile=?", id, profile).Scan(
-		&user.InnerId, &user.Id, &user.Name, &user.SessionToken, &user.IdToken, &user.Profile, &user.Environment,
+		&user.InnerId, &user.Id, &user.Name, &user.SessionToken, &user.TokenExpire, &user.IdToken, &user.Profile, &user.Environment,
 		&user.OrganizationId, &user.OrganizationName, &user.UpdatedAt)
 	return user, err
 }
 
 func (user *UserInfo) GetAll() ([]UserInfo, error) {
-	rows, err := config.DB.Query("SELECT * FROM user_record")
+	rows, err := db.DB.Query("SELECT * FROM user_record")
 	var allUsers []UserInfo
 	if err == nil {
 		for rows.Next() {
@@ -101,29 +117,27 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 	return allUsers, err
 }
 
-func UpdateTokenForUser(user UserInfo, credentials pennsieve.Credentials) (*UserInfo, error) {
+func UpdateTokenForUser(user UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
 
-	if user.SessionToken != credentials.Token {
-		fmt.Println("Session token updated")
-
-		statement, err := config.DB.Prepare(
-			"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ?")
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-
-		_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken)
-		if err != nil {
-			fmt.Sprintln("Unable to update Sessiontoken in database")
-			return nil, err
-		}
-
-		user.SessionToken = credentials.Token
-		user.RefreshToken = credentials.RefreshToken
-		user.TokenExpire = credentials.Expiration
-		user.IdToken = credentials.IdToken
+	statement, err := db.DB.Prepare(
+		"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ?")
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
+
+	fmt.Println("Expiration in update", credentials.Expiration)
+
+	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken)
+	if err != nil {
+		fmt.Sprintln("Unable to update Sessiontoken in database")
+		return nil, err
+	}
+
+	user.SessionToken = credentials.Token
+	user.RefreshToken = credentials.RefreshToken
+	user.TokenExpire = credentials.Expiration
+	user.IdToken = credentials.IdToken
 
 	return &user, nil
 }

@@ -17,8 +17,8 @@ package config
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/config"
 	"github.com/pennsieve/pennsieve-agent/migrations"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/spf13/cobra"
 	"log"
 )
@@ -29,7 +29,7 @@ var InitCmd = &cobra.Command{
 	Long:  `Initializing the agent will create a local database that is used by the agent.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("init called")
-		_, err := config.InitializeDB()
+		_, err := db.InitializeDB()
 		if err != nil {
 			log.Println("Driver creation failed", err.Error())
 		} else {

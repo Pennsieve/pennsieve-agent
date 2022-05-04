@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"log"
 	"strings"
 	"time"
@@ -25,7 +25,7 @@ type UploadRecordParams struct {
 
 // GetAll returns all rows in the Upload Record Table
 func (*UploadRecord) GetAll() ([]UploadRecord, error) {
-	rows, err := config.DB.Query("SELECT * FROM upload_record")
+	rows, err := db.DB.Query("SELECT * FROM upload_record")
 	var allRecords []UploadRecord
 	if err == nil {
 		for rows.Next() {
@@ -68,7 +68,7 @@ func (*UploadRecord) Add(records []UploadRecordParams) error {
 	sqlInsert = sqlInsert + strings.Join(inserts, ",")
 
 	//prepare the statement
-	stmt, err := config.DB.Prepare(sqlInsert)
+	stmt, err := db.DB.Prepare(sqlInsert)
 	if err != nil {
 		log.Fatalln("ERROR: ", err)
 	}

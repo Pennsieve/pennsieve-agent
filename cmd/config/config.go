@@ -1,4 +1,4 @@
-// Package config /*
+// Package db /*
 package config
 
 import (
@@ -7,11 +7,11 @@ import (
 )
 
 var ConfigCmd = &cobra.Command{
-	Use:   "config",
+	Use:   "db",
 	Short: "Methods for configuring the Pennsieve Agent",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("config called")
+		fmt.Println("db called")
 
 		//TODO run profile list here
 

@@ -19,11 +19,15 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/agent"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
+	"github.com/pennsieve/pennsieve-agent/cmd/dataset"
 	"github.com/pennsieve/pennsieve-agent/cmd/manifest"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
-	dbConfig "github.com/pennsieve/pennsieve-agent/config"
+	"github.com/pennsieve/pennsieve-agent/models"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	dbConfig "github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
@@ -37,23 +41,25 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "pennsieve-agent",
 	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Long:  ``,
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
 
-	// TODO: Bring back to prevent reauth on every CLI invokation
-	//PersistentPostRun: func(cmd *cobra.Command, args []string) {
-	//
-	//	// if Pennsieve Client set --> check if token is updated
-	//	client := pennsieve.NewClient()
-	//	fmt.Println("Client specified --> Check API Token")
-	//	user, _ := api.GetActiveUser(client)
-	//	models.UpdateTokenForUser(*user, client.Credentials)
-	//
-	//},
+		/*
+			if Pennsieve Client APISession is set --> check if token is updated
+			Pennsieve credentials are set when the command uses the Pennsieve REST API.
+			If this is the case, we should check if the Pennsieve Go Library re-authenticated
+			due to an expired token and update the UserInfo object in the local database to
+			cache the updated session-token so next calls do not require re-authentication.
+		*/
+
+		creds := api.PennsieveClient.APISession
+		if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
+			fmt.Println("Client credentials updated --> Update session token in UserInfo")
+			models.UpdateTokenForUser(*api.ActiveUser, &api.PennsieveClient.APISession)
+		}
+
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -67,9 +73,11 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	// Initialize SQLITE database
 	_, err := dbConfig.InitializeDB()
 	if err != nil {
-		log.Println("Driver creation failed", err.Error())
+		log.Panicln("Driver creation failed:", err)
 	}
 
 	rootCmd.AddCommand(whoami.WhoamiCmd)
@@ -78,26 +86,30 @@ func init() {
 	rootCmd.AddCommand(upload.UploadCmd)
 	rootCmd.AddCommand(agent.AgentCmd)
 	rootCmd.AddCommand(manifest.ManifestCmd)
+	rootCmd.AddCommand(dataset.DatasetCmd)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
-		"config file (default is $HOME/.pennsieve/config.ini)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "db", "",
+		"db file (default is $HOME/.pennsieve/db.ini)")
 
 	rootCmd.Flags().BoolP("toggle", "t", false,
 		"Help message for toggle")
 }
 
-// initConfig reads in config file and ENV variables if set.
+// initConfig reads in db file and ENV variables if set.
 func initConfig() {
 
+	// initialize client after initializing Viper as it needs viper to get api key/secret
+	defer api.InitializeAPI()
+
 	if cfgFile != "" {
-		// Use config file from the flag.
+		// Use db file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".pennsieve-agent" (without extension).
+		// Search db in home directory with name ".pennsieve-agent" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("ini")
 		viper.AddConfigPath(filepath.Join(home, ".pennsieve"))
@@ -109,9 +121,9 @@ func initConfig() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
+	// If a db file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Error reading config file:", viper.ConfigFileUsed())
+		fmt.Println("Error reading db file:", viper.ConfigFileUsed())
 	}
 
 }
