@@ -1,7 +1,6 @@
 package dataset
 
 import (
-	"fmt"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/spf13/cobra"
@@ -16,7 +15,7 @@ var UseCmd = &cobra.Command{
 	
 	ARGS:
     <dataset>    
-            A dataset's ID or name. If omitted, the current dataset will be printed.
+            A dataset's ID. If omitted, the current dataset will be printed.
 	`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -35,10 +34,7 @@ var UseCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalln("Unable to update UserSettings:", err)
 		}
-		fmt.Println(response)
+
+		PrettyPrint(response, false)
 	},
-}
-
-func updateUserSettings(datasetId string) {
-
 }

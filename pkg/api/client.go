@@ -71,12 +71,10 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 		return nil, err
 	}
 
-	fmt.Println("UserInfo: ", currentUserInfo.TokenExpire)
-
 	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
 	if customAPIHost != "" {
-		fmt.Println("Using custom API-Host: ", customAPIHost)
+		//fmt.Println("Using custom API-Host: ", customAPIHost)
 		client.BaseURL = customAPIHost
 	}
 
@@ -116,7 +114,7 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
-		fmt.Println("Using custom API-Host: ", customAPIHost)
+		//fmt.Println("Using custom API-Host: ", customAPIHost)
 		client.BaseURL = customAPIHost
 	}
 

@@ -1,9 +1,13 @@
 package dataset
 
 import (
-	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pennsieve/pennsieve-agent/models"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
+	"log"
+	"os"
 )
 
 // whoamiCmd represents the whoami command
@@ -12,10 +16,18 @@ var DatasetCmd = &cobra.Command{
 	Short: "Set your current working dataset.",
 	Long:  `Set your current working dataset.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		showFull, _ := cmd.Flags().GetBool("full")
+
 		var userSettings models.UserSettings
 		s, _ := userSettings.Get()
 
-		fmt.Println("Currently active dataset:", s.UseDatasetId)
+		client := api.PennsieveClient
+		response, err := client.Dataset.Get(nil, s.UseDatasetId)
+		if err != nil {
+			log.Fatalln("Unknown dataset: ", s.UseDatasetId)
+		}
+		
+		PrettyPrint(response, showFull)
 	},
 }
 
@@ -23,4 +35,25 @@ func init() {
 	DatasetCmd.AddCommand(UseCmd)
 	DatasetCmd.AddCommand(ListCmd)
 
+	DatasetCmd.Flags().BoolP("full", "f",
+		false, "Show expanded information")
+
+}
+
+func PrettyPrint(ds *pennsieve.GetDatasetResponse, showFull bool) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetTitle("Active dataset")
+	t.AppendRows([]table.Row{
+		{"NAME", ds.Content.Name},
+		{"ID", ds.Content.ID},
+		{"ORGANIZATION", ds.Organization},
+	})
+	if showFull {
+		t.AppendRows([]table.Row{
+			{"INT ID", ds.Content.IntID},
+			{"DESCRIPTION", ds.Content.Description},
+		})
+	}
+	t.Render()
 }
