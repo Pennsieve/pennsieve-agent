@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 var CreateCmd = &cobra.Command{
@@ -15,8 +16,6 @@ var CreateCmd = &cobra.Command{
 	Short: "Creates manifest for upload.",
 	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Manifest Create called")
-
 		req := pb.CreateManifestRequest{
 			BasePath:  args[0],
 			Recursive: true,
@@ -33,8 +32,12 @@ var CreateCmd = &cobra.Command{
 		client := pb.NewAgentClient(conn)
 		manifestResponse, err := client.CreateUploadManifest(context.Background(), &req)
 		if err != nil {
-			fmt.Println("Error creating manifest: ", err)
+			st := status.Convert(err)
+			fmt.Println(st.Message())
+
+			return
 		}
+
 		fmt.Println(manifestResponse)
 
 	},

@@ -125,5 +125,4 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Println("Error reading db file:", viper.ConfigFileUsed())
 	}
-
 }

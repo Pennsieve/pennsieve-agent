@@ -10,6 +10,8 @@ import (
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"log"
 	"net"
 	"os"
@@ -85,7 +87,22 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 	var clientSession models.UserSettings
 	curClientSession, err := clientSession.Get()
 	if err != nil {
-		log.Fatalln("Unable to get Client Session")
+		err := status.Error(codes.NotFound,
+			"Unable to get Client Session\n "+
+				"\t Please use: pennsieve-agent config init to initialize local database.")
+
+		log.Println(err)
+		return nil, err
+	}
+
+	// Check that there is an active dataset
+	if curClientSession.UploadSessionId == "" {
+		err := status.Error(codes.NotFound,
+			"No active dataset was specified.\n "+
+				"\t Please use: pennsieve-agent dataset use <dataset_id> to specify active dataset.")
+
+		log.Println(err)
+		return nil, err
 	}
 
 	newSession := models.UploadSessionParams{
@@ -98,7 +115,12 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 	var uploadSession models.UploadSession
 	err = uploadSession.Add(newSession)
 	if err != nil {
-		log.Fatalln("Unable to create Upload Session")
+		err := status.Error(codes.NotFound,
+			"Unable to create Upload Session.\n "+
+				"\t Please use: pennsieve-agent config init to initialize local database.")
+
+		log.Println(err)
+		return nil, err
 	}
 
 	// 2. Walk over folder and populate DB with file-paths.

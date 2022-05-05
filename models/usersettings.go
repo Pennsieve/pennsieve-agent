@@ -22,7 +22,8 @@ type UserSettingsParams struct {
 func (*UserSettings) Get() (*UserSettings, error) {
 	rows, err := db.DB.Query("SELECT * FROM user_settings")
 	if err != nil {
-		log.Println("Error getting all rows from User_Settings table")
+		fmt.Println("Error connecting to sqlite:", err, "\n\nRun: \n"+
+			"$ pennsieve-agent config init \n\nto initialize the local database. ")
 		return nil, err
 	}
 

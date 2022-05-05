@@ -16,7 +16,6 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/spf13/cobra"
@@ -28,7 +27,6 @@ var InitCmd = &cobra.Command{
 	Short: "Initialize Agent",
 	Long:  `Initializing the agent will create a local database that is used by the agent.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
 		_, err := db.InitializeDB()
 		if err != nil {
 			log.Println("Driver creation failed", err.Error())
@@ -40,15 +38,4 @@ var InitCmd = &cobra.Command{
 }
 
 func init() {
-	//cmd.rootCmd.AddCommand(whoamiCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// whoamiCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// whoamiCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

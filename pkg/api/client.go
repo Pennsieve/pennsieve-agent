@@ -49,7 +49,7 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 
 			return currentUser, nil
 		} else {
-			log.Fatalln("Error Getting Client Session.")
+			return nil, err
 		}
 
 	}
@@ -118,8 +118,6 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 		client.BaseURL = customAPIHost
 	}
 
-	fmt.Println("CLIENT:", client.BaseURL)
-
 	credentials, err := client.Authentication.Authenticate(apiToken, apiSecret)
 	if err != nil {
 		fmt.Println("Problem with authentication")
@@ -131,18 +129,6 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 		fmt.Println("Problem with getting user")
 		return nil, err
 	}
-
-	//// Update the UserSettings DB entry
-	//var clientSession models.UserSettings
-	//_, err = clientSession.Get()
-	//if err != nil {
-	//	if errors.Is(err, &models.NoClientSessionError{}) {
-	//		fmt.Println("No user settings found --> creating new user settings")
-	//	} else {
-	//		log.Fatal(err)
-	//		return nil, err
-	//	}
-	//}
 
 	// Drop existing user settings
 	_, err = db.DB.Exec("DELETE FROM user_settings;")

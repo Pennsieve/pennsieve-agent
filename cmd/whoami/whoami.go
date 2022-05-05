@@ -42,7 +42,7 @@ func init() {
 		false, "Show expanded information")
 }
 
-// prettyPrint renders a table with current userinfo to terminal
+// PrettyPrint renders a table with current userinfo to terminal
 func PrettyPrint(info models.UserInfo, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)

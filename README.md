@@ -30,7 +30,9 @@ Second iteration of the Pennsieve Agent
 This will trigger Github Actions to create a new release with the same name.
 
 
-## Building the Protobuf 
+## Building the GRPC Protobuf 
+The gRPC server is defined in the ```protos/agent.proto``` file. Use the following command to generate the go structs, GRPC client and server interfaces: 
+
 ``protoc --go_out=. --go_opt=paths=source_relative \
 --go-grpc_out=. --go-grpc_opt=paths=source_relative \
 protos/agent.proto

@@ -3,7 +3,6 @@ package api
 import (
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-go"
-	"log"
 )
 
 var PennsieveClient *pennsieve.Client
@@ -15,10 +14,6 @@ func InitializeAPI() (*models.UserInfo, error) {
 
 	var err error
 	ActiveUser, err = GetActiveUser(PennsieveClient)
-
-	if err != nil {
-		log.Panicln("Unable to initialize User: ", err)
-	}
 
 	return ActiveUser, err
 }

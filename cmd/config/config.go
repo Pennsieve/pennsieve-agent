@@ -2,16 +2,14 @@
 package config
 
 import (
-	"fmt"
 	"github.com/spf13/cobra"
 )
 
 var ConfigCmd = &cobra.Command{
-	Use:   "db",
+	Use:   "config",
 	Short: "Methods for configuring the Pennsieve Agent",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("db called")
 
 		//TODO run profile list here
 
