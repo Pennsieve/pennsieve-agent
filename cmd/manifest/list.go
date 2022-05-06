@@ -1,10 +1,15 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/models"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"os"
 )
 
@@ -15,16 +20,38 @@ var ListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Manifest List called")
 
-		var uploadRecord models.UploadRecord
-		records, _ := uploadRecord.GetAll()
+		//var uploadRecord models.UploadRecord
+		//records, _ := uploadRecord.GetAll()
+
+		req := pb.ListFilesRequest{
+			ManifestId: args[0],
+			Offset:     0,
+			Limit:      100,
+		}
+
+		port := viper.GetString("agent.port")
+		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			fmt.Println("Error connecting to GRPC Server: ", err)
+			return
+		}
+		defer conn.Close()
+
+		client := pb.NewAgentClient(conn)
+		listFilesResponse, err := client.ListFilesForManifest(context.Background(), &req)
+		if err != nil {
+			st := status.Convert(err)
+			fmt.Println(st.Message())
+			return
+		}
 
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"Session ID", "Source Path", "Target Path"})
+		t.AppendHeader(table.Row{"Session ID", "Source Path", "Target Path", "S3 Key", "Status"})
 		//t.SetAllowedRowLength(200)
 		t.SetAutoIndex(true)
-		for _, path := range records {
-			t.AppendRow([]interface{}{path.SessionID, path.SourcePath, path.TargetPath})
+		for _, path := range listFilesResponse.File {
+			t.AppendRow([]interface{}{path.SessionId, path.SourcePath, path.TargetPath, path.S3Key, path.Status})
 		}
 
 		t.Render()

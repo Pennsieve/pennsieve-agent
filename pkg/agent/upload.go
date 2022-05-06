@@ -2,18 +2,22 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 )
 
 var (
@@ -148,6 +152,49 @@ func (s *server) uploadToAWS(client pennsieve.Client, localPath string) error {
 	return nil
 }
 
+// UploadPath recursively uploads a folder to the Pennsieve Platform.
+func (s *server) UploadPath(ctx context.Context, request *pb.UploadRequest) (*pb.UploadResponse, error) {
+
+	// On runtime panic, log the stacktrace but keep server alive
+	defer func() {
+		if x := recover(); x != nil {
+			// recovering from a panic; x contains whatever was passed to panic()
+			log.Printf("Run time panic: %v", x)
+			log.Printf("Stacktrace: \n %s", string(debug.Stack()))
+		}
+	}()
+
+	client := api.PennsieveClient
+	activeUser, err := api.GetActiveUser()
+	if err != nil {
+		fmt.Println(err)
+
+	}
+
+	apiToken := viper.GetString(activeUser.Profile + ".api_token")
+	apiSecret := viper.GetString(activeUser.Profile + ".api_secret")
+	client.Authentication.Authenticate(apiToken, apiSecret)
+
+	if err != nil {
+		fmt.Println("ERROR")
+	}
+
+	client.Authentication.GetAWSCredsForUser()
+
+	err = s.uploadToAWS(*client, request.BasePath)
+
+	log.Println("Returned from uploader")
+	response := pb.UploadResponse{Status: "Upload completed."}
+	return &response, nil
+}
+
+// CancelUpload cancels an ongoing upload.
+func (s *server) CancelUpload(ctx context.Context, request *pb.CancelRequest) (*pb.CancelResponse, error) {
+	s.cancelFnc()
+	return &pb.CancelResponse{
+		Status: "Success"}, nil
+}
+
 type CustomReader struct {
 	fp      *os.File
 	size    int64
@@ -174,47 +221,6 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 
 func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 	return r.fp.Seek(offset, whence)
-}
-
-// messageSubscribers sends a string message to all grpc-update subscribers
-func messageSubscribers(s *server, message string) {
-	// A list of clients to unsubscribe in case of error
-	var unsubscribe []int32
-
-	// Iterate over all subscribers and send data to each client
-	s.subscribers.Range(func(k, v interface{}) bool {
-		id, ok := k.(int32)
-		if !ok {
-			log.Printf("Failed to cast subscriber key: %T", k)
-			return false
-		}
-		sub, ok := v.(sub)
-		if !ok {
-			log.Printf("Failed to cast subscriber value: %T", v)
-			return false
-		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubsrcribeResponse{
-			Type:        0,
-			MessageData: &pb.SubsrcribeResponse_Data{Data: message},
-		}); err != nil {
-			log.Printf("Failed to send data to client: %v", err)
-			select {
-			case sub.finished <- true:
-				log.Printf("Unsubscribed client: %d", id)
-			default:
-				// Default case is to avoid blocking in case client has already unsubscribed
-			}
-			// In case of error the client would re-subscribe so close the subscriber stream
-			unsubscribe = append(unsubscribe, id)
-		}
-		return true
-	})
-
-	// Unsubscribe erroneous client streams
-	for _, id := range unsubscribe {
-		s.subscribers.Delete(id)
-	}
 }
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.

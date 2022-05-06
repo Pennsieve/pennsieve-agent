@@ -11,14 +11,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var CreateCmd = &cobra.Command{
-	Use:   "create [flags] [PATH] [...PATH]",
-	Short: "Creates manifest for upload.",
-	Long:  `Creates manifest for upload.`,
+var DeleteCmd = &cobra.Command{
+	Use:   "delete <manifest_id>",
+	Short: "Deletes existing manifest.",
+	Long:  `Deletes existing manifest.`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		req := pb.CreateManifestRequest{
-			BasePath:  args[0],
-			Recursive: true,
+		req := pb.DeleteManifestRequest{
+			ManifestId: args[0],
 		}
 
 		port := viper.GetString("agent.port")
@@ -31,7 +31,7 @@ var CreateCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.CreateUploadManifest(context.Background(), &req)
+		manifestResponse, err := client.DeleteUploadManifest(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())

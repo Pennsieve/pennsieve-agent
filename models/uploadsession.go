@@ -7,20 +7,26 @@ import (
 )
 
 type UploadSession struct {
-	SessionId      string    `json:"session_id"`
-	UserId         string    `json:"user_id"`
-	OrganizationId string    `json:"organization_id"`
-	DatasetId      string    `json:"dataset_id"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	SessionId        string    `json:"session_id"`
+	UserId           string    `json:"user_id"`
+	UserName         string    `json:"user_name"`
+	OrganizationId   string    `json:"organization_id"`
+	OrganizationName string    `json:"organization_name"`
+	DatasetId        string    `json:"dataset_id"`
+	DatasetName      string    `json:"dataset_name"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type UploadSessionParams struct {
-	SessionId      string `json:"session_id"`
-	UserId         string `json:"user_id"`
-	OrganizationId string `json:"organization_id"`
-	DatasetId      string `json:"dataset_id"`
+	SessionId        string `json:"session_id"`
+	UserId           string `json:"user_id"`
+	UserName         string `json:"user_name"`
+	OrganizationId   string `json:"organization_id"`
+	OrganizationName string `json:"organization_name"`
+	DatasetId        string `json:"dataset_id"`
+	DatasetName      string `json:"dataset_name"`
 }
 
 // GetAll returns all rows in the Upload Record Table
@@ -33,8 +39,11 @@ func (*UploadSession) GetAll() ([]UploadSession, error) {
 			err = rows.Scan(
 				&currentRecord.SessionId,
 				&currentRecord.UserId,
+				&currentRecord.UserName,
 				&currentRecord.OrganizationId,
+				&currentRecord.OrganizationName,
 				&currentRecord.DatasetId,
+				&currentRecord.DatasetName,
 				&currentRecord.Status,
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
@@ -52,8 +61,9 @@ func (*UploadSession) GetAll() ([]UploadSession, error) {
 
 // Add adds multiple rows to the UploadRecords database.
 func (*UploadSession) Add(s UploadSessionParams) error {
-	sqlInsert := "INSERT INTO upload_sessions(session_id, user_id, organization_id, dataset_id, " +
-		"status, created_at,updated_at) VALUES (?,?,?,?,?,?,?)"
+	sqlInsert := "INSERT INTO upload_sessions(session_id, user_id, user_name, organization_id,  " +
+		"organization_name, dataset_id, dataset_name, " +
+		"status, created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
 	stmt, err := db.DB.Prepare(sqlInsert)
 	if err != nil {
 		log.Fatalln("ERROR: ", err)
@@ -62,11 +72,29 @@ func (*UploadSession) Add(s UploadSessionParams) error {
 
 	// format all vals at once
 	currentTime := time.Now()
-	_, err = stmt.Exec(s.SessionId, s.UserId, s.OrganizationId, s.DatasetId, "INITIALIZED", currentTime, currentTime)
+	_, err = stmt.Exec(s.SessionId, s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
+		s.DatasetName, "INITIALIZED", currentTime, currentTime)
 	if err != nil {
 		log.Println(err)
 	}
 
-	return nil
+	return err
 
+}
+
+func (*UploadSession) Remove(manifestId string) error {
+	sqlDelete := "DELETE FROM upload_sessions WHERE session_id = ?"
+	stmt, err := db.DB.Prepare(sqlDelete)
+	if err != nil {
+		log.Fatalln("ERROR: ", err)
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(manifestId)
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	return err
 }

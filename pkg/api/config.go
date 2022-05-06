@@ -13,7 +13,7 @@ func InitializeAPI() (*models.UserInfo, error) {
 	PennsieveClient = pennsieve.NewClient()
 
 	var err error
-	ActiveUser, err = GetActiveUser(PennsieveClient)
+	ActiveUser, err = GetActiveUser()
 
 	return ActiveUser, err
 }

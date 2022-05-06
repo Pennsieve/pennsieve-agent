@@ -19,7 +19,6 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-go"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -30,8 +29,7 @@ var WhoamiCmd = &cobra.Command{
 	Short: "Displays information about the logged in user.",
 	Long:  `Displays information about the logged in user.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := pennsieve.NewClient()
-		activeUser, _ := api.GetActiveUser(client)
+		activeUser, _ := api.GetActiveUser()
 		showFull, _ := cmd.Flags().GetBool("full")
 		PrettyPrint(*activeUser, showFull)
 	},

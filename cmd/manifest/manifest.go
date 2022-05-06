@@ -1,38 +1,79 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/models"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"os"
+	"unicode"
 )
 
 var ManifestCmd = &cobra.Command{
-	Use:   "manifest [flags] [PATH] [...PATH]",
+	Use:   "manifest",
 	Short: "Lists upload sessions.",
-	Long:  `Creates manifest for upload.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Manifest called")
+	Long: `Renders a list of upload manifests and their current status. 
 
-		var uploadSession models.UploadSession
-		sessions, _ := uploadSession.GetAll()
+This list includes only upload manifests that are initiated from the current machine.`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+		req := pb.ManifestStatusRequest{}
+
+		port := viper.GetString("agent.port")
+		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			fmt.Println("Error connecting to GRPC Server: ", err)
+			return
+		}
+		defer conn.Close()
+
+		client := pb.NewAgentClient(conn)
+		manifestResponse, err := client.ManifestStatus(context.Background(), &req)
+		if err != nil {
+			st := status.Convert(err)
+			fmt.Println(st.Message())
+			return
+		}
 
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"Session ID", "User ID", "Organization ID", "Dataset ID", "Status"})
-		//t.SetAllowedRowLength(200)
-		for _, s := range sessions {
-			t.AppendRow([]interface{}{s.SessionId, s.UserId, s.OrganizationId, s.DatasetId, s.Status})
+		t.AppendHeader(table.Row{"Upload Manifest", "User Name", "Organization Name", "Dataset ID", "Status"})
+		for _, s := range manifestResponse.Manifests {
+			const maxLength = 100
+			dsName := trimName(s.DatasetName, maxLength)
+			t.AppendRow([]interface{}{s.Id, s.UserName, s.OrganizationName, dsName, s.Status})
 		}
 
 		t.Render()
-
 	},
 }
 
 func init() {
 	ManifestCmd.AddCommand(ListCmd)
 	ManifestCmd.AddCommand(CreateCmd)
+	ManifestCmd.AddCommand(DeleteCmd)
 
+}
+
+func trimName(str string, max int) string {
+	lastSpaceIx := -1
+	len := 0
+	for i, r := range str {
+		if unicode.IsSpace(r) {
+			lastSpaceIx = i
+		}
+		len++
+		if len >= max {
+			if lastSpaceIx != -1 {
+				return str[:lastSpaceIx] + "..."
+			}
+			return str[:max]
+		}
+	}
+	return str
 }

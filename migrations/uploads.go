@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS upload_record (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	source_path TEXT NOT NULL,
 	target_path TEXT,
+	s3_key TEXT NOT NULL,
 	session_id VARCHAR(255) NOT NULL,
 	status VARCHAR(255) NOT NULL,
 	created_at TIMESTAMP NOT NULL,
@@ -31,8 +32,11 @@ const UploadSessions = `
 CREATE TABLE IF NOT EXISTS upload_sessions (
 	session_id VARCHAR(255) PRIMARY KEY,
 	user_id VARCHAR(255) NOT NULL,
+	user_name VARCHAR(255) NOT NULL,
 	organization_id VARCHAR(255) NOT NULL,
+	organization_name VARCHAR(255) NOT NULL,
 	dataset_id VARCHAR(255) NOT NULL,
+	dataset_name VARCHAR(255) NOT NULL,
 	status VARCHAR(255) NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL

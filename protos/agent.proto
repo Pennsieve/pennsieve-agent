@@ -4,9 +4,12 @@ option go_package = "github.com/pennsieve/pennsieve-agent/protos";
 package protos;
 
 service Agent {
-	rpc CreateUploadManifest (CreateManifestRequest) returns (CreateManifestResponse) {}
-	rpc UploadPath (UploadRequest) returns (UploadResponse) {}
-	rpc CancelUpload (CancelRequest) returns (CancelResponse) {}
+	rpc CreateUploadManifest(CreateManifestRequest) returns (CreateManifestResponse) {}
+	rpc DeleteUploadManifest(DeleteManifestRequest) returns (DeleteManifestResponse) {}
+	rpc ManifestStatus(ManifestStatusRequest) returns (ManifestStatusResponse) {}
+	rpc ListFilesForManifest(ListFilesRequest) returns (ListFilesResponse) {}
+	rpc UploadPath(UploadRequest) returns (UploadResponse) {}
+	rpc CancelUpload(CancelRequest) returns (CancelResponse) {}
 	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
 	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
 }
@@ -55,4 +58,56 @@ message CreateManifestRequest {
 
 message CreateManifestResponse {
 	string status = 1;
+}
+
+message ManifestStatusRequest {
+}
+
+message ManifestStatusResponse {
+	message Manifest {
+		string id = 1;
+		string user_name = 2;
+		string user_id = 3;
+		string organization_name = 4;
+		string organization_id = 5;
+		string dataset_name = 6;
+		string dataset_id = 7;
+		string status = 8;
+	}
+	repeated Manifest manifests = 1;
+}
+
+message DeleteManifestRequest{
+	string manifest_id = 1;
+}
+
+message DeleteManifestResponse{
+	string status = 1;
+}
+
+message ListFilesRequest{
+	string manifest_id = 1;
+	int32 offset = 2;
+	int32 limit = 3;
+}
+
+message ListFilesResponse{
+	enum STATUS_TYPE{
+		INITIATED = 0;
+		SYNCED = 1;
+		UPLOADING = 3;
+		COMPLETED = 4;
+		CANCELED = 5;
+	}
+
+	message FileUpload {
+		int32 id = 1;
+		string session_id = 2;
+		string source_path = 3;
+		string target_path = 4;
+		string s3_key = 5;
+		STATUS_TYPE status = 6;
+	}
+
+	repeated FileUpload file = 1;
 }

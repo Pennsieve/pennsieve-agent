@@ -4,6 +4,7 @@ package api
 import (
 	"database/sql"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go"
@@ -14,7 +15,7 @@ import (
 )
 
 // GetActiveUser returns userInfo for active user and updates local SQlite DB
-func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
+func GetActiveUser() (*models.UserInfo, error) {
 
 	// Get current user-settings. This is either 0, or 1 entry.
 	var clientSession models.UserSettings
@@ -36,12 +37,12 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 			apiToken := viper.GetString(selectedProfile + ".api_token")
 			apiSecret := viper.GetString(selectedProfile + ".api_secret")
 
-			_, err := client.Authentication.Authenticate(apiToken, apiSecret)
+			_, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
 			if err != nil {
 				return nil, err
 			}
 
-			currentUser, err := SwitchUser(client, selectedProfile)
+			currentUser, err := SwitchUser(selectedProfile)
 			if err != nil {
 				fmt.Println("Error switching user.")
 				return nil, err
@@ -59,7 +60,7 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("No userInfo found for user settings")
-			_, err := SwitchUser(client, userSettings.Profile)
+			_, err := SwitchUser(userSettings.Profile)
 			if err != nil {
 				fmt.Println("error switching user:", err)
 			}
@@ -75,13 +76,13 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
 	if customAPIHost != "" {
 		//fmt.Println("Using custom API-Host: ", customAPIHost)
-		client.BaseURL = customAPIHost
+		PennsieveClient.BaseURL = customAPIHost
 	}
 
 	apiToken := viper.GetString(userSettings.Profile + ".api_token")
 	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
 
-	client.APISession = pennsieve.APISession{
+	PennsieveClient.APISession = pennsieve.APISession{
 		Token:        currentUserInfo.SessionToken,
 		IdToken:      currentUserInfo.IdToken,
 		Expiration:   currentUserInfo.TokenExpire,
@@ -89,7 +90,7 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 		IsRefreshed:  false,
 	}
 
-	client.APICredentials = pennsieve.APICredentials{
+	PennsieveClient.APICredentials = pennsieve.APICredentials{
 		ApiKey:    apiToken,
 		ApiSecret: apiSecret,
 	}
@@ -98,7 +99,7 @@ func GetActiveUser(client *pennsieve.Client) (*models.UserInfo, error) {
 }
 
 // SwitchUser switches between profiles and returns active userInfo.
-func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, error) {
+func SwitchUser(profile string) (*models.UserInfo, error) {
 	// Check if profile exist
 	isSet := viper.IsSet(profile + ".api_token")
 	if !isSet {
@@ -115,16 +116,16 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
 		//fmt.Println("Using custom API-Host: ", customAPIHost)
-		client.BaseURL = customAPIHost
+		PennsieveClient.BaseURL = customAPIHost
 	}
 
-	credentials, err := client.Authentication.Authenticate(apiToken, apiSecret)
+	credentials, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
 	if err != nil {
 		fmt.Println("Problem with authentication")
 		return nil, err
 	}
 
-	existingUser, err := client.User.GetUser(nil, nil)
+	existingUser, err := PennsieveClient.User.GetUser(nil, nil)
 	if err != nil {
 		fmt.Println("Problem with getting user")
 		return nil, err
@@ -153,7 +154,7 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 		if err == sql.ErrNoRows {
 			fmt.Println("No userInfo found --> Creating new userinfo")
 
-			org, err := client.Organization.Get(nil, client.OrganizationNodeId)
+			org, err := PennsieveClient.Organization.Get(nil, PennsieveClient.OrganizationNodeId)
 			if err != nil {
 				fmt.Println("Error getting organization")
 				return nil, err
@@ -166,7 +167,7 @@ func SwitchUser(client *pennsieve.Client, profile string) (*models.UserInfo, err
 				RefreshToken:     credentials.RefreshToken,
 				Profile:          profile,
 				Environment:      environment,
-				OrganizationId:   client.OrganizationNodeId,
+				OrganizationId:   PennsieveClient.OrganizationNodeId,
 				OrganizationName: org.Organization.Name,
 			}
 			newUserInfo, err = models.CreateNewUserInfo(params)
@@ -190,6 +191,7 @@ func AddUploadRecords(paths []string, basePath string, sessionId string) error {
 		newRecord := models.UploadRecordParams{
 			SourcePath: row,
 			TargetPath: filepath.Join(basePath, row),
+			S3Key:      uuid.New().String(),
 			SessionID:  sessionId,
 		}
 		records = append(records, newRecord)

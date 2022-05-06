@@ -29,8 +29,7 @@ var SwitchCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		selectedProfile := args[0]
-		client := api.PennsieveClient
-		userInfo, _ := api.SwitchUser(client, selectedProfile)
+		userInfo, _ := api.SwitchUser(selectedProfile)
 		whoami.PrettyPrint(*userInfo, false)
 
 	},
