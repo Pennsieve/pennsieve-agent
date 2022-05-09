@@ -12,9 +12,12 @@ import (
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io/fs"
 	"log"
 	"path/filepath"
 )
+
+type fileWalk chan string
 
 // API ENDPOINT IMPLEMENTATIONS
 // --------------------------------------------
@@ -184,6 +187,16 @@ func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListFiles
 
 // HELPER FUNCTIONS
 // ----------------------------------------------
+
+func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		f <- path
+	}
+	return nil
+}
 
 // addToManifest walks over provided path and adds records to DB
 func addToManifest(localBasePath string, targetBasePath string, manifestId string) (int, error) {

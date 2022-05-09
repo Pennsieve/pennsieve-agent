@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -15,19 +16,23 @@ import (
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pkg/errors"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
+	"time"
 )
 
-var (
-	bucket string
-	prefix string
-)
+type record struct {
+	sourcePath string
+	targetPath string
+	s3Key      string
+}
 
-type fileWalk chan string
+type recordWalk chan record
+
+var uploadWg sync.WaitGroup
 
 // API ENDPOINT IMPLEMENTATIONS
 // --------------------------------------------
@@ -80,27 +85,39 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	// TODO: Check if this is causing a leak when cancelling upload
 	// TODO: create second channel to update upload status
-	walker := make(fileWalk)
+
+	nrWorkers := 10
+
+	walker := make(recordWalk, nrWorkers)
+	results := make(chan int, nrWorkers)
+
 	go func() {
-		var (
-			sourcePath string
-			s3Key      string
-		)
+
+		// Close walker when all records for manifest were added to channel
+		defer func() {
+			close(walker)
+		}()
 
 		rows, err := dbconfig.DB.Query(
-			"SELECT source_path, s3_key FROM upload_record WHERE session_id=?", request.ManifestId)
+			"SELECT source_path, target_path, s3_key FROM upload_record WHERE session_id=?", request.ManifestId)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer rows.Close()
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				log.Println("Unable to close rows in Upload.")
+			}
+		}(rows)
 
+		// Iterate over rows for manifest and add row to channel to be picked up by worker.
 		for rows.Next() {
-			err := rows.Scan(&sourcePath, &s3Key)
+			r := record{}
+			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.s3Key)
 			if err != nil {
 				log.Fatal(err)
 			}
-			log.Println("Adding ", sourcePath)
-			walker <- sourcePath
+			walker <- r
 		}
 		err = rows.Err()
 		if err != nil {
@@ -109,7 +126,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	}()
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), // Hard coded credentials.
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(
 			credentials.StaticCredentialsProvider{
 				Value: aws.Credentials{
@@ -125,7 +142,6 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	// For each file found walking, upload it to Amazon S3
 	ctx, cancelFnc := context.WithCancel(context.Background())
-	//s.cancelFnc = cancelFnc
 	session := uploadSession{
 		manifestId: request.GetManifestId(),
 		cancelFnc:  cancelFnc,
@@ -134,84 +150,22 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	defer cancelFnc()
 
 	uploader := manager.NewUploader(s3.NewFromConfig(cfg))
-	for path := range walker {
 
-		rel, err := filepath.Rel("/Users/joostw/", path)
-		if err != nil {
-			log.Println("Unable to get relative path:", path, err)
-			continue
-		}
-		file, err := os.Open(path)
-		if err != nil {
-			log.Println("Failed opening file", path, err)
-			continue
-		}
-		defer file.Close()
-		fileInfo, err := file.Stat()
-
-		reader := &CustomReader{
-			fp:      file,
-			size:    fileInfo.Size(),
-			signMap: map[int64]struct{}{},
-			s:       s,
-		}
-
-		s3Key := aws.String(filepath.Join(prefix, rel))
-
-		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
-			Bucket: &s.uploadBucket,
-			Key:    s3Key,
-			Body:   reader,
-		})
-		if err != nil {
-			s.messageSubscribers(err.Error())
-			log.Println("Failed to upload", path, err)
-
-			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
-			// is done automatically by the manager.
-			if errors.Is(err, context.Canceled) {
-				var mu manager.MultiUploadFailure
-				if errors.As(err, &mu) {
-					// Process error and its associated uploadID
-
-					s3Session := s3.NewFromConfig(cfg)
-
-					input := &s3.AbortMultipartUploadInput{
-						Bucket:   aws.String(s.uploadBucket),
-						Key:      aws.String(*s3Key),
-						UploadId: aws.String(mu.UploadID()),
-					}
-
-					_, err := s3Session.AbortMultipartUpload(context.Background(), input)
-					if err != nil {
-						log.Println("Failed to abort multipart after cancelling: ", err)
-						response := pb.SimpleStatusResponse{Status: "Upload failed."}
-						return &response, err
-					}
-
-					inputListParts := &s3.ListPartsInput{
-						Bucket:   aws.String(s.uploadBucket),
-						Key:      aws.String(*s3Key),
-						UploadId: aws.String(mu.UploadID()),
-					}
-
-					listPartsOutput, err := s3Session.ListParts(context.Background(), inputListParts)
-					if err != nil {
-						log.Println("ListPartError:", err)
-					}
-					log.Println("ListPartResponse: ", listPartsOutput)
-
-				} else {
-					// Process error generically
-					log.Println("Error:", err.Error())
-				}
-				break
+	// Initiate the upload workers
+	for w := 1; w <= nrWorkers; w++ {
+		uploadWg.Add(1)
+		log.Println("starting worker:", w)
+		w := w
+		go func() {
+			err := s.uploadWorker(ctx, w, walker, results, request.ManifestId, uploader, cfg)
+			if err != nil {
+				log.Println("Error in Upload Worker:", err)
 			}
-
-			continue
-
-		}
+		}()
 	}
+
+	// Wait until all workers and record crawler
+	uploadWg.Wait()
 
 	log.Println("Returned from uploader")
 	response := pb.SimpleStatusResponse{Status: "Upload completed."}
@@ -221,12 +175,97 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 // HELPER FUNCTIONS
 // ----------------------------------------------
 
-func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		f <- path
+func (s *server) uploadWorker(ctx context.Context, id int,
+	jobs <-chan record, results chan<- int, manifestId string, uploader *manager.Uploader, cfg aws.Config) error {
+
+	defer func() {
+		log.Println("Closing Worker: ", id)
+		uploadWg.Done()
+	}()
+
+	for record := range jobs {
+
+		file, err := os.Open(record.sourcePath)
+		if err != nil {
+			log.Println("Failed opening file", record.sourcePath, err)
+			continue
+		}
+
+		fileInfo, err := file.Stat()
+
+		reader := &CustomReader{
+			fp:      file,
+			size:    fileInfo.Size(),
+			signMap: map[int64]struct{}{},
+			s:       s,
+		}
+
+		s3Key := aws.String(filepath.Join(manifestId, record.targetPath))
+
+		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
+			Bucket: &s.uploadBucket,
+			Key:    s3Key,
+			Body:   reader,
+		})
+		if err != nil {
+			//s.messageSubscribers(err.Error())
+
+			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
+			// is done automatically by the manager.
+			if errors.Is(err, context.Canceled) {
+				var mu manager.MultiUploadFailure
+				if errors.As(err, &mu) {
+					log.Println("Cancelling multi-part upload: ", record.sourcePath)
+
+					s3Session := s3.NewFromConfig(cfg)
+					input := &s3.AbortMultipartUploadInput{
+						Bucket:   aws.String(s.uploadBucket),
+						Key:      aws.String(*s3Key),
+						UploadId: aws.String(mu.UploadID()),
+					}
+
+					_, err := s3Session.AbortMultipartUpload(context.Background(), input)
+					if err != nil {
+						log.Println("Failed to abort multipart after cancelling: ", err)
+						return err
+					}
+
+					// Try to get the parts of the removed multipart upload. This should fail as all parts are removed
+					// but can theoretically succeed if we delete parts at the same time that they are being written.
+					// In that case, we try again to delete the multipart upload.
+					inputListParts := &s3.ListPartsInput{
+						Bucket:   aws.String(s.uploadBucket),
+						Key:      aws.String(*s3Key),
+						UploadId: aws.String(mu.UploadID()),
+					}
+
+					maxRetry := 10
+					iter := 0
+					for {
+						_, err = s3Session.ListParts(context.Background(), inputListParts)
+						iter += 1
+						if err != nil || iter == maxRetry {
+							break
+						} else {
+							time.Sleep(500 * time.Millisecond)
+						}
+					}
+				}
+				break
+			} else {
+				// Process error generically
+				log.Println("Failed to upload", record.sourcePath)
+				log.Println("Error:", err.Error())
+			}
+
+			continue
+
+		}
+
+		err = file.Close()
+		if err != nil {
+			log.Fatalln("Could not close file.")
+		}
 	}
 	return nil
 }

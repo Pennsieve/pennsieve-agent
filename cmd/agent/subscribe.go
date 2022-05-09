@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/vbauerster/mpb/v5"
@@ -115,7 +116,7 @@ func (c *longlivedClient) start() {
 			if t, ok := trackers[r.FileId]; ok {
 				if r.GetCurrent() == r.GetTotal() {
 					t.SetCurrent(r.GetCurrent())
-					t.Abort(false)
+					t.Abort(true)
 					delete(trackers, r.FileId)
 				} else {
 					t.SetCurrent(r.GetCurrent())
@@ -129,12 +130,12 @@ func (c *longlivedClient) start() {
 						mpb.PrependDecorators(
 							decor.Name(r.GetFileId()),
 							decor.Percentage(decor.WCSyncSpace),
-							decor.OnComplete(decor.Name("\x1b[31minstalling\x1b[0m", decor.WCSyncSpaceR), "done!"),
-							decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+							//decor.OnComplete(decor.Name("\x1b[31minstalling\x1b[0m", decor.WCSyncSpaceR), "done!"),
+							//decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
 						),
 					)
 					t.SetCurrent(r.GetCurrent())
-					t.Abort(false)
+					t.Abort(true)
 
 				} else {
 					t := pw.AddBar(r.GetTotal(),
@@ -152,7 +153,8 @@ func (c *longlivedClient) start() {
 			}
 
 		} else if response.GetType() == protos.SubsrcribeResponse_EVENT {
-			log.Printf("Client ID %d got response: %q", c.id, response.GetMessageData())
+			info := response.GetEventInfo()
+			fmt.Println(info.Details)
 		} else if response.GetType() == protos.SubsrcribeResponse_UPLOAD_CANCEL {
 			// Cancel all trackers.
 			for _, p := range trackers {
