@@ -116,7 +116,9 @@ func initConfig() {
 
 		// Set viper defaults
 		viper.SetDefault("env", "prod")
-		viper.SetDefault("agent_port", "9000")
+		viper.SetDefault("agent.port", "9000")
+		viper.SetDefault("agent.upload_workers", "8")     // Number of concurrent files during upload
+		viper.SetDefault("agent.upload_chunk_size", "64") // Upload chunk-size in MB
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

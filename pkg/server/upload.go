@@ -16,6 +16,7 @@ import (
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"log"
 	"os"
 	"path/filepath"
@@ -85,8 +86,10 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	// TODO: Check if this is causing a leak when cancelling upload
 	// TODO: create second channel to update upload status
+	chunkSize := viper.GetInt64("agent.upload_chunk_size")
+	nrWorkers := viper.GetInt("agent.upload_workers")
 
-	nrWorkers := 10
+	log.Println("Agent: ", chunkSize, nrWorkers)
 
 	walker := make(recordWalk, nrWorkers)
 	results := make(chan int, nrWorkers)
@@ -149,7 +152,15 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	s.cancelFncs.Store(request.GetManifestId(), session)
 	defer cancelFnc()
 
-	uploader := manager.NewUploader(s3.NewFromConfig(cfg))
+	// Create an S3 Client with the config
+	s3Client := s3.NewFromConfig(cfg)
+
+	// Create an uploader with the client and custom options
+	uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
+		u.PartSize = chunkSize * 1024 * 1024 // 64MB per part
+	})
+
+	log.Println("Uploader: ", uploader.PartSize)
 
 	// Initiate the upload workers
 	for w := 1; w <= nrWorkers; w++ {
@@ -215,7 +226,7 @@ func (s *server) uploadWorker(ctx context.Context, id int,
 			if errors.Is(err, context.Canceled) {
 				var mu manager.MultiUploadFailure
 				if errors.As(err, &mu) {
-					log.Println("Cancelling multi-part upload: ", record.sourcePath)
+					//log.Println("Cancelling multi-part upload: ", record.sourcePath)
 
 					s3Session := s3.NewFromConfig(cfg)
 					input := &s3.AbortMultipartUploadInput{
@@ -244,7 +255,11 @@ func (s *server) uploadWorker(ctx context.Context, id int,
 					for {
 						_, err = s3Session.ListParts(context.Background(), inputListParts)
 						iter += 1
-						if err != nil || iter == maxRetry {
+						if err != nil {
+							log.Println("Multi-part upload cancelled: ", record.sourcePath)
+							break
+						} else if iter == maxRetry {
+							log.Println("Maximum retries for cancelling multipart upload: ", record.sourcePath)
 							break
 						} else {
 							time.Sleep(500 * time.Millisecond)
