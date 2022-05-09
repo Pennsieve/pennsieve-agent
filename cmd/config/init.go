@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 University of Pennsylvania <support@agent>>
+Copyright © 2022 University of Pennsylvania <support@server>>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 var InitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize Agent",
-	Long:  `Initializing the agent will create a local database that is used by the agent.`,
+	Long:  `Initializing the server will create a local database that is used by the server.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		_, err := db.InitializeDB()
 		if err != nil {

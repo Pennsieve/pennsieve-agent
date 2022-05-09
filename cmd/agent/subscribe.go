@@ -16,7 +16,7 @@ import (
 var subscribeCmd = &cobra.Command{
 	Use:   "subscribe",
 	Short: "Subscribe to Agent messages",
-	Long: `Open long-lived connection to the agent server and visualize messages from the server.
+	Long: `Open long-lived connection to the server server and visualize messages from the server.
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {

@@ -41,7 +41,7 @@ var AddCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.AddToUploadManifest(context.Background(), &req)
+		manifestResponse, err := client.AddToManifest(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())

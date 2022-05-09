@@ -11,14 +11,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var DeleteCmd = &cobra.Command{
-	Use:   "delete <manifest_id>",
-	Short: "Deletes existing manifest.",
-	Long:  `Deletes existing manifest.`,
-	Args:  cobra.MinimumNArgs(1),
+var RemoveCmd = &cobra.Command{
+	Use:   "remove <MANIFEST-ID> <ID> [...ID]",
+	Short: "Removes files from an existing manifest.",
+	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		req := pb.DeleteManifestRequest{
-			ManifestId: args[0],
+
+		targetBasePath, _ := cmd.Flags().GetString("target_path")
+
+		req := pb.CreateManifestRequest{
+			BasePath:       args[0],
+			TargetBasePath: targetBasePath,
+			Recursive:      true,
 		}
 
 		port := viper.GetString("agent.port")
@@ -31,14 +35,14 @@ var DeleteCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.DeleteManifest(context.Background(), &req)
+		manifestResponse, err := client.CreateManifest(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())
 			return
 		}
 
-		fmt.Println(manifestResponse)
+		fmt.Println(manifestResponse.Status)
 	},
 }
 

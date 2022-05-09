@@ -1,20 +1,19 @@
 syntax = "proto3";
 
-option go_package = "github.com/pennsieve/pennsieve-agent/protos";
+option go_package = "github.com/pennsieve/pennsieve-server/protos";
 package protos;
 
 service Agent {
 	// Manifest Endpoints
-	rpc CreateUploadManifest(CreateManifestRequest) returns (SimpleStatusResponse) {}
-	rpc AddToUploadManifest(AddManifestRequest) returns (SimpleStatusResponse) {}
-//	rpc RemoveFromManifest(RemoveManifestRequest) returns (SimpleStatusResponse) {}
-	rpc DeleteUploadManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
+	rpc CreateManifest(CreateManifestRequest) returns (SimpleStatusResponse) {}
+	rpc AddToManifest(AddManifestRequest) returns (SimpleStatusResponse) {}
+	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
+	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ManifestStatus(ManifestStatusRequest) returns (ManifestStatusResponse) {}
 	rpc ListFilesForManifest(ListFilesRequest) returns (ListFilesResponse) {}
 
 	// Upload Endpoints
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
-	rpc UploadPath(UploadRequest) returns (SimpleStatusResponse) {}
 	rpc CancelUpload(CancelRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
@@ -47,11 +46,6 @@ message SubsrcribeResponse {
 	}
 }
 
-message UploadRequest {
-	string basePath = 1;
-	bool recursive = 2;
-}
-
 message SimpleStatusResponse {
 	string status = 1;
 }
@@ -72,6 +66,11 @@ message AddManifestRequest {
 	string basePath = 2;
 	string targetBasePath = 3;
 	bool recursive = 4;
+}
+
+message RemoveFromManifestRequest {
+	string manifestId = 1;
+	repeated int32 fileId = 2;
 }
 
 message ManifestStatusRequest {

@@ -26,7 +26,6 @@ var CreateCmd = &cobra.Command{
 		}
 
 		port := viper.GetString("agent.port")
-
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			fmt.Println("Error connecting to GRPC Server: ", err)
@@ -35,7 +34,7 @@ var CreateCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.CreateUploadManifest(context.Background(), &req)
+		manifestResponse, err := client.CreateManifest(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())

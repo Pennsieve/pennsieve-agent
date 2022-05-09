@@ -57,6 +57,7 @@ func init() {
 	ManifestCmd.AddCommand(ListCmd)
 	ManifestCmd.AddCommand(CreateCmd)
 	ManifestCmd.AddCommand(AddCmd)
+	ManifestCmd.AddCommand(RemoveCmd)
 	ManifestCmd.AddCommand(DeleteCmd)
 
 }

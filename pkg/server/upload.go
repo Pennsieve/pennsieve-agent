@@ -1,4 +1,7 @@
-package agent
+// package server implements a gRPC server that runs locally on the clients' computer.
+// It implements the endpoints defined in the agent.proto file.
+
+package server
 
 import (
 	"context"
@@ -26,15 +29,8 @@ var (
 
 type fileWalk chan string
 
-func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		f <- path
-	}
-	return nil
-}
+// API ENDPOINT IMPLEMENTATIONS
+// --------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
 func (s *server) CancelUpload(ctx context.Context, request *pb.CancelRequest) (*pb.SimpleStatusResponse, error) {
@@ -220,6 +216,19 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	log.Println("Returned from uploader")
 	response := pb.SimpleStatusResponse{Status: "Upload completed."}
 	return &response, nil
+}
+
+// HELPER FUNCTIONS
+// ----------------------------------------------
+
+func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		f <- path
+	}
+	return nil
 }
 
 type CustomReader struct {

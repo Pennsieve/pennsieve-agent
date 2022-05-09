@@ -1,4 +1,7 @@
-package agent
+// package server implements a gRPC server that runs locally on the clients' computer.
+// It implements the endpoints defined in the agent.proto file.
+
+package server
 
 import (
 	"context"
@@ -11,11 +14,6 @@ import (
 	"os"
 	"sync"
 )
-
-type Config struct {
-	LogLevel      int
-	LogTimeFormat string
-}
 
 type server struct {
 	pb.UnimplementedAgentServer
@@ -33,6 +31,9 @@ type sub struct {
 	stream   pb.Agent_SubscribeServer // stream is the server side of the RPC stream
 	finished chan<- bool              // finished is used to signal closure of a client subscribing goroutine
 }
+
+// API ENDPOINT IMPLEMENTATIONS
+// --------------------------------------------
 
 // Subscribe handles a subscribe request from a client
 func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_SubscribeServer) error {
@@ -79,6 +80,9 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 	s.subscribers.Delete(request.Id)
 	return &pb.SubsrcribeResponse{}, nil
 }
+
+// HELPER FUNCTIONS
+// ----------------------------------------------
 
 // messageSubscribers sends a string message to all grpc-update subscribers
 func (s *server) messageSubscribers(message string) {
@@ -136,10 +140,10 @@ func StartAgent() error {
 		return err
 	}
 
-	// initialize logger
-	var cfg Config
-	cfg.LogLevel = 0
-	cfg.LogTimeFormat = "MM/DD/YY hh:mmAM/PM"
+	//// initialize logger
+	//var cfg Config
+	//cfg.LogLevel = 0
+	//cfg.LogTimeFormat = "MM/DD/YY hh:mmAM/PM"
 
 	// Create new server
 	grpcServer := grpc.NewServer()
@@ -150,7 +154,7 @@ func StartAgent() error {
 	// Register services
 	pb.RegisterAgentServer(grpcServer, server)
 
-	fmt.Printf("GRPC agent listening on: %s", lis.Addr())
+	fmt.Printf("GRPC server listening on: %s", lis.Addr())
 
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Println("failed to serve: ", err)

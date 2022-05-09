@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 University of Pennsylvania <support@agent>>
+Copyright © 2022 University of Pennsylvania <support@server>>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "pennsieve-agent",
+	Use:   "pennsieve-server",
 	Short: "A brief description of your application",
 	Long:  ``,
 
@@ -109,7 +109,7 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search db in home directory with name ".pennsieve-agent" (without extension).
+		// Search db in home directory with name ".pennsieve-server" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("ini")
 		viper.AddConfigPath(filepath.Join(home, ".pennsieve"))

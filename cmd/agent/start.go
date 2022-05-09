@@ -2,7 +2,7 @@ package agent
 
 import (
 	"fmt"
-	gp "github.com/pennsieve/pennsieve-agent/pkg/agent"
+	gp "github.com/pennsieve/pennsieve-agent/pkg/server"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"
@@ -13,7 +13,7 @@ import (
 var daemon bool
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Starts the Schema gRPC agent",
+	Short: "Starts the Schema gRPC server",
 
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -43,7 +43,7 @@ var startCmd = &cobra.Command{
 			//		log.Fatalln(message)
 			//	} else if strings.HasPrefix(message, "failed to serve") {
 			//		log.Fatalln(message)
-			//	} else if strings.HasPrefix(message, "GRPC agent listening") {
+			//	} else if strings.HasPrefix(message, "GRPC server listening") {
 			//		log.Println(message)
 			//		break
 			//	}
@@ -59,7 +59,7 @@ var startCmd = &cobra.Command{
 
 			// Store server PID in lock file, so we can terminate server when needed.
 			fmt.Printf("Agent start, [PID] %d running...\n", command.Process.Pid)
-			ioutil.WriteFile("agent.lock", []byte(fmt.Sprintf("%d", command.Process.Pid)), 0666)
+			ioutil.WriteFile("server.lock", []byte(fmt.Sprintf("%d", command.Process.Pid)), 0666)
 			daemon = false
 			os.Exit(0)
 		}

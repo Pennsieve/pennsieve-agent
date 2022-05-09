@@ -1,4 +1,7 @@
-package agent
+// package server implements a gRPC server that runs locally on the clients' computer.
+// It implements the endpoints defined in the agent.proto file.
+
+package server
 
 import (
 	"context"
@@ -12,6 +15,9 @@ import (
 	"log"
 	"path/filepath"
 )
+
+// API ENDPOINT IMPLEMENTATIONS
+// --------------------------------------------
 
 // ManifestStatus returns a list of manifests that are currently defined in the local database.
 func (s *server) ManifestStatus(ctx context.Context, request *pb.ManifestStatusRequest) (*pb.ManifestStatusResponse, error) {
@@ -35,8 +41,8 @@ func (s *server) ManifestStatus(ctx context.Context, request *pb.ManifestStatusR
 	return &response, err
 }
 
-// CreateUploadManifest recursively adds paths from folder into local DB.
-func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.SimpleStatusResponse, error) {
+// CreateManifest recursively adds paths from folder into local DB.
+func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
@@ -51,7 +57,7 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to get Client Session\n "+
-				"\t Please use: pennsieve-agent config init to initialize local database.")
+				"\t Please use: pennsieve-server config init to initialize local database.")
 
 		log.Println(err)
 		return nil, err
@@ -61,7 +67,7 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 	if curClientSession.UseDatasetId == "" {
 		err := status.Error(codes.NotFound,
 			"No active dataset was specified.\n "+
-				"\t Please use: pennsieve-agent dataset use <dataset_id> to specify active dataset.")
+				"\t Please use: pennsieve-server dataset use <dataset_id> to specify active dataset.")
 
 		log.Println(err)
 		return nil, err
@@ -85,7 +91,7 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to create Upload Session.\n "+
-				"\t Please use: pennsieve-agent config init to initialize local database.")
+				"\t Please use: pennsieve-server config init to initialize local database.")
 
 		log.Println(err)
 		return nil, err
@@ -102,8 +108,8 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 
 }
 
-// AddToUploadManifest adds files to existing upload manifest.
-func (s *server) AddToUploadManifest(ctx context.Context, request *pb.AddManifestRequest) (*pb.SimpleStatusResponse, error) {
+// AddToManifest adds files to existing upload manifest.
+func (s *server) AddToManifest(ctx context.Context, request *pb.AddManifestRequest) (*pb.SimpleStatusResponse, error) {
 	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.ManifestId)
 
 	log.Println("Finished Adding %d files.", nrRecords)
@@ -112,8 +118,15 @@ func (s *server) AddToUploadManifest(ctx context.Context, request *pb.AddManifes
 	return &response, nil
 }
 
-// DeleteUploadManifest deletes existing upload manifest.
-func (s *server) DeleteUploadManifest(ctx context.Context, request *pb.DeleteManifestRequest) (*pb.SimpleStatusResponse, error) {
+// RemoveFromManifest removes one or more files from the index for an existing manifest.
+func (s *server) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromManifestRequest) (*pb.SimpleStatusResponse, error) {
+
+	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", 0)}
+	return &response, nil
+}
+
+// DeleteManifest deletes existing upload manifest.
+func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	//	1. Verify that manifest with ID exists
 
@@ -169,6 +182,9 @@ func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListFiles
 
 }
 
+// HELPER FUNCTIONS
+// ----------------------------------------------
+
 // addToManifest walks over provided path and adds records to DB
 func addToManifest(localBasePath string, targetBasePath string, manifestId string) (int, error) {
 	batchSize := 50 // Update DB with 50 paths per batch
@@ -190,7 +206,7 @@ func addToManifest(localBasePath string, targetBasePath string, manifestId strin
 		item, ok := <-walker
 		if !ok {
 			// Final batch of items
-			api.AddUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			addUploadRecords(items, localBasePath, targetBasePath, manifestId)
 			totalIndexed += len(items)
 			break
 		}
@@ -199,7 +215,7 @@ func addToManifest(localBasePath string, targetBasePath string, manifestId strin
 		i++
 		if i == batchSize {
 			// Standard batch of items
-			api.AddUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			addUploadRecords(items, localBasePath, targetBasePath, manifestId)
 
 			i = 0
 			totalIndexed += batchSize
@@ -207,4 +223,33 @@ func addToManifest(localBasePath string, targetBasePath string, manifestId strin
 		}
 	}
 	return totalIndexed, nil
+}
+
+// addUploadRecords adds records to the local SQLite DB.
+func addUploadRecords(paths []string, localBasePath string, targetBasePath string, sessionId string) error {
+
+	var records []models.UploadRecordParams
+	for _, row := range paths {
+		relPath, err := filepath.Rel(localBasePath, row)
+		if err != nil {
+			log.Fatal("Cannot strip base-path.")
+		}
+
+		newRecord := models.UploadRecordParams{
+			SourcePath: row,
+			TargetPath: filepath.Join(targetBasePath, relPath),
+			S3Key:      uuid.New().String(),
+			SessionID:  sessionId,
+		}
+		records = append(records, newRecord)
+	}
+
+	var record models.UploadRecord
+	err := record.Add(records)
+	if err != nil {
+		log.Println("Error with AddUploadRecords: ", err)
+		return err
+	}
+
+	return nil
 }

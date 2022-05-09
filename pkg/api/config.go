@@ -1,3 +1,6 @@
+// Package api Package contains method implementations that can be shared between CMDs
+// in the CLI and which are not implemented in the gRPC server.
+
 package api
 
 import (

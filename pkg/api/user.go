@@ -1,17 +1,17 @@
-// Package api provides methods that leverage the local SQLite DB ang the Pennsieve Client.
+// Package api Package contains method implementations that can be shared between CMDs
+// in the CLI and which are not implemented in the gRPC server.
+
 package api
 
 import (
 	"database/sql"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
-	"path/filepath"
 )
 
 // GetActiveUser returns userInfo for active user and updates local SQlite DB
@@ -182,32 +182,4 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	}
 
 	return newUserInfo, nil
-}
-
-func AddUploadRecords(paths []string, localBasePath string, targetBasePath string, sessionId string) error {
-
-	var records []models.UploadRecordParams
-	for _, row := range paths {
-		relPath, err := filepath.Rel(localBasePath, row)
-		if err != nil {
-			log.Fatal("Cannot strip base-path.")
-		}
-
-		newRecord := models.UploadRecordParams{
-			SourcePath: row,
-			TargetPath: filepath.Join(targetBasePath, relPath),
-			S3Key:      uuid.New().String(),
-			SessionID:  sessionId,
-		}
-		records = append(records, newRecord)
-	}
-
-	var record models.UploadRecord
-	err := record.Add(records)
-	if err != nil {
-		log.Println("Error with AddUploadRecords: ", err)
-		return err
-	}
-
-	return nil
 }

@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 University of Pennsylvania <support@agent>>
+Copyright © 2022 University of Pennsylvania <support@server>>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 var ProfileCmd = &cobra.Command{
 	Use:   "profile",
 	Short: "Manage Pennsieve profiles",
-	Long: `Profiles are used to store user-settings. They are stored in the ~/.agent/db.ini file.
+	Long: `Profiles are used to store user-settings. They are stored in the ~/.server/db.ini file.
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
