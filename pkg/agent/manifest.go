@@ -93,50 +93,23 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 
 	// 2. Walk over folder and populate DB with file-paths.
 	// --------------------------------------------------
+	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, uploadSessionID.String())
 
-	batchSize := 50 // Update DB with 50 paths per batch
-	localPath := request.BasePath
-	walker := make(fileWalk, batchSize)
-	go func() {
-		// Gather the files to upload by walking the path recursively
-		if err := filepath.WalkDir(localPath, walker.Walk); err != nil {
-			log.Println("Walk failed:", err)
-		}
-		close(walker)
-	}()
+	log.Println("Finished Processing %d files.", nrRecords)
 
-	// Get paths from channel, and when <batchSize> number of paths,
-	// store these in the local DB.
-	totalIndexed := 0
-	i := 0
-	var items []string
-	for {
-		item, ok := <-walker
-		log.Println(item)
-		if !ok {
-			// Final batch of items
-			api.AddUploadRecords(items, localPath, request.TargetBasePath, uploadSessionID.String())
-			totalIndexed += len(items)
-			break
-		}
-
-		items = append(items, item)
-		i++
-		if i == batchSize {
-			// Standard batch of items
-			api.AddUploadRecords(items, localPath, request.TargetBasePath, uploadSessionID.String())
-
-			i = 0
-			totalIndexed += batchSize
-			items = nil
-		}
-	}
-
-	log.Println("Finished Processing %d files.", totalIndexed)
-
-	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", totalIndexed)}
+	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
 
+}
+
+// AddToUploadManifest adds files to existing upload manifest.
+func (s *server) AddToUploadManifest(ctx context.Context, request *pb.AddManifestRequest) (*pb.SimpleStatusResponse, error) {
+	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.ManifestId)
+
+	log.Println("Finished Adding %d files.", nrRecords)
+
+	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
+	return &response, nil
 }
 
 // DeleteUploadManifest deletes existing upload manifest.
@@ -194,4 +167,44 @@ func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListFiles
 
 	return &response, nil
 
+}
+
+// addToManifest walks over provided path and adds records to DB
+func addToManifest(localBasePath string, targetBasePath string, manifestId string) (int, error) {
+	batchSize := 50 // Update DB with 50 paths per batch
+	walker := make(fileWalk, batchSize)
+	go func() {
+		// Gather the files to upload by walking the path recursively
+		if err := filepath.WalkDir(localBasePath, walker.Walk); err != nil {
+			log.Println("Walk failed:", err)
+		}
+		close(walker)
+	}()
+
+	// Get paths from channel, and when <batchSize> number of paths,
+	// store these in the local DB.
+	totalIndexed := 0
+	i := 0
+	var items []string
+	for {
+		item, ok := <-walker
+		if !ok {
+			// Final batch of items
+			api.AddUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			totalIndexed += len(items)
+			break
+		}
+
+		items = append(items, item)
+		i++
+		if i == batchSize {
+			// Standard batch of items
+			api.AddUploadRecords(items, localBasePath, targetBasePath, manifestId)
+
+			i = 0
+			totalIndexed += batchSize
+			items = nil
+		}
+	}
+	return totalIndexed, nil
 }

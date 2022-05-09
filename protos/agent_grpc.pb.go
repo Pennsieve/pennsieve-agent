@@ -24,6 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 type AgentClient interface {
 	// Manifest Endpoints
 	CreateUploadManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	AddToUploadManifest(ctx context.Context, in *AddManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	//	rpc RemoveFromManifest(RemoveManifestRequest) returns (SimpleStatusResponse) {}
 	DeleteUploadManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	ManifestStatus(ctx context.Context, in *ManifestStatusRequest, opts ...grpc.CallOption) (*ManifestStatusResponse, error)
 	ListFilesForManifest(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
@@ -47,6 +49,15 @@ func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
 func (c *agentClient) CreateUploadManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/CreateUploadManifest", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) AddToUploadManifest(ctx context.Context, in *AddManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/AddToUploadManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,6 +165,8 @@ func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opt
 type AgentServer interface {
 	// Manifest Endpoints
 	CreateUploadManifest(context.Context, *CreateManifestRequest) (*SimpleStatusResponse, error)
+	AddToUploadManifest(context.Context, *AddManifestRequest) (*SimpleStatusResponse, error)
+	//	rpc RemoveFromManifest(RemoveManifestRequest) returns (SimpleStatusResponse) {}
 	DeleteUploadManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
 	ManifestStatus(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error)
 	ListFilesForManifest(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
@@ -173,6 +186,9 @@ type UnimplementedAgentServer struct {
 
 func (UnimplementedAgentServer) CreateUploadManifest(context.Context, *CreateManifestRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateUploadManifest not implemented")
+}
+func (UnimplementedAgentServer) AddToUploadManifest(context.Context, *AddManifestRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddToUploadManifest not implemented")
 }
 func (UnimplementedAgentServer) DeleteUploadManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUploadManifest not implemented")
@@ -225,6 +241,24 @@ func _Agent_CreateUploadManifest_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).CreateUploadManifest(ctx, req.(*CreateManifestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_AddToUploadManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddManifestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).AddToUploadManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/AddToUploadManifest",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).AddToUploadManifest(ctx, req.(*AddManifestRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -386,6 +420,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateUploadManifest",
 			Handler:    _Agent_CreateUploadManifest_Handler,
+		},
+		{
+			MethodName: "AddToUploadManifest",
+			Handler:    _Agent_AddToUploadManifest_Handler,
 		},
 		{
 			MethodName: "DeleteUploadManifest",

@@ -56,6 +56,7 @@ This list includes only upload manifests that are initiated from the current mac
 func init() {
 	ManifestCmd.AddCommand(ListCmd)
 	ManifestCmd.AddCommand(CreateCmd)
+	ManifestCmd.AddCommand(AddCmd)
 	ManifestCmd.AddCommand(DeleteCmd)
 
 }

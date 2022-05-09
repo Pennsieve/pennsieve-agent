@@ -6,6 +6,8 @@ package protos;
 service Agent {
 	// Manifest Endpoints
 	rpc CreateUploadManifest(CreateManifestRequest) returns (SimpleStatusResponse) {}
+	rpc AddToUploadManifest(AddManifestRequest) returns (SimpleStatusResponse) {}
+//	rpc RemoveFromManifest(RemoveManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteUploadManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ManifestStatus(ManifestStatusRequest) returns (ManifestStatusResponse) {}
 	rpc ListFilesForManifest(ListFilesRequest) returns (ListFilesResponse) {}
@@ -63,6 +65,13 @@ message CreateManifestRequest {
 	string basePath = 1;
 	string targetBasePath = 2;
 	bool recursive = 3;
+}
+
+message AddManifestRequest {
+	string manifestId = 1;
+	string basePath = 2;
+	string targetBasePath = 3;
+	bool recursive = 4;
 }
 
 message ManifestStatusRequest {
