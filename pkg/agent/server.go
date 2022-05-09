@@ -19,8 +19,14 @@ type Config struct {
 
 type server struct {
 	pb.UnimplementedAgentServer
-	subscribers sync.Map           // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFnc   context.CancelFunc // cancelFnc is a function that cancels the upload context.
+	subscribers  sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs   sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+	uploadBucket string
+}
+
+type uploadSession struct {
+	manifestId string
+	cancelFnc  context.CancelFunc
 }
 
 type sub struct {
@@ -43,11 +49,11 @@ func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_Subscri
 		select {
 		case <-fin:
 			log.Printf("Closing stream for client ID: %d", request.Id)
-			messageSubscribers(s, fmt.Sprintf("Closing stream for client ID: %d", request.Id))
+			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			return nil
 		case <-ctx.Done():
 			log.Printf("Client ID %d has disconnected", request.Id)
-			messageSubscribers(s, fmt.Sprintf("Closing stream for client ID: %d", request.Id))
+			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			return nil
 		}
 	}
@@ -75,7 +81,7 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 }
 
 // messageSubscribers sends a string message to all grpc-update subscribers
-func messageSubscribers(s *server, message string) {
+func (s *server) messageSubscribers(message string) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -93,8 +99,9 @@ func messageSubscribers(s *server, message string) {
 		}
 		// Send data over the gRPC stream to the client
 		if err := sub.stream.Send(&pb.SubsrcribeResponse{
-			Type:        0,
-			MessageData: &pb.SubsrcribeResponse_Data{Data: message},
+			Type: pb.SubsrcribeResponse_EVENT,
+			MessageData: &pb.SubsrcribeResponse_EventInfo{
+				EventInfo: &pb.SubsrcribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)
 			select {
@@ -136,7 +143,9 @@ func StartAgent() error {
 
 	// Create new server
 	grpcServer := grpc.NewServer()
-	server := &server{}
+	server := &server{
+		uploadBucket: "pennsieve-dev-test-new-upload",
+	}
 
 	// Register services
 	pb.RegisterAgentServer(grpcServer, server)

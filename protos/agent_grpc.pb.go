@@ -22,12 +22,16 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
-	CreateUploadManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error)
-	DeleteUploadManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*DeleteManifestResponse, error)
+	// Manifest Endpoints
+	CreateUploadManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	DeleteUploadManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	ManifestStatus(ctx context.Context, in *ManifestStatusRequest, opts ...grpc.CallOption) (*ManifestStatusResponse, error)
 	ListFilesForManifest(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
-	UploadPath(ctx context.Context, in *UploadRequest, opts ...grpc.CallOption) (*UploadResponse, error)
-	CancelUpload(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResponse, error)
+	// Upload Endpoints
+	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	UploadPath(ctx context.Context, in *UploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	CancelUpload(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	// Server Endpoints
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
 	Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubsrcribeResponse, error)
 }
@@ -40,8 +44,8 @@ func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
 	return &agentClient{cc}
 }
 
-func (c *agentClient) CreateUploadManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error) {
-	out := new(CreateManifestResponse)
+func (c *agentClient) CreateUploadManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/CreateUploadManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -49,8 +53,8 @@ func (c *agentClient) CreateUploadManifest(ctx context.Context, in *CreateManife
 	return out, nil
 }
 
-func (c *agentClient) DeleteUploadManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*DeleteManifestResponse, error) {
-	out := new(DeleteManifestResponse)
+func (c *agentClient) DeleteUploadManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/DeleteUploadManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -76,8 +80,17 @@ func (c *agentClient) ListFilesForManifest(ctx context.Context, in *ListFilesReq
 	return out, nil
 }
 
-func (c *agentClient) UploadPath(ctx context.Context, in *UploadRequest, opts ...grpc.CallOption) (*UploadResponse, error) {
-	out := new(UploadResponse)
+func (c *agentClient) UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/UploadManifest", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) UploadPath(ctx context.Context, in *UploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/UploadPath", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -85,8 +98,8 @@ func (c *agentClient) UploadPath(ctx context.Context, in *UploadRequest, opts ..
 	return out, nil
 }
 
-func (c *agentClient) CancelUpload(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResponse, error) {
-	out := new(CancelResponse)
+func (c *agentClient) CancelUpload(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/CancelUpload", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -139,12 +152,16 @@ func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opt
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
 type AgentServer interface {
-	CreateUploadManifest(context.Context, *CreateManifestRequest) (*CreateManifestResponse, error)
-	DeleteUploadManifest(context.Context, *DeleteManifestRequest) (*DeleteManifestResponse, error)
+	// Manifest Endpoints
+	CreateUploadManifest(context.Context, *CreateManifestRequest) (*SimpleStatusResponse, error)
+	DeleteUploadManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
 	ManifestStatus(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error)
 	ListFilesForManifest(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
-	UploadPath(context.Context, *UploadRequest) (*UploadResponse, error)
-	CancelUpload(context.Context, *CancelRequest) (*CancelResponse, error)
+	// Upload Endpoints
+	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
+	UploadPath(context.Context, *UploadRequest) (*SimpleStatusResponse, error)
+	CancelUpload(context.Context, *CancelRequest) (*SimpleStatusResponse, error)
+	// Server Endpoints
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
 	Unsubscribe(context.Context, *SubscribeRequest) (*SubsrcribeResponse, error)
 	mustEmbedUnimplementedAgentServer()
@@ -154,10 +171,10 @@ type AgentServer interface {
 type UnimplementedAgentServer struct {
 }
 
-func (UnimplementedAgentServer) CreateUploadManifest(context.Context, *CreateManifestRequest) (*CreateManifestResponse, error) {
+func (UnimplementedAgentServer) CreateUploadManifest(context.Context, *CreateManifestRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateUploadManifest not implemented")
 }
-func (UnimplementedAgentServer) DeleteUploadManifest(context.Context, *DeleteManifestRequest) (*DeleteManifestResponse, error) {
+func (UnimplementedAgentServer) DeleteUploadManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUploadManifest not implemented")
 }
 func (UnimplementedAgentServer) ManifestStatus(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error) {
@@ -166,10 +183,13 @@ func (UnimplementedAgentServer) ManifestStatus(context.Context, *ManifestStatusR
 func (UnimplementedAgentServer) ListFilesForManifest(context.Context, *ListFilesRequest) (*ListFilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListFilesForManifest not implemented")
 }
-func (UnimplementedAgentServer) UploadPath(context.Context, *UploadRequest) (*UploadResponse, error) {
+func (UnimplementedAgentServer) UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UploadManifest not implemented")
+}
+func (UnimplementedAgentServer) UploadPath(context.Context, *UploadRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadPath not implemented")
 }
-func (UnimplementedAgentServer) CancelUpload(context.Context, *CancelRequest) (*CancelResponse, error) {
+func (UnimplementedAgentServer) CancelUpload(context.Context, *CancelRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelUpload not implemented")
 }
 func (UnimplementedAgentServer) Subscribe(*SubscribeRequest, Agent_SubscribeServer) error {
@@ -259,6 +279,24 @@ func _Agent_ListFilesForManifest_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).ListFilesForManifest(ctx, req.(*ListFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_UploadManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadManifestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).UploadManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/UploadManifest",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).UploadManifest(ctx, req.(*UploadManifestRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -360,6 +398,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFilesForManifest",
 			Handler:    _Agent_ListFilesForManifest_Handler,
+		},
+		{
+			MethodName: "UploadManifest",
+			Handler:    _Agent_UploadManifest_Handler,
 		},
 		{
 			MethodName: "UploadPath",

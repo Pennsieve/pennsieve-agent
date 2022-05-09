@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
+	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
 	"google.golang.org/grpc"
 	"log"
 	"math/rand"
@@ -38,7 +40,6 @@ var subscribeCmd = &cobra.Command{
 }
 
 func init() {
-
 }
 
 // longlivedClient holds the long lived gRPC client fields
@@ -83,6 +84,9 @@ func (c *longlivedClient) unsubscribe() error {
 
 func (c *longlivedClient) start() {
 	var err error
+	trackers := make(map[string]*mpb.Bar)
+	pw := mpb.New()
+
 	// stream is the client side of the RPC stream
 	var stream protos.Agent_SubscribeClient
 	for {
@@ -103,8 +107,61 @@ func (c *longlivedClient) start() {
 			// Retry on failure
 			continue
 		}
-		log.Printf("Client ID %d got response: %q", c.id, response.GetUploadStatus())
-		log.Printf("Client ID %d got response: %q", c.id, response.GetMessageData())
+
+		if response.GetType() == protos.SubsrcribeResponse_UPLOAD_STATUS {
+			r := response.GetUploadStatus()
+
+			// Get/Create Tracker
+			if t, ok := trackers[r.FileId]; ok {
+				if r.GetCurrent() == r.GetTotal() {
+					t.SetCurrent(r.GetCurrent())
+					t.Abort(false)
+					delete(trackers, r.FileId)
+				} else {
+					t.SetCurrent(r.GetCurrent())
+				}
+
+				//do something here
+			} else {
+				// New File
+				if r.GetCurrent() == r.GetTotal() {
+					t := pw.AddBar(r.GetTotal(),
+						mpb.PrependDecorators(
+							decor.Name(r.GetFileId()),
+							decor.Percentage(decor.WCSyncSpace),
+							decor.OnComplete(decor.Name("\x1b[31minstalling\x1b[0m", decor.WCSyncSpaceR), "done!"),
+							decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+						),
+					)
+					t.SetCurrent(r.GetCurrent())
+					t.Abort(false)
+
+				} else {
+					t := pw.AddBar(r.GetTotal(),
+						mpb.PrependDecorators(
+							decor.Name(r.GetFileId()),
+							decor.Percentage(decor.WCSyncSpace),
+							//decor.OnComplete(decor.Name("\x1b[31minstalling\x1b[0m", decor.WCSyncSpaceR), "done!"),
+							//decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+						),
+					)
+					t.SetCurrent(r.GetCurrent())
+					trackers[r.FileId] = t
+				}
+
+			}
+
+		} else if response.GetType() == protos.SubsrcribeResponse_EVENT {
+			log.Printf("Client ID %d got response: %q", c.id, response.GetMessageData())
+		} else if response.GetType() == protos.SubsrcribeResponse_UPLOAD_CANCEL {
+			// Cancel all trackers.
+			for _, p := range trackers {
+				p.Abort(true)
+			}
+
+		} else {
+			log.Println("Received an unknown message type: ", response.GetType())
+		}
 
 	}
 }

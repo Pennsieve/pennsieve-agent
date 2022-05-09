@@ -16,9 +16,13 @@ var CreateCmd = &cobra.Command{
 	Short: "Creates manifest for upload.",
 	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		targetBasePath, _ := cmd.Flags().GetString("target_path")
+
 		req := pb.CreateManifestRequest{
-			BasePath:  args[0],
-			Recursive: true,
+			BasePath:       args[0],
+			TargetBasePath: targetBasePath,
+			Recursive:      true,
 		}
 
 		port := viper.GetString("agent.port")
@@ -38,10 +42,11 @@ var CreateCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println(manifestResponse)
+		fmt.Println(manifestResponse.Status)
 	},
 }
 
 func init() {
-
+	CreateCmd.Flags().StringP("target_path", "t",
+		"", "Target base path in dataset.")
 }

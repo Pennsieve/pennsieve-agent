@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
@@ -35,7 +36,7 @@ func (s *server) ManifestStatus(ctx context.Context, request *pb.ManifestStatusR
 }
 
 // CreateUploadManifest recursively adds paths from folder into local DB.
-func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
+func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
@@ -106,13 +107,16 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 
 	// Get paths from channel, and when <batchSize> number of paths,
 	// store these in the local DB.
+	totalIndexed := 0
 	i := 0
 	var items []string
 	for {
 		item, ok := <-walker
+		log.Println(item)
 		if !ok {
 			// Final batch of items
-			api.AddUploadRecords(items, "", uploadSessionID.String())
+			api.AddUploadRecords(items, localPath, request.TargetBasePath, uploadSessionID.String())
+			totalIndexed += len(items)
 			break
 		}
 
@@ -120,22 +124,23 @@ func (s *server) CreateUploadManifest(ctx context.Context, request *pb.CreateMan
 		i++
 		if i == batchSize {
 			// Standard batch of items
-			api.AddUploadRecords(items, "", uploadSessionID.String())
+			api.AddUploadRecords(items, localPath, request.TargetBasePath, uploadSessionID.String())
 
 			i = 0
+			totalIndexed += batchSize
 			items = nil
 		}
 	}
 
-	log.Println("Finished Processing files.")
+	log.Println("Finished Processing %d files.", totalIndexed)
 
-	response := pb.CreateManifestResponse{Status: "Success"}
+	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", totalIndexed)}
 	return &response, nil
 
 }
 
 // DeleteUploadManifest deletes existing upload manifest.
-func (s *server) DeleteUploadManifest(ctx context.Context, request *pb.DeleteManifestRequest) (*pb.DeleteManifestResponse, error) {
+func (s *server) DeleteUploadManifest(ctx context.Context, request *pb.DeleteManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	//	1. Verify that manifest with ID exists
 
@@ -155,7 +160,7 @@ func (s *server) DeleteUploadManifest(ctx context.Context, request *pb.DeleteMan
 		return nil, err
 	}
 
-	response := pb.DeleteManifestResponse{Status: "Success"}
+	response := pb.SimpleStatusResponse{Status: "Success"}
 	return &response, nil
 
 }

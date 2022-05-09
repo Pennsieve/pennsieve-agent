@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"log"
 	"time"
 )
@@ -70,10 +71,12 @@ func (*UploadSession) Add(s UploadSessionParams) error {
 	}
 	defer stmt.Close()
 
+	indexStr := pb.ListFilesResponse_INDEXED.String()
+
 	// format all vals at once
 	currentTime := time.Now()
 	_, err = stmt.Exec(s.SessionId, s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
-		s.DatasetName, "INITIALIZED", currentTime, currentTime)
+		s.DatasetName, indexStr, currentTime, currentTime)
 	if err != nil {
 		log.Println(err)
 	}

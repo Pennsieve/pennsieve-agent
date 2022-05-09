@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"log"
 	"strings"
 	"time"
@@ -91,13 +92,14 @@ func (*UploadRecord) Add(records []UploadRecordParams) error {
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?)"
 	var vals []interface{}
 	var inserts []string
+	indexStr := pb.ListFilesResponse_INDEXED.String()
 
 	sqlInsert := "INSERT INTO upload_record(source_path, target_path, s3_key, " +
 		"session_id, status, created_at, updated_at) VALUES "
 	for _, row := range records {
 		inserts = append(inserts, rowSQL)
 		vals = append(vals, row.SourcePath, row.TargetPath, row.S3Key, row.SessionID,
-			"INITIALIZED", currentTime, currentTime)
+			indexStr, currentTime, currentTime)
 	}
 	sqlInsert = sqlInsert + strings.Join(inserts, ",")
 

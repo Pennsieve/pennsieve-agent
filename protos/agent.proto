@@ -4,12 +4,18 @@ option go_package = "github.com/pennsieve/pennsieve-agent/protos";
 package protos;
 
 service Agent {
-	rpc CreateUploadManifest(CreateManifestRequest) returns (CreateManifestResponse) {}
-	rpc DeleteUploadManifest(DeleteManifestRequest) returns (DeleteManifestResponse) {}
+	// Manifest Endpoints
+	rpc CreateUploadManifest(CreateManifestRequest) returns (SimpleStatusResponse) {}
+	rpc DeleteUploadManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ManifestStatus(ManifestStatusRequest) returns (ManifestStatusResponse) {}
 	rpc ListFilesForManifest(ListFilesRequest) returns (ListFilesResponse) {}
-	rpc UploadPath(UploadRequest) returns (UploadResponse) {}
-	rpc CancelUpload(CancelRequest) returns (CancelResponse) {}
+
+	// Upload Endpoints
+	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
+	rpc UploadPath(UploadRequest) returns (SimpleStatusResponse) {}
+	rpc CancelUpload(CancelRequest) returns (SimpleStatusResponse) {}
+
+	// Server Endpoints
 	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
 	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
 }
@@ -19,19 +25,23 @@ message SubscribeRequest {
 }
 
 message SubsrcribeResponse {
+	message EventResponse {
+		string Details = 1;
+	}
 	message UploadResponse {
-		string FileId = 20;
-		int64 total = 21;
-		int64 current = 22;
+		string FileId = 1;
+		int64 total = 2;
+		int64 current = 3;
 	}
 	enum MESSAGE_TYPE{
-		SERVER = 0;
-		UPLOAD = 1;
+		EVENT = 0; // Server log message
+		UPLOAD_STATUS = 1;	// Upload Status Message
+		UPLOAD_CANCEL = 2; // Upload was cancelled
 	}
 	MESSAGE_TYPE type = 8;
 	oneof message_data {
 		UploadResponse uploadStatus = 9;
-		string data = 10;
+		EventResponse eventInfo = 10;
 	}
 }
 
@@ -40,24 +50,19 @@ message UploadRequest {
 	bool recursive = 2;
 }
 
-message UploadResponse {
+message SimpleStatusResponse {
 	string status = 1;
 }
 
 message CancelRequest {
-}
-
-message CancelResponse {
-	string status = 1;
+	string manifestId = 1;
+	bool cancelAll = 2;
 }
 
 message CreateManifestRequest {
 	string basePath = 1;
-	bool recursive = 2;
-}
-
-message CreateManifestResponse {
-	string status = 1;
+	string targetBasePath = 2;
+	bool recursive = 3;
 }
 
 message ManifestStatusRequest {
@@ -81,9 +86,6 @@ message DeleteManifestRequest{
 	string manifest_id = 1;
 }
 
-message DeleteManifestResponse{
-	string status = 1;
-}
 
 message ListFilesRequest{
 	string manifest_id = 1;
@@ -93,11 +95,11 @@ message ListFilesRequest{
 
 message ListFilesResponse{
 	enum STATUS_TYPE{
-		INITIATED = 0;
-		SYNCED = 1;
-		UPLOADING = 3;
-		COMPLETED = 4;
-		CANCELED = 5;
+		INDEXED = 0;  	// File indexed locally
+		SYNCED = 1; 		// File manifest synchronized with Cloud
+		UPLOADING = 3; 	// File being uploaded
+		COMPLETED = 4; 	// File completed uploading
+		CANCELED = 5; 	// File Upload canceled (manually, or failed)
 	}
 
 	message FileUpload {
@@ -110,4 +112,8 @@ message ListFilesResponse{
 	}
 
 	repeated FileUpload file = 1;
+}
+
+message UploadManifestRequest{
+	string manifest_id = 1;
 }

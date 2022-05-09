@@ -184,13 +184,18 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	return newUserInfo, nil
 }
 
-func AddUploadRecords(paths []string, basePath string, sessionId string) error {
+func AddUploadRecords(paths []string, localBasePath string, targetBasePath string, sessionId string) error {
 
 	var records []models.UploadRecordParams
 	for _, row := range paths {
+		relPath, err := filepath.Rel(localBasePath, row)
+		if err != nil {
+			log.Fatal("Cannot strip base-path.")
+		}
+
 		newRecord := models.UploadRecordParams{
 			SourcePath: row,
-			TargetPath: filepath.Join(basePath, row),
+			TargetPath: filepath.Join(targetBasePath, relPath),
 			S3Key:      uuid.New().String(),
 			SessionID:  sessionId,
 		}

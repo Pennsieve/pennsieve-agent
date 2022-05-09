@@ -25,22 +25,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var (
-	bucket string
-	prefix string
-)
-
-var UploadCmd = &cobra.Command{
-	Use:   "upload [flags] [PATH] [...PATH]",
+var ManifestCmd = &cobra.Command{
+	Use:   "manifest [flags] [PATH] [...PATH]",
 	Short: "Upload files to the Pennsieve platform.",
 	Long:  `Upload files to the Pennsieve platform.`,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("upload called")
 
-		req := pb.UploadRequest{
-			BasePath:  args[0],
-			Recursive: true,
+		req := pb.UploadManifestRequest{
+			ManifestId: args[0],
 		}
 
 		port := viper.GetString("agent.port")
@@ -52,7 +46,7 @@ var UploadCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		uploadResponse, err := client.UploadPath(context.Background(), &req)
+		uploadResponse, err := client.UploadManifest(context.Background(), &req)
 		if err != nil {
 			fmt.Println("Error uploading file: ", err)
 		}
@@ -62,9 +56,4 @@ var UploadCmd = &cobra.Command{
 
 func init() {
 
-	UploadCmd.AddCommand(CancelCmd)
-	UploadCmd.AddCommand(ManifestCmd)
-
-	UploadCmd.Flags().BoolP("recursive", "r",
-		false, "Upload folder recursively")
 }
