@@ -84,16 +84,14 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	client := api.PennsieveClient
 	client.Authentication.GetAWSCredsForUser()
 
-	// TODO: Check if this is causing a leak when cancelling upload
 	// TODO: create second channel to update upload status
 	chunkSize := viper.GetInt64("agent.upload_chunk_size")
 	nrWorkers := viper.GetInt("agent.upload_workers")
 
-	log.Println("Agent: ", chunkSize, nrWorkers)
-
 	walker := make(recordWalk, nrWorkers)
 	results := make(chan int, nrWorkers)
 
+	// Database crawler: the database crawler populates a channel with records to be uploaded
 	go func() {
 
 		// Close walker when all records for manifest were added to channel
@@ -129,68 +127,72 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	}()
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithCredentialsProvider(
-			credentials.StaticCredentialsProvider{
-				Value: aws.Credentials{
-					AccessKeyID:     *client.AWSCredentials.AccessKeyId,
-					SecretAccessKey: *client.AWSCredentials.SecretKey,
-					SessionToken:    *client.AWSCredentials.SessionToken,
-					Source:          "Pennsieve Agent",
-				},
-			}))
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Upload Manager: the upload manager creates n upload workers to upload files provided by the Database Crawler.
+	go func() {
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithCredentialsProvider(
+				credentials.StaticCredentialsProvider{
+					Value: aws.Credentials{
+						AccessKeyID:     *client.AWSCredentials.AccessKeyId,
+						SecretAccessKey: *client.AWSCredentials.SecretKey,
+						SessionToken:    *client.AWSCredentials.SessionToken,
+						Source:          "Pennsieve Agent",
+					},
+				}))
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	// For each file found walking, upload it to Amazon S3
-	ctx, cancelFnc := context.WithCancel(context.Background())
-	session := uploadSession{
-		manifestId: request.GetManifestId(),
-		cancelFnc:  cancelFnc,
-	}
-	s.cancelFncs.Store(request.GetManifestId(), session)
-	defer cancelFnc()
+		// For each file found walking, upload it to Amazon S3
+		ctx, cancelFnc := context.WithCancel(context.Background())
+		session := uploadSession{
+			manifestId: request.GetManifestId(),
+			cancelFnc:  cancelFnc,
+		}
+		s.cancelFncs.Store(request.GetManifestId(), session)
+		defer cancelFnc()
 
-	// Create an S3 Client with the config
-	s3Client := s3.NewFromConfig(cfg)
+		// Create an S3 Client with the config
+		s3Client := s3.NewFromConfig(cfg)
 
-	// Create an uploader with the client and custom options
-	uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
-		u.PartSize = chunkSize * 1024 * 1024 // 64MB per part
-	})
+		// Create an uploader with the client and custom options
+		uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
+			u.PartSize = chunkSize * 1024 * 1024 // 64MB per part
+		})
 
-	log.Println("Uploader: ", uploader.PartSize)
+		log.Println("Uploader: ", uploader.PartSize)
 
-	// Initiate the upload workers
-	for w := 1; w <= nrWorkers; w++ {
-		uploadWg.Add(1)
-		log.Println("starting worker:", w)
-		w := w
-		go func() {
-			err := s.uploadWorker(ctx, w, walker, results, request.ManifestId, uploader, cfg)
-			if err != nil {
-				log.Println("Error in Upload Worker:", err)
-			}
-		}()
-	}
+		// Initiate the upload workers
+		for w := 1; w <= nrWorkers; w++ {
+			uploadWg.Add(1)
+			log.Println("starting worker:", w)
+			w := int32(w)
+			go func() {
+				err := s.uploadWorker(ctx, w, walker, results, request.ManifestId, uploader, cfg)
+				if err != nil {
+					log.Println("Error in Upload Worker:", err)
+				}
+			}()
+		}
 
-	// Wait until all workers and record crawler
-	uploadWg.Wait()
+		// Wait until all workers and record crawler
+		uploadWg.Wait()
 
-	log.Println("Returned from uploader")
-	response := pb.SimpleStatusResponse{Status: "Upload completed."}
+		log.Println("Returned from uploader")
+	}()
+
+	response := pb.SimpleStatusResponse{Status: "Upload initiated."}
 	return &response, nil
 }
 
 // HELPER FUNCTIONS
 // ----------------------------------------------
 
-func (s *server) uploadWorker(ctx context.Context, id int,
+func (s *server) uploadWorker(ctx context.Context, workerId int32,
 	jobs <-chan record, results chan<- int, manifestId string, uploader *manager.Uploader, cfg aws.Config) error {
 
 	defer func() {
-		log.Println("Closing Worker: ", id)
+		log.Println("Closing Worker: ", workerId)
 		uploadWg.Done()
 	}()
 
@@ -205,10 +207,11 @@ func (s *server) uploadWorker(ctx context.Context, id int,
 		fileInfo, err := file.Stat()
 
 		reader := &CustomReader{
-			fp:      file,
-			size:    fileInfo.Size(),
-			signMap: map[int64]struct{}{},
-			s:       s,
+			workerId: workerId,
+			fp:       file,
+			size:     fileInfo.Size(),
+			signMap:  map[int64]struct{}{},
+			s:        s,
 		}
 
 		s3Key := aws.String(filepath.Join(manifestId, record.targetPath))
@@ -286,11 +289,12 @@ func (s *server) uploadWorker(ctx context.Context, id int,
 }
 
 type CustomReader struct {
-	fp      *os.File
-	size    int64
-	read    int64
-	signMap map[int64]struct{}
-	s       *server
+	workerId int32
+	fp       *os.File
+	size     int64
+	read     int64
+	signMap  map[int64]struct{}
+	s        *server
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -304,7 +308,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	}
 
 	r.read += int64(n)
-	r.s.updateSubscribers(r.size, r.read, r.fp.Name())
+	r.s.updateSubscribers(r.size, r.read, r.fp.Name(), r.workerId)
 
 	return n, err
 }
@@ -314,7 +318,7 @@ func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 }
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) updateSubscribers(total int64, current int64, name string) {
+func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -335,9 +339,10 @@ func (s *server) updateSubscribers(total int64, current int64, name string) {
 			Type: 1,
 			MessageData: &pb.SubsrcribeResponse_UploadStatus{
 				UploadStatus: &pb.SubsrcribeResponse_UploadResponse{
-					FileId:  name,
-					Total:   total,
-					Current: current,
+					FileId:   name,
+					Total:    total,
+					Current:  current,
+					WorkerId: workerId,
 				}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)

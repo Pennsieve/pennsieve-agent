@@ -26,15 +26,15 @@ import (
 )
 
 var ManifestCmd = &cobra.Command{
-	Use:   "manifest [flags] [PATH] [...PATH]",
+	Use:   "manifest <manifestId>",
 	Short: "Upload files to the Pennsieve platform.",
 	Long:  `Upload files to the Pennsieve platform.`,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("upload called")
 
+		manifestId := args[0]
 		req := pb.UploadManifestRequest{
-			ManifestId: args[0],
+			ManifestId: manifestId,
 		}
 
 		port := viper.GetString("agent.port")
@@ -46,11 +46,14 @@ var ManifestCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		uploadResponse, err := client.UploadManifest(context.Background(), &req)
+		_, err = client.UploadManifest(context.Background(), &req)
 		if err != nil {
 			fmt.Println("Error uploading file: ", err)
 		}
-		fmt.Println(uploadResponse)
+
+		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %s\n\nUse "+
+			"\"pennsieve-agent agent subscribe\" to track progress of the uploaded files.\n\n"+
+			"Use \"pennsieve-agent upload cancel %s\" to cancel the current upload session.", manifestId, manifestId))
 	},
 }
 

@@ -33,6 +33,7 @@ message SubsrcribeResponse {
 		string FileId = 1;
 		int64 total = 2;
 		int64 current = 3;
+		int32 workerId = 4;
 	}
 	enum MESSAGE_TYPE{
 		EVENT = 0; // Server log message

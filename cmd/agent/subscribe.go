@@ -83,10 +83,17 @@ func (c *longlivedClient) unsubscribe() error {
 	return err
 }
 
+type barInfo struct {
+	bar    *mpb.Bar
+	fileId string
+}
+
 func (c *longlivedClient) start() {
 	var err error
-	trackers := make(map[string]*mpb.Bar)
-	pw := mpb.New()
+
+	trackers := make(map[int32]barInfo)
+	pw := mpb.New(
+		mpb.PopCompletedMode())
 
 	// stream is the client side of the RPC stream
 	var stream protos.Agent_SubscribeClient
@@ -113,43 +120,18 @@ func (c *longlivedClient) start() {
 			r := response.GetUploadStatus()
 
 			// Get/Create Tracker
-			if t, ok := trackers[r.FileId]; ok {
-				if r.GetCurrent() == r.GetTotal() {
-					t.SetCurrent(r.GetCurrent())
-					t.Abort(true)
-					delete(trackers, r.FileId)
+			if t, ok := trackers[r.WorkerId]; ok {
+				if t.fileId == r.FileId {
+					t.bar.SetCurrent(r.GetCurrent())
+					t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
 				} else {
-					t.SetCurrent(r.GetCurrent())
+					// In this case the previous upload was completed and should have been popped.
+					c.addBar(pw, r, trackers)
 				}
 
-				//do something here
 			} else {
-				// New File
-				if r.GetCurrent() == r.GetTotal() {
-					t := pw.AddBar(r.GetTotal(),
-						mpb.PrependDecorators(
-							decor.Name(r.GetFileId()),
-							decor.Percentage(decor.WCSyncSpace),
-							//decor.OnComplete(decor.Name("\x1b[31minstalling\x1b[0m", decor.WCSyncSpaceR), "done!"),
-							//decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
-						),
-					)
-					t.SetCurrent(r.GetCurrent())
-					t.Abort(true)
-
-				} else {
-					t := pw.AddBar(r.GetTotal(),
-						mpb.PrependDecorators(
-							decor.Name(r.GetFileId()),
-							decor.Percentage(decor.WCSyncSpace),
-							//decor.OnComplete(decor.Name("\x1b[31minstalling\x1b[0m", decor.WCSyncSpaceR), "done!"),
-							//decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
-						),
-					)
-					t.SetCurrent(r.GetCurrent())
-					trackers[r.FileId] = t
-				}
-
+				// initialization of new worker progress bar.
+				c.addBar(pw, r, trackers)
 			}
 
 		} else if response.GetType() == protos.SubsrcribeResponse_EVENT {
@@ -158,7 +140,7 @@ func (c *longlivedClient) start() {
 		} else if response.GetType() == protos.SubsrcribeResponse_UPLOAD_CANCEL {
 			// Cancel all trackers.
 			for _, p := range trackers {
-				p.Abort(true)
+				p.bar.Abort(true)
 			}
 
 		} else {
@@ -166,6 +148,24 @@ func (c *longlivedClient) start() {
 		}
 
 	}
+}
+
+func (c *longlivedClient) addBar(pw *mpb.Progress, r *protos.SubsrcribeResponse_UploadResponse, trackers map[int32]barInfo) {
+	t2 := pw.AddBar(r.GetTotal(),
+		mpb.BarFillerClearOnComplete(),
+		mpb.PrependDecorators(
+			decor.Name(r.GetFileId()),
+			decor.Percentage(decor.WCSyncSpace),
+		),
+	)
+	t2.SetCurrent(r.GetCurrent())
+
+	info := barInfo{
+		bar:    t2,
+		fileId: r.GetFileId(),
+	}
+
+	trackers[r.WorkerId] = info
 }
 
 // sleep is used to give the server time to unsubscribe the client and reset the stream
