@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/pennsieve/pennsieve-server/protos";
+option go_package = "github.com/pennsieve/pennsieve-agent/protos";
 package protos;
 
 service Agent {
@@ -19,6 +19,11 @@ service Agent {
 	// Server Endpoints
 	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
 	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
+
+	// User Endpoints
+//	rpc GetUser(GetUserRequest) returns (GetUserResponse) {}
+//	rpc SwitchUser(SwitchUserRequest) returns (SwitchUserResponse) {}
+
 }
 
 message SubscribeRequest {
@@ -126,3 +131,19 @@ message ListFilesResponse{
 message UploadManifestRequest{
 	string manifest_id = 1;
 }
+
+//message GetUserRequest {
+//
+//}
+//
+//message GetUserResponse {
+//
+//}
+//
+//message SwitchUserRequest {
+//
+//}
+//
+//message SwitchUserResponse {
+//
+//}

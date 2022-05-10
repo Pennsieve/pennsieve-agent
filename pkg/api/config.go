@@ -5,7 +5,7 @@ package api
 
 import (
 	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-go"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 )
 
 var PennsieveClient *pennsieve.Client

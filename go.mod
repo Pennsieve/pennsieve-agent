@@ -2,7 +2,7 @@ module github.com/pennsieve/pennsieve-agent
 
 go 1.18
 
-replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
+//replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.16.2
@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/jedib0t/go-pretty/v6 v6.3.0
 	github.com/mattn/go-sqlite3 v1.14.12
-	github.com/pennsieve/pennsieve-go v0.0.3
+	github.com/pennsieve/pennsieve-go v0.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1

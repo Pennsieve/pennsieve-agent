@@ -3,7 +3,7 @@ package models
 import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
-	"github.com/pennsieve/pennsieve-go"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"log"
 	"time"
 )

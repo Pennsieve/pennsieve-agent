@@ -4,7 +4,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-go"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -26,7 +26,7 @@ var DatasetCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalln("Unknown dataset: ", s.UseDatasetId)
 		}
-		
+
 		PrettyPrint(response, showFull)
 	},
 }

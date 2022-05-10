@@ -27,7 +27,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	dbConfig "github.com/pennsieve/pennsieve-agent/pkg/db"
-	"github.com/pennsieve/pennsieve-go"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
