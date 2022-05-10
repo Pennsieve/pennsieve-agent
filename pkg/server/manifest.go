@@ -104,7 +104,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	// --------------------------------------------------
 	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, uploadSessionID.String())
 
-	log.Println("Finished Processing %d files.", nrRecords)
+	log.Printf("Finished Processing %d files.\n", nrRecords)
 
 	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
@@ -115,7 +115,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 func (s *server) AddToManifest(ctx context.Context, request *pb.AddManifestRequest) (*pb.SimpleStatusResponse, error) {
 	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.ManifestId)
 
-	log.Println("Finished Adding %d files.", nrRecords)
+	log.Printf("Finished Adding %d files.\n", nrRecords)
 
 	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
