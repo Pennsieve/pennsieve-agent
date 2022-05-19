@@ -35,6 +35,9 @@ type AgentClient interface {
 	// Server Endpoints
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
 	Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubsrcribeResponse, error)
+	// User Endpoints
+	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*UserResponse, error)
+	SwitchProfile(ctx context.Context, in *SwitchProfileRequest, opts ...grpc.CallOption) (*UserResponse, error)
 }
 
 type agentClient struct {
@@ -158,6 +161,24 @@ func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opt
 	return out, nil
 }
 
+func (c *agentClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*UserResponse, error) {
+	out := new(UserResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/GetUser", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) SwitchProfile(ctx context.Context, in *SwitchProfileRequest, opts ...grpc.CallOption) (*UserResponse, error) {
+	out := new(UserResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/SwitchProfile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
@@ -175,6 +196,9 @@ type AgentServer interface {
 	// Server Endpoints
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
 	Unsubscribe(context.Context, *SubscribeRequest) (*SubsrcribeResponse, error)
+	// User Endpoints
+	GetUser(context.Context, *GetUserRequest) (*UserResponse, error)
+	SwitchProfile(context.Context, *SwitchProfileRequest) (*UserResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -211,6 +235,12 @@ func (UnimplementedAgentServer) Subscribe(*SubscribeRequest, Agent_SubscribeServ
 }
 func (UnimplementedAgentServer) Unsubscribe(context.Context, *SubscribeRequest) (*SubsrcribeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unsubscribe not implemented")
+}
+func (UnimplementedAgentServer) GetUser(context.Context, *GetUserRequest) (*UserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUser not implemented")
+}
+func (UnimplementedAgentServer) SwitchProfile(context.Context, *SwitchProfileRequest) (*UserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SwitchProfile not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -408,6 +438,42 @@ func _Agent_Unsubscribe_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_GetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/GetUser",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetUser(ctx, req.(*GetUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_SwitchProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SwitchProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SwitchProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/SwitchProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SwitchProfile(ctx, req.(*SwitchProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -450,6 +516,14 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Unsubscribe",
 			Handler:    _Agent_Unsubscribe_Handler,
+		},
+		{
+			MethodName: "GetUser",
+			Handler:    _Agent_GetUser_Handler,
+		},
+		{
+			MethodName: "SwitchProfile",
+			Handler:    _Agent_SwitchProfile_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

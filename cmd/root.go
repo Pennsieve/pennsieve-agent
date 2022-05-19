@@ -117,8 +117,9 @@ func initConfig() {
 		// Set viper defaults
 		viper.SetDefault("env", "prod")
 		viper.SetDefault("agent.port", "9000")
-		viper.SetDefault("agent.upload_workers", "6")     // Number of concurrent files during upload
+		viper.SetDefault("agent.upload_workers", "20")    // Number of concurrent files during upload
 		viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
+		viper.SetDefault("api_host", "https://api.pennsieve.io")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

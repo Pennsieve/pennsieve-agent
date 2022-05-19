@@ -21,8 +21,8 @@ service Agent {
 	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
 
 	// User Endpoints
-//	rpc GetUser(GetUserRequest) returns (GetUserResponse) {}
-//	rpc SwitchUser(SwitchUserRequest) returns (SwitchUserResponse) {}
+	rpc GetUser(GetUserRequest) returns (UserResponse) {}
+	rpc SwitchProfile(SwitchProfileRequest) returns (UserResponse) {}
 
 }
 
@@ -132,18 +132,19 @@ message UploadManifestRequest{
 	string manifest_id = 1;
 }
 
-//message GetUserRequest {
+message GetUserRequest {
+}
+
+message UserResponse {
+	string id = 2;
+	string name = 3;
+	string sessionToken = 4;
+	string profile = 8;
+	string environment = 9;
+	string organizationId = 10;
+	string organizationName = 11;
+}
 //
-//}
-//
-//message GetUserResponse {
-//
-//}
-//
-//message SwitchUserRequest {
-//
-//}
-//
-//message SwitchUserResponse {
-//
-//}
+message SwitchProfileRequest {
+	string profile = 1;
+}

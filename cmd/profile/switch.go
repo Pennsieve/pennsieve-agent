@@ -16,9 +16,16 @@ limitations under the License.
 package profile
 
 import (
-	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"context"
+	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"os"
 )
 
 var SwitchCmd = &cobra.Command{
@@ -29,11 +36,51 @@ var SwitchCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		selectedProfile := args[0]
-		userInfo, _ := api.SwitchUser(selectedProfile)
-		whoami.PrettyPrint(*userInfo, false)
+
+		req := pb.SwitchProfileRequest{
+			Profile: selectedProfile,
+		}
+
+		port := viper.GetString("agent.port")
+		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			fmt.Println("Error connecting to GRPC Server: ", err)
+			return
+		}
+		defer conn.Close()
+
+		client := pb.NewAgentClient(conn)
+		switchResponse, err := client.SwitchProfile(context.Background(), &req)
+		if err != nil {
+			st := status.Convert(err)
+			fmt.Println(st.Message())
+			return
+		}
+
+		prettyPrint(*switchResponse, false)
 
 	},
 }
 
 func init() {
+}
+
+// prettyPrint renders a table with current userinfo to terminal
+func prettyPrint(info pb.UserResponse, showFull bool) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendRows([]table.Row{
+		{"NAME", info.Name},
+		{"USER ID", info.Id},
+		{"ORGANIZATION", info.OrganizationName},
+		{"ORGANIZATION ID", info.OrganizationId},
+	})
+	if showFull {
+		t.AppendRows([]table.Row{
+			{"PROFILE", info.Profile},
+			{"ENVIRONMENT", info.Environment},
+		})
+	}
+
+	t.Render()
 }

@@ -115,8 +115,10 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
-		//fmt.Println("Using custom API-Host: ", customAPIHost)
+		fmt.Println("Using custom API-Host: ", customAPIHost)
 		PennsieveClient.BaseURL = customAPIHost
+	} else {
+		PennsieveClient.BaseURL = viper.GetString("api_host")
 	}
 
 	credentials, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)

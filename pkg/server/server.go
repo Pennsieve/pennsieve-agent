@@ -148,7 +148,7 @@ func StartAgent() error {
 	// Create new server
 	grpcServer := grpc.NewServer()
 	server := &server{
-		uploadBucket: "pennsieve-dev-test-new-upload",
+		uploadBucket: "pennsieve-dev-uploads-v2-use1",
 	}
 
 	// Register services

@@ -37,3 +37,6 @@ The gRPC server is defined in the ```protos/agent.proto``` file. Use the followi
 --go-grpc_out=. --go-grpc_opt=paths=source_relative \
 protos/agent.proto
 ``
+
+for Python, use:
+``` python -m grpc_tools.protoc --python_out=build/gen/ -I. --grpc_python_out=build/gen protos/agent.proto```
