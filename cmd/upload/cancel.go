@@ -31,7 +31,7 @@ var CancelCmd = &cobra.Command{
 			fmt.Println("Cancelling upload session: ", selectedManifest)
 		}
 
-		req := pb.CancelRequest{
+		req := pb.CancelUploadRequest{
 			ManifestId: selectedManifest,
 			CancelAll:  cancelAll,
 		}

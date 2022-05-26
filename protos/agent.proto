@@ -6,15 +6,15 @@ package protos;
 service Agent {
 	// Manifest Endpoints
 	rpc CreateManifest(CreateManifestRequest) returns (SimpleStatusResponse) {}
-	rpc AddToManifest(AddManifestRequest) returns (SimpleStatusResponse) {}
+	rpc AddToManifest(AddToManifestRequest) returns (SimpleStatusResponse) {}
 	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ManifestStatus(ManifestStatusRequest) returns (ManifestStatusResponse) {}
-	rpc ListFilesForManifest(ListFilesRequest) returns (ListFilesResponse) {}
+	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListFilesResponse) {}
 
 	// Upload Endpoints
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
-	rpc CancelUpload(CancelRequest) returns (SimpleStatusResponse) {}
+	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
 	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
@@ -32,23 +32,23 @@ message SubscribeRequest {
 
 message SubsrcribeResponse {
 	message EventResponse {
-		string Details = 1;
+		string details = 1;
 	}
 	message UploadResponse {
-		string FileId = 1;
+		string file_id = 1;
 		int64 total = 2;
 		int64 current = 3;
-		int32 workerId = 4;
+		int32 worker_id = 4;
 	}
-	enum MESSAGE_TYPE{
+	enum MessageType{
 		EVENT = 0; // Server log message
 		UPLOAD_STATUS = 1;	// Upload Status Message
 		UPLOAD_CANCEL = 2; // Upload was cancelled
 	}
-	MESSAGE_TYPE type = 8;
+	MessageType type = 8;
 	oneof message_data {
-		UploadResponse uploadStatus = 9;
-		EventResponse eventInfo = 10;
+		UploadResponse upload_status = 9;
+		EventResponse event_info = 10;
 	}
 }
 
@@ -56,27 +56,27 @@ message SimpleStatusResponse {
 	string status = 1;
 }
 
-message CancelRequest {
-	string manifestId = 1;
-	bool cancelAll = 2;
+message CancelUploadRequest {
+	string manifest_id = 1;
+	bool cancel_all = 2;
 }
 
 message CreateManifestRequest {
-	string basePath = 1;
-	string targetBasePath = 2;
+	string base_path = 1;
+	string target_base_path = 2;
 	bool recursive = 3;
 }
 
-message AddManifestRequest {
-	string manifestId = 1;
-	string basePath = 2;
-	string targetBasePath = 3;
+message AddToManifestRequest {
+	string manifest_id = 1;
+	string base_path = 2;
+	string target_base_path = 3;
 	bool recursive = 4;
 }
 
 message RemoveFromManifestRequest {
-	string manifestId = 1;
-	repeated int32 fileId = 2;
+	string manifest_id = 1;
+	repeated int32 file_id = 2;
 }
 
 message ManifestStatusRequest {
@@ -101,14 +101,14 @@ message DeleteManifestRequest{
 }
 
 
-message ListFilesRequest{
+message ListManifestFilesRequest{
 	string manifest_id = 1;
 	int32 offset = 2;
 	int32 limit = 3;
 }
 
 message ListFilesResponse{
-	enum STATUS_TYPE{
+	enum StatusType{
 		INDEXED = 0;  	// File indexed locally
 		SYNCED = 1; 		// File manifest synchronized with Cloud
 		UPLOADING = 3; 	// File being uploaded
@@ -122,7 +122,7 @@ message ListFilesResponse{
 		string source_path = 3;
 		string target_path = 4;
 		string s3_key = 5;
-		STATUS_TYPE status = 6;
+		StatusType status = 6;
 	}
 
 	repeated FileUpload file = 1;
@@ -138,11 +138,11 @@ message GetUserRequest {
 message UserResponse {
 	string id = 2;
 	string name = 3;
-	string sessionToken = 4;
+	string session_token = 4;
 	string profile = 8;
 	string environment = 9;
-	string organizationId = 10;
-	string organizationName = 11;
+	string organization_id = 10;
+	string organization_name = 11;
 }
 //
 message SwitchProfileRequest {

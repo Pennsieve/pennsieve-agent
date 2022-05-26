@@ -30,7 +30,7 @@ var ListCmd = &cobra.Command{
 			limit, _ = strconv.ParseInt(args[2], 10, 32)
 		}
 
-		req := pb.ListFilesRequest{
+		req := pb.ListManifestFilesRequest{
 			ManifestId: args[0],
 			Offset:     int32(offset),
 			Limit:      int32(limit),
@@ -45,7 +45,7 @@ var ListCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		listFilesResponse, err := client.ListFilesForManifest(context.Background(), &req)
+		listFilesResponse, err := client.ListManifestFiles(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())

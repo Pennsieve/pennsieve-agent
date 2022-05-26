@@ -24,7 +24,7 @@ var AddCmd = &cobra.Command{
 		targetBasePath, _ := cmd.Flags().GetString("target_path")
 		recursive, _ := cmd.Flags().GetBool("recursive")
 
-		req := pb.AddManifestRequest{
+		req := pb.AddToManifestRequest{
 			ManifestId:     manifestId,
 			BasePath:       localBasePath,
 			TargetBasePath: targetBasePath,

@@ -21,3 +21,5 @@
 
 # GRPC Lock file
 /agent.lock
+server.lock
+

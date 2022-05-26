@@ -39,7 +39,7 @@ var uploadWg sync.WaitGroup
 // --------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
-func (s *server) CancelUpload(ctx context.Context, request *pb.CancelRequest) (*pb.SimpleStatusResponse, error) {
+func (s *server) CancelUpload(ctx context.Context, request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
 
 	// TODO: Maybe only cancel uploadSessions that are actively running?
 

@@ -112,7 +112,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 }
 
 // AddToManifest adds files to existing upload manifest.
-func (s *server) AddToManifest(ctx context.Context, request *pb.AddManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestRequest) (*pb.SimpleStatusResponse, error) {
 	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.ManifestId)
 
 	log.Printf("Finished Adding %d files.\n", nrRecords)
@@ -155,7 +155,7 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 }
 
 // ListFilesForManifest lists files from an existing upload manifest.
-func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {
+func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListFilesResponse, error) {
 	var uploadRecords models.UploadRecord
 	result, err := uploadRecords.Get(request.ManifestId, request.Limit, request.Offset)
 	if err != nil {
@@ -165,8 +165,8 @@ func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListFiles
 	var r []*pb.ListFilesResponse_FileUpload
 	for _, m := range result {
 
-		statusInt := pb.ListFilesResponse_STATUS_TYPE_value[m.Status]
-		st := pb.ListFilesResponse_STATUS_TYPE(statusInt)
+		statusInt := pb.ListFilesResponse_StatusType_value[m.Status]
+		st := pb.ListFilesResponse_StatusType(statusInt)
 
 		r = append(r, &pb.ListFilesResponse_FileUpload{
 			Id:         int32(m.Id),
