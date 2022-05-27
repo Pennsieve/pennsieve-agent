@@ -77,6 +77,7 @@ func PrettyPrint(info *pb.UserResponse, showFull bool) {
 		t.AppendRows([]table.Row{
 			{"PROFILE", info.Profile},
 			{"ENVIRONMENT", info.Environment},
+			{"SESSION-TOKEN", info.SessionToken},
 		})
 	}
 

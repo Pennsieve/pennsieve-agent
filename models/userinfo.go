@@ -117,7 +117,7 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 	return allUsers, err
 }
 
-func UpdateTokenForUser(user UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
+func UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
 
 	statement, err := db.DB.Prepare(
 		"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ?")
@@ -137,5 +137,5 @@ func UpdateTokenForUser(user UserInfo, credentials *pennsieve.APISession) (*User
 	user.TokenExpire = credentials.Expiration
 	user.IdToken = credentials.IdToken
 
-	return &user, nil
+	return user, nil
 }

@@ -38,6 +38,7 @@ type AgentClient interface {
 	// User Endpoints
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*UserResponse, error)
 	SwitchProfile(ctx context.Context, in *SwitchProfileRequest, opts ...grpc.CallOption) (*UserResponse, error)
+	ReAuthenticate(ctx context.Context, in *ReAuthenticateRequest, opts ...grpc.CallOption) (*UserResponse, error)
 }
 
 type agentClient struct {
@@ -179,6 +180,15 @@ func (c *agentClient) SwitchProfile(ctx context.Context, in *SwitchProfileReques
 	return out, nil
 }
 
+func (c *agentClient) ReAuthenticate(ctx context.Context, in *ReAuthenticateRequest, opts ...grpc.CallOption) (*UserResponse, error) {
+	out := new(UserResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/ReAuthenticate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
@@ -199,6 +209,7 @@ type AgentServer interface {
 	// User Endpoints
 	GetUser(context.Context, *GetUserRequest) (*UserResponse, error)
 	SwitchProfile(context.Context, *SwitchProfileRequest) (*UserResponse, error)
+	ReAuthenticate(context.Context, *ReAuthenticateRequest) (*UserResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -241,6 +252,9 @@ func (UnimplementedAgentServer) GetUser(context.Context, *GetUserRequest) (*User
 }
 func (UnimplementedAgentServer) SwitchProfile(context.Context, *SwitchProfileRequest) (*UserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SwitchProfile not implemented")
+}
+func (UnimplementedAgentServer) ReAuthenticate(context.Context, *ReAuthenticateRequest) (*UserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReAuthenticate not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -474,6 +488,24 @@ func _Agent_SwitchProfile_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_ReAuthenticate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReAuthenticateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ReAuthenticate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/ReAuthenticate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ReAuthenticate(ctx, req.(*ReAuthenticateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -524,6 +556,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SwitchProfile",
 			Handler:    _Agent_SwitchProfile_Handler,
+		},
+		{
+			MethodName: "ReAuthenticate",
+			Handler:    _Agent_ReAuthenticate_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

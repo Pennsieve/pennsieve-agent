@@ -23,6 +23,7 @@ service Agent {
 	// User Endpoints
 	rpc GetUser(GetUserRequest) returns (UserResponse) {}
 	rpc SwitchProfile(SwitchProfileRequest) returns (UserResponse) {}
+	rpc ReAuthenticate(ReAuthenticateRequest) returns (UserResponse) {}
 
 }
 
@@ -139,6 +140,7 @@ message UserResponse {
 	string id = 2;
 	string name = 3;
 	string session_token = 4;
+	int64 token_expire = 5;
 	string profile = 8;
 	string environment = 9;
 	string organization_id = 10;
@@ -147,4 +149,7 @@ message UserResponse {
 //
 message SwitchProfileRequest {
 	string profile = 1;
+}
+
+message ReAuthenticateRequest {
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 )
@@ -42,4 +43,27 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 		OrganizationName: activeUser.OrganizationName,
 	}
 	return &resp, nil
+}
+
+func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
+
+	apiSession, _ := api.ReAuthenticate()
+	activeUser, err := api.GetActiveUser()
+	if err != nil {
+		return nil, err
+	}
+
+	updatedUser, _ := models.UpdateTokenForUser(activeUser, &apiSession)
+
+	resp := pb.UserResponse{
+		Id:               updatedUser.Id,
+		Name:             updatedUser.Name,
+		SessionToken:     updatedUser.SessionToken,
+		Profile:          updatedUser.Profile,
+		Environment:      updatedUser.Environment,
+		OrganizationId:   updatedUser.OrganizationId,
+		OrganizationName: updatedUser.OrganizationName,
+	}
+	return &resp, nil
+
 }

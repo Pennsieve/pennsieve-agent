@@ -185,3 +185,17 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 
 	return newUserInfo, nil
 }
+
+func ReAuthenticate() (pennsieve.APISession, error) {
+	apiSession, err := PennsieveClient.Authentication.ReAuthenticate()
+	newSession := pennsieve.APISession{
+		Token:        apiSession.Token,
+		IdToken:      apiSession.IdToken,
+		Expiration:   apiSession.Expiration,
+		RefreshToken: apiSession.RefreshToken,
+		IsRefreshed:  apiSession.IsRefreshed,
+	}
+	fmt.Printf("NEW\n%s\n", apiSession.Token)
+
+	return newSession, err
+}

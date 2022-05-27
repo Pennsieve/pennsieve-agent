@@ -56,7 +56,7 @@ var rootCmd = &cobra.Command{
 		creds := api.PennsieveClient.APISession
 		if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
 			fmt.Println("Client credentials updated --> Update session token in UserInfo")
-			models.UpdateTokenForUser(*api.ActiveUser, &api.PennsieveClient.APISession)
+			models.UpdateTokenForUser(api.ActiveUser, &api.PennsieveClient.APISession)
 		}
 
 	},

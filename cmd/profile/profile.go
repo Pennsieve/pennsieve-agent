@@ -34,4 +34,5 @@ func init() {
 	ProfileCmd.AddCommand(SwitchCmd)
 	ProfileCmd.AddCommand(ShowCmd)
 	ProfileCmd.AddCommand(SetDefaultCmd)
+	ProfileCmd.AddCommand(ReauthCmd)
 }
