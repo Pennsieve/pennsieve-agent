@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/vbauerster/mpb/v5/decor"
 	"google.golang.org/grpc"
@@ -174,5 +175,6 @@ func (c *longlivedClient) sleep() {
 }
 
 func mkConnection() (*grpc.ClientConn, error) {
-	return grpc.Dial(":9058", []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}...)
+	port := viper.GetString("agent.port")
+	return grpc.Dial(":"+port, []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}...)
 }
