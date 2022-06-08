@@ -154,21 +154,21 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 
 }
 
-// ListFilesForManifest lists files from an existing upload manifest.
-func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListFilesResponse, error) {
+// ListManifestFiles lists files from an existing upload manifest.
+func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListManifestFilesResponse, error) {
 	var uploadRecords models.UploadRecord
 	result, err := uploadRecords.Get(request.ManifestId, request.Limit, request.Offset)
 	if err != nil {
 		return nil, err
 	}
 
-	var r []*pb.ListFilesResponse_FileUpload
+	var r []*pb.ListManifestFilesResponse_FileUpload
 	for _, m := range result {
 
-		statusInt := pb.ListFilesResponse_StatusType_value[m.Status]
-		st := pb.ListFilesResponse_StatusType(statusInt)
+		statusInt := pb.ListManifestFilesResponse_StatusType_value[m.Status]
+		st := pb.ListManifestFilesResponse_StatusType(statusInt)
 
-		r = append(r, &pb.ListFilesResponse_FileUpload{
+		r = append(r, &pb.ListManifestFilesResponse_FileUpload{
 			Id:         int32(m.Id),
 			SessionId:  m.SessionID,
 			SourcePath: m.SourcePath,
@@ -179,7 +179,7 @@ func (s *server) ListFilesForManifest(ctx context.Context, request *pb.ListManif
 
 	}
 
-	response := pb.ListFilesResponse{File: r}
+	response := pb.ListManifestFilesResponse{File: r}
 
 	return &response, nil
 

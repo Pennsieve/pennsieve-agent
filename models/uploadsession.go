@@ -71,7 +71,7 @@ func (*UploadSession) Add(s UploadSessionParams) error {
 	}
 	defer stmt.Close()
 
-	indexStr := pb.ListFilesResponse_INDEXED.String()
+	indexStr := pb.ListManifestFilesResponse_INDEXED.String()
 
 	// format all vals at once
 	currentTime := time.Now()

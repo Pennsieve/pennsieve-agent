@@ -10,7 +10,7 @@ service Agent {
 	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ListManifests(ListManifestsRequest) returns (ListManifestsResponse) {}
-	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListFilesResponse) {}
+	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListManifestFilesResponse) {}
 
 	// Upload Endpoints
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
@@ -108,7 +108,7 @@ message ListManifestFilesRequest{
 	int32 limit = 3;
 }
 
-message ListFilesResponse{
+message ListManifestFilesResponse{
 	enum StatusType{
 		INDEXED = 0;  	// File indexed locally
 		SYNCED = 1; 		// File manifest synchronized with Cloud

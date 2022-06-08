@@ -63,7 +63,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(files *protos.ListFilesResponse, manifestID string, showFull bool) {
+func PrettyPrint(files *protos.ListManifestFilesResponse, manifestID string, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetTitle(fmt.Sprintf("Files for upload session: %s", manifestID))

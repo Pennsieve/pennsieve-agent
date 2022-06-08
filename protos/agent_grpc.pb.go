@@ -28,7 +28,7 @@ type AgentClient interface {
 	RemoveFromManifest(ctx context.Context, in *RemoveFromManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	ListManifests(ctx context.Context, in *ListManifestsRequest, opts ...grpc.CallOption) (*ListManifestsResponse, error)
-	ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
+	ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListManifestFilesResponse, error)
 	// Upload Endpoints
 	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
@@ -94,8 +94,8 @@ func (c *agentClient) ListManifests(ctx context.Context, in *ListManifestsReques
 	return out, nil
 }
 
-func (c *agentClient) ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error) {
-	out := new(ListFilesResponse)
+func (c *agentClient) ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListManifestFilesResponse, error) {
+	out := new(ListManifestFilesResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/ListManifestFiles", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ type AgentServer interface {
 	RemoveFromManifest(context.Context, *RemoveFromManifestRequest) (*SimpleStatusResponse, error)
 	DeleteManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
 	ListManifests(context.Context, *ListManifestsRequest) (*ListManifestsResponse, error)
-	ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListFilesResponse, error)
+	ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListManifestFilesResponse, error)
 	// Upload Endpoints
 	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
 	CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error)
@@ -232,7 +232,7 @@ func (UnimplementedAgentServer) DeleteManifest(context.Context, *DeleteManifestR
 func (UnimplementedAgentServer) ListManifests(context.Context, *ListManifestsRequest) (*ListManifestsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListManifests not implemented")
 }
-func (UnimplementedAgentServer) ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListFilesResponse, error) {
+func (UnimplementedAgentServer) ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListManifestFilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListManifestFiles not implemented")
 }
 func (UnimplementedAgentServer) UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error) {

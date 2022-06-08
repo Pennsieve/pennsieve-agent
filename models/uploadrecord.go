@@ -92,7 +92,7 @@ func (*UploadRecord) Add(records []UploadRecordParams) error {
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?)"
 	var vals []interface{}
 	var inserts []string
-	indexStr := pb.ListFilesResponse_INDEXED.String()
+	indexStr := pb.ListManifestFilesResponse_INDEXED.String()
 
 	sqlInsert := "INSERT INTO upload_record(source_path, target_path, s3_key, " +
 		"session_id, status, created_at, updated_at) VALUES "
