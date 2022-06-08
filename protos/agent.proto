@@ -9,7 +9,7 @@ service Agent {
 	rpc AddToManifest(AddToManifestRequest) returns (SimpleStatusResponse) {}
 	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
-	rpc ListManifests(ManifestStatusRequest) returns (ManifestStatusResponse) {}
+	rpc ListManifests(ListManifestsRequest) returns (ListManifestsResponse) {}
 	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListFilesResponse) {}
 
 	// Upload Endpoints
@@ -80,10 +80,10 @@ message RemoveFromManifestRequest {
 	repeated int32 file_id = 2;
 }
 
-message ManifestStatusRequest {
+message ListManifestsRequest {
 }
 
-message ManifestStatusResponse {
+message ListManifestsResponse {
 	message Manifest {
 		string id = 1;
 		string user_name = 2;
