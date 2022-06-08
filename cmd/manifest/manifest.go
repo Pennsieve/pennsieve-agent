@@ -22,7 +22,7 @@ var ManifestCmd = &cobra.Command{
 This list includes only upload manifests that are initiated from the current machine.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := pb.ManifestStatusRequest{}
+		req := pb.ListManifestsRequest{}
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))

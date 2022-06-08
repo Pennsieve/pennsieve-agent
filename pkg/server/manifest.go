@@ -22,14 +22,14 @@ type fileWalk chan string
 // API ENDPOINT IMPLEMENTATIONS
 // --------------------------------------------
 
-// ManifestStatus returns a list of manifests that are currently defined in the local database.
-func (s *server) ManifestStatus(ctx context.Context, request *pb.ManifestStatusRequest) (*pb.ManifestStatusResponse, error) {
+// ListManifests returns a list of manifests that are currently defined in the local database.
+func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsRequest) (*pb.ListManifestsResponse, error) {
 	var uploadSession models.UploadSession
 	manifests, err := uploadSession.GetAll()
 
-	var r []*pb.ManifestStatusResponse_Manifest
+	var r []*pb.ListManifestsResponse_Manifest
 	for _, m := range manifests {
-		r = append(r, &pb.ManifestStatusResponse_Manifest{
+		r = append(r, &pb.ListManifestsResponse_Manifest{
 			Id:               m.SessionId,
 			UserName:         m.UserName,
 			UserId:           m.UserId,
@@ -40,7 +40,7 @@ func (s *server) ManifestStatus(ctx context.Context, request *pb.ManifestStatusR
 			Status:           m.Status,
 		})
 	}
-	response := pb.ManifestStatusResponse{Manifests: r}
+	response := pb.ListManifestsResponse{Manifests: r}
 	return &response, err
 }
 
