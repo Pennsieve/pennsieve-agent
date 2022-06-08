@@ -27,7 +27,7 @@ type AgentClient interface {
 	AddToManifest(ctx context.Context, in *AddToManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	RemoveFromManifest(ctx context.Context, in *RemoveFromManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
-	ManifestStatus(ctx context.Context, in *ManifestStatusRequest, opts ...grpc.CallOption) (*ManifestStatusResponse, error)
+	ListManifests(ctx context.Context, in *ManifestStatusRequest, opts ...grpc.CallOption) (*ManifestStatusResponse, error)
 	ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
 	// Upload Endpoints
 	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
@@ -85,9 +85,9 @@ func (c *agentClient) DeleteManifest(ctx context.Context, in *DeleteManifestRequ
 	return out, nil
 }
 
-func (c *agentClient) ManifestStatus(ctx context.Context, in *ManifestStatusRequest, opts ...grpc.CallOption) (*ManifestStatusResponse, error) {
+func (c *agentClient) ListManifests(ctx context.Context, in *ManifestStatusRequest, opts ...grpc.CallOption) (*ManifestStatusResponse, error) {
 	out := new(ManifestStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/ManifestStatus", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/protos.Agent/ListManifests", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ type AgentServer interface {
 	AddToManifest(context.Context, *AddToManifestRequest) (*SimpleStatusResponse, error)
 	RemoveFromManifest(context.Context, *RemoveFromManifestRequest) (*SimpleStatusResponse, error)
 	DeleteManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
-	ManifestStatus(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error)
+	ListManifests(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error)
 	ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListFilesResponse, error)
 	// Upload Endpoints
 	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
@@ -229,8 +229,8 @@ func (UnimplementedAgentServer) RemoveFromManifest(context.Context, *RemoveFromM
 func (UnimplementedAgentServer) DeleteManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteManifest not implemented")
 }
-func (UnimplementedAgentServer) ManifestStatus(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ManifestStatus not implemented")
+func (UnimplementedAgentServer) ListManifests(context.Context, *ManifestStatusRequest) (*ManifestStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListManifests not implemented")
 }
 func (UnimplementedAgentServer) ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListFilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListManifestFiles not implemented")
@@ -341,20 +341,20 @@ func _Agent_DeleteManifest_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_ManifestStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Agent_ListManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ManifestStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).ManifestStatus(ctx, in)
+		return srv.(AgentServer).ListManifests(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/ManifestStatus",
+		FullMethod: "/protos.Agent/ListManifests",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).ManifestStatus(ctx, req.(*ManifestStatusRequest))
+		return srv.(AgentServer).ListManifests(ctx, req.(*ManifestStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -530,8 +530,8 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_DeleteManifest_Handler,
 		},
 		{
-			MethodName: "ManifestStatus",
-			Handler:    _Agent_ManifestStatus_Handler,
+			MethodName: "ListManifests",
+			Handler:    _Agent_ListManifests_Handler,
 		},
 		{
 			MethodName: "ListManifestFiles",

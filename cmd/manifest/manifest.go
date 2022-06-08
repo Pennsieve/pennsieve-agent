@@ -33,7 +33,7 @@ This list includes only upload manifests that are initiated from the current mac
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.ManifestStatus(context.Background(), &req)
+		manifestResponse, err := client.ListManifests(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())

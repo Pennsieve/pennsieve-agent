@@ -9,7 +9,7 @@ service Agent {
 	rpc AddToManifest(AddToManifestRequest) returns (SimpleStatusResponse) {}
 	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
-	rpc ManifestStatus(ManifestStatusRequest) returns (ManifestStatusResponse) {}
+	rpc ListManifests(ManifestStatusRequest) returns (ManifestStatusResponse) {}
 	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListFilesResponse) {}
 
 	// Upload Endpoints
