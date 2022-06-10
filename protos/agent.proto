@@ -25,6 +25,9 @@ service Agent {
 	rpc SwitchProfile(SwitchProfileRequest) returns (UserResponse) {}
 	rpc ReAuthenticate(ReAuthenticateRequest) returns (UserResponse) {}
 
+	// Datasets Endpoints
+	rpc UseDataset(UseDatasetRequest) returns (UseDatasetResponse) {}
+
 }
 
 message SubscribeRequest {
@@ -152,4 +155,12 @@ message SwitchProfileRequest {
 }
 
 message ReAuthenticateRequest {
+}
+
+message UseDatasetRequest {
+	string dataset_id = 1;
+}
+
+message UseDatasetResponse {
+	string dataset_id = 1;
 }

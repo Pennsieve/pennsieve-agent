@@ -1,10 +1,14 @@
 package dataset
 
 import (
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"context"
+	"fmt"
+	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
-	"log"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // whoamiCmd represents the whoami command
@@ -20,21 +24,30 @@ var UseCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// 1. Verify that the dataset exists
 		datasetId := args[0]
-		client := api.PennsieveClient
-		response, err := client.Dataset.Get(nil, datasetId)
-		if err != nil {
-			log.Fatalln("Unknown dataset: ", datasetId)
+
+		req := pb.UseDatasetRequest{
+			DatasetId: datasetId,
 		}
 
-		// 2. Update UserSettings to contain dataset ID
-		var userSettings models.UserSettings
-		err = userSettings.UpdateActiveDataset(datasetId)
+		port := viper.GetString("agent.port")
+
+		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			log.Fatalln("Unable to update UserSettings:", err)
+			fmt.Println("Error connecting to GRPC Server: ", err)
+			return
+		}
+		defer conn.Close()
+
+		client := pb.NewAgentClient(conn)
+		useDatasetResponse, err := client.UseDataset(context.Background(), &req)
+		if err != nil {
+			st := status.Convert(err)
+			fmt.Println(st.Message())
+			return
 		}
 
-		PrettyPrint(response, false)
+		fmt.Println(useDatasetResponse)
+		//PrettyPrint(response, false)
 	},
 }
