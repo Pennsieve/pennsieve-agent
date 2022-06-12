@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"strconv"
 )
 
 var AddCmd = &cobra.Command{
@@ -18,7 +19,12 @@ var AddCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		manifestId := args[0]
+		i, err := strconv.ParseInt(args[0], 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		manifestId := int32(i)
+
 		localBasePath := args[1]
 
 		targetBasePath, _ := cmd.Flags().GetString("target_path")

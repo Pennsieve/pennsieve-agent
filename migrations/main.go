@@ -11,8 +11,8 @@ func Run() {
 	// Iterate over migration steps
 	migrate(db.DB, UserInfo)
 	migrate(db.DB, UserSettings)
-	migrate(db.DB, UploadSessions)
-	migrate(db.DB, UploadRecords)
+	migrate(db.DB, Manifests)
+	migrate(db.DB, ManifestFiles)
 	// Other migrations can be added here.
 
 	fmt.Println("Database initialized...")

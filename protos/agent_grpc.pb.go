@@ -29,6 +29,7 @@ type AgentClient interface {
 	DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	ListManifests(ctx context.Context, in *ListManifestsRequest, opts ...grpc.CallOption) (*ListManifestsResponse, error)
 	ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListManifestFilesResponse, error)
+	SyncManifest(ctx context.Context, in *SyncManifestRequest, opts ...grpc.CallOption) (*SyncManifestResponse, error)
 	// Upload Endpoints
 	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
@@ -99,6 +100,15 @@ func (c *agentClient) ListManifests(ctx context.Context, in *ListManifestsReques
 func (c *agentClient) ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListManifestFilesResponse, error) {
 	out := new(ListManifestFilesResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/ListManifestFiles", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) SyncManifest(ctx context.Context, in *SyncManifestRequest, opts ...grpc.CallOption) (*SyncManifestResponse, error) {
+	out := new(SyncManifestResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/SyncManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +221,7 @@ type AgentServer interface {
 	DeleteManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
 	ListManifests(context.Context, *ListManifestsRequest) (*ListManifestsResponse, error)
 	ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListManifestFilesResponse, error)
+	SyncManifest(context.Context, *SyncManifestRequest) (*SyncManifestResponse, error)
 	// Upload Endpoints
 	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
 	CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error)
@@ -247,6 +258,9 @@ func (UnimplementedAgentServer) ListManifests(context.Context, *ListManifestsReq
 }
 func (UnimplementedAgentServer) ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListManifestFilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListManifestFiles not implemented")
+}
+func (UnimplementedAgentServer) SyncManifest(context.Context, *SyncManifestRequest) (*SyncManifestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncManifest not implemented")
 }
 func (UnimplementedAgentServer) UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadManifest not implemented")
@@ -389,6 +403,24 @@ func _Agent_ListManifestFiles_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).ListManifestFiles(ctx, req.(*ListManifestFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_SyncManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncManifestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SyncManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/SyncManifest",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SyncManifest(ctx, req.(*SyncManifestRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -570,6 +602,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListManifestFiles",
 			Handler:    _Agent_ListManifestFiles_Handler,
+		},
+		{
+			MethodName: "SyncManifest",
+			Handler:    _Agent_SyncManifest_Handler,
 		},
 		{
 			MethodName: "UploadManifest",

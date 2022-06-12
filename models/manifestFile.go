@@ -8,41 +8,41 @@ import (
 	"time"
 )
 
-type UploadRecord struct {
-	Id         int       `json:"id"`
+type ManifestFile struct {
+	Id         int32     `json:"id"`
+	ManifestId int32     `json:"manifest_id"`
 	SourcePath string    `json:"source_path"`
 	TargetPath string    `json:"target_path"`
 	S3Key      string    `json:"s3_key"`
-	SessionID  string    `json:"session_id"`
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
-type UploadRecordParams struct {
+type ManifestFileParams struct {
 	SourcePath string `json:"source_path"`
 	TargetPath string `json:"target_path"`
 	S3Key      string `json:"s3_key"`
-	SessionID  string `json:"session_id"`
+	ManifestId int32  `json:"manifest_id"`
 }
 
-func (*UploadRecord) Get(manifestId string, limit int32, offset int32) ([]UploadRecord, error) {
+func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]ManifestFile, error) {
 
-	rows, err := db.DB.Query("SELECT * FROM upload_record WHERE session_id = ? ORDER BY id LIMIT ? OFFSET ?",
+	rows, err := db.DB.Query("SELECT * FROM manifest_files WHERE manifest_id = ? ORDER BY id LIMIT ? OFFSET ?",
 		manifestId, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
-	var allRecords []UploadRecord
+	var allRecords []ManifestFile
 	for rows.Next() {
-		var currentRecord UploadRecord
+		var currentRecord ManifestFile
 		err = rows.Scan(
 			&currentRecord.Id,
+			&currentRecord.ManifestId,
 			&currentRecord.SourcePath,
 			&currentRecord.TargetPath,
 			&currentRecord.S3Key,
-			&currentRecord.SessionID,
 			&currentRecord.Status,
 			&currentRecord.CreatedAt,
 			&currentRecord.UpdatedAt)
@@ -58,18 +58,18 @@ func (*UploadRecord) Get(manifestId string, limit int32, offset int32) ([]Upload
 }
 
 // GetAll returns all rows in the Upload Record Table
-func (*UploadRecord) GetAll() ([]UploadRecord, error) {
-	rows, err := db.DB.Query("SELECT * FROM upload_record")
-	var allRecords []UploadRecord
+func (*ManifestFile) GetAll() ([]ManifestFile, error) {
+	rows, err := db.DB.Query("SELECT * FROM manifest_files")
+	var allRecords []ManifestFile
 	if err == nil {
 		for rows.Next() {
-			var currentRecord UploadRecord
+			var currentRecord ManifestFile
 			err = rows.Scan(
 				&currentRecord.Id,
 				&currentRecord.SourcePath,
 				&currentRecord.TargetPath,
 				&currentRecord.S3Key,
-				&currentRecord.SessionID,
+				&currentRecord.ManifestId,
 				&currentRecord.Status,
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
@@ -86,7 +86,7 @@ func (*UploadRecord) GetAll() ([]UploadRecord, error) {
 }
 
 // Add adds multiple rows to the UploadRecords database.
-func (*UploadRecord) Add(records []UploadRecordParams) error {
+func (*ManifestFile) Add(records []ManifestFileParams) error {
 
 	currentTime := time.Now()
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?)"
@@ -94,11 +94,11 @@ func (*UploadRecord) Add(records []UploadRecordParams) error {
 	var inserts []string
 	indexStr := pb.ListManifestFilesResponse_INDEXED.String()
 
-	sqlInsert := "INSERT INTO upload_record(source_path, target_path, s3_key, " +
-		"session_id, status, created_at, updated_at) VALUES "
+	sqlInsert := "INSERT INTO manifest_files(source_path, target_path, s3_key, " +
+		"manifest_id, status, created_at, updated_at) VALUES "
 	for _, row := range records {
 		inserts = append(inserts, rowSQL)
-		vals = append(vals, row.SourcePath, row.TargetPath, row.S3Key, row.SessionID,
+		vals = append(vals, row.SourcePath, row.TargetPath, row.S3Key, row.ManifestId,
 			indexStr, currentTime, currentTime)
 	}
 	sqlInsert = sqlInsert + strings.Join(inserts, ",")
@@ -119,7 +119,3 @@ func (*UploadRecord) Add(records []UploadRecordParams) error {
 	return nil
 
 }
-
-// TODO: Remove uploadsession
-
-// TODO:

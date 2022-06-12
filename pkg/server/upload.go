@@ -100,7 +100,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		}()
 
 		rows, err := dbconfig.DB.Query(
-			"SELECT source_path, target_path, s3_key FROM upload_record WHERE session_id=?", request.ManifestId)
+			"SELECT source_path, target_path, s3_key FROM manifest_files WHERE session_id=?", request.ManifestId)
 		if err != nil {
 			log.Fatal(err)
 		}

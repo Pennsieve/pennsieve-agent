@@ -21,19 +21,34 @@ var ListCmd = &cobra.Command{
 	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		limit := int64(100)
-		offset := int64(100)
+		limit := int32(100)
+		offset := int32(100)
+
+		i, err := strconv.ParseInt(args[0], 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		manifestId := int32(i)
+
 		if len(args) > 2 {
-			offset, _ = strconv.ParseInt(args[1], 10, 32)
+			i, err = strconv.ParseInt(args[2], 10, 32)
+			if err != nil {
+				panic(err)
+			}
+			offset = int32(i)
 		}
 		if len(args) > 1 {
-			limit, _ = strconv.ParseInt(args[2], 10, 32)
+			i, err = strconv.ParseInt(args[1], 10, 32)
+			if err != nil {
+				panic(err)
+			}
+			limit = int32(i)
 		}
 
 		req := pb.ListManifestFilesRequest{
-			ManifestId: args[0],
-			Offset:     int32(offset),
-			Limit:      int32(limit),
+			ManifestId: manifestId,
+			Offset:     offset,
+			Limit:      limit,
 		}
 
 		port := viper.GetString("agent.port")

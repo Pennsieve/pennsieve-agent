@@ -59,7 +59,7 @@ func init() {
 	ManifestCmd.AddCommand(AddCmd)
 	ManifestCmd.AddCommand(RemoveCmd)
 	ManifestCmd.AddCommand(DeleteCmd)
-
+	ManifestCmd.AddCommand(SyncCmd)
 }
 
 func trimName(str string, max int) string {

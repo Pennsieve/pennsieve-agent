@@ -24,13 +24,20 @@ type fileWalk chan string
 
 // ListManifests returns a list of manifests that are currently defined in the local database.
 func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsRequest) (*pb.ListManifestsResponse, error) {
-	var uploadSession models.UploadSession
+	var uploadSession models.Manifest
 	manifests, err := uploadSession.GetAll()
 
 	var r []*pb.ListManifestsResponse_Manifest
 	for _, m := range manifests {
+
+		nodeId := ""
+		if m.NodeId.Valid {
+			nodeId = m.NodeId.String
+		}
+
 		r = append(r, &pb.ListManifestsResponse_Manifest{
-			Id:               m.SessionId,
+			Id:               m.Id,
+			NodeId:           nodeId,
 			UserName:         m.UserName,
 			UserId:           m.UserId,
 			OrganizationName: m.OrganizationName,
@@ -51,7 +58,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	// --------------------------------------------------
 
 	//TODO replace with real call to server
-	uploadSessionID := uuid.New()
+	//uploadSessionID := uuid.New()
 
 	activeUser, _ := api.GetActiveUser()
 
@@ -79,8 +86,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	// Check dataset exist (should be redundant) and grab name
 	ds, err := api.PennsieveClient.Dataset.Get(nil, curClientSession.UseDatasetId)
 
-	newSession := models.UploadSessionParams{
-		SessionId:        uploadSessionID.String(),
+	newSession := models.ManifestParams{
 		UserId:           activeUser.Id,
 		UserName:         activeUser.Name,
 		OrganizationId:   activeUser.OrganizationId,
@@ -89,8 +95,8 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 		DatasetName:      ds.Content.Name,
 	}
 
-	var uploadSession models.UploadSession
-	err = uploadSession.Add(newSession)
+	var manifest models.Manifest
+	createdManifest, err := manifest.Add(newSession)
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to create Upload Session.\n "+
@@ -102,7 +108,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 2. Walk over folder and populate DB with file-paths.
 	// --------------------------------------------------
-	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, uploadSessionID.String())
+	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, createdManifest.Id)
 
 	log.Printf("Finished Processing %d files.\n", nrRecords)
 
@@ -137,7 +143,7 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 
 	//	3. Delete manifest from local database
 
-	var uploadSession models.UploadSession
+	var uploadSession models.Manifest
 	err := uploadSession.Remove(request.ManifestId)
 
 	if err != nil {
@@ -156,11 +162,13 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 
 // ListManifestFiles lists files from an existing upload manifest.
 func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListManifestFilesResponse, error) {
-	var uploadRecords models.UploadRecord
-	result, err := uploadRecords.Get(request.ManifestId, request.Limit, request.Offset)
+	var uploadRecords models.ManifestFile
+	result, err := uploadRecords.Get(6, 100, 0) //request.ManifestId, request.Limit, request.Offset)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("Number of results: ", len(result))
 
 	var r []*pb.ListManifestFilesResponse_FileUpload
 	for _, m := range result {
@@ -170,7 +178,7 @@ func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifest
 
 		r = append(r, &pb.ListManifestFilesResponse_FileUpload{
 			Id:         int32(m.Id),
-			SessionId:  m.SessionID,
+			ManifestId: m.ManifestId,
 			SourcePath: m.SourcePath,
 			TargetPath: m.TargetPath,
 			S3Key:      m.S3Key,
@@ -184,6 +192,40 @@ func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifest
 	return &response, nil
 
 }
+
+// SyncManifest synchronizes the state of the manifest between local and cloud server.
+//func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
+//
+//	//var uploadSession models.Manifest
+//	//manifests, err := uploadSession.Get(request.ManifestId)
+//	//if err != nil {
+//	//	return nil, err
+//	//}
+//	//
+//	//client := api.PennsieveClient
+//	//client.BaseURL = pennsieve.BaseURLV2
+//	//
+//	//var uploadRecord models.ManifestFile
+//	//files, err := uploadRecord.Get(request.ManifestId, 100, 0)
+//	//
+//	//var requestFiles []pennsieve.ManifestRequestFile
+//	//for _, file := range files {
+//	//	reqFile := pennsieve.ManifestRequestFile{
+//	//		UploadID:   file.Id,
+//	//		S3Key:      file.S3Key,
+//	//		TargetPath: file.TargetPath,
+//	//		TargetName: file.SourcePath,
+//	//	}
+//	//	requestFiles = append(requestFiles, reqFile)
+//	//}
+//	//
+//	//requestBody := pennsieve.ManifestRequest{
+//	//	ID:    request.ManifestId,
+//	//	Files: requestFiles,
+//	//}
+//	//client.Manifest.Create(context.Background(), requestBody)
+//
+//}
 
 // HELPER FUNCTIONS
 // ----------------------------------------------
@@ -199,7 +241,7 @@ func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
 }
 
 // addToManifest walks over provided path and adds records to DB
-func addToManifest(localBasePath string, targetBasePath string, manifestId string) (int, error) {
+func addToManifest(localBasePath string, targetBasePath string, manifestId int32) (int, error) {
 	batchSize := 50 // Update DB with 50 paths per batch
 	walker := make(fileWalk, batchSize)
 	go func() {
@@ -239,25 +281,27 @@ func addToManifest(localBasePath string, targetBasePath string, manifestId strin
 }
 
 // addUploadRecords adds records to the local SQLite DB.
-func addUploadRecords(paths []string, localBasePath string, targetBasePath string, sessionId string) error {
+func addUploadRecords(paths []string, localBasePath string, targetBasePath string, manifestId int32) error {
 
-	var records []models.UploadRecordParams
+	var records []models.ManifestFileParams
 	for _, row := range paths {
 		relPath, err := filepath.Rel(localBasePath, row)
 		if err != nil {
 			log.Fatal("Cannot strip base-path.")
 		}
 
-		newRecord := models.UploadRecordParams{
+		newRecord := models.ManifestFileParams{
 			SourcePath: row,
 			TargetPath: filepath.Join(targetBasePath, relPath),
 			S3Key:      uuid.New().String(),
-			SessionID:  sessionId,
+			ManifestId: manifestId,
 		}
 		records = append(records, newRecord)
 	}
 
-	var record models.UploadRecord
+	fmt.Println(records)
+
+	var record models.ManifestFile
 	err := record.Add(records)
 	if err != nil {
 		log.Println("Error with AddUploadRecords: ", err)

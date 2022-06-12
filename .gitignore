@@ -23,3 +23,5 @@
 /agent.lock
 server.lock
 
+# build
+pennsieve-agent
