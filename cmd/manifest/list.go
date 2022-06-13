@@ -22,7 +22,7 @@ var ListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		limit := int32(100)
-		offset := int32(100)
+		offset := int32(0)
 
 		i, err := strconv.ParseInt(args[0], 10, 32)
 		if err != nil {
@@ -83,9 +83,9 @@ func PrettyPrint(files *protos.ListManifestFilesResponse, manifestID string, sho
 	t.SetOutputMirror(os.Stdout)
 	t.SetTitle(fmt.Sprintf("Files for upload session: %s", manifestID))
 	if showFull {
-		t.AppendHeader(table.Row{"id", "Source Path", "Target Path", "Status"})
+		t.AppendHeader(table.Row{"id", "Upload ID", "Source Path", "Target Path", "Status"})
 		for _, path := range files.File {
-			t.AppendRow([]interface{}{path.Id, path.SourcePath, path.TargetPath, path.Status})
+			t.AppendRow([]interface{}{path.Id, path.UploadId, path.SourcePath, path.TargetPath, path.Status})
 		}
 	} else {
 		t.AppendHeader(table.Row{"id", "Source Path", "Status"})

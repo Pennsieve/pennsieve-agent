@@ -28,7 +28,7 @@ import (
 type record struct {
 	sourcePath string
 	targetPath string
-	s3Key      string
+	uploadId   string
 }
 
 type recordWalk chan record
@@ -100,7 +100,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		}()
 
 		rows, err := dbconfig.DB.Query(
-			"SELECT source_path, target_path, s3_key FROM manifest_files WHERE session_id=?", request.ManifestId)
+			"SELECT source_path, target_path, upload_id FROM manifest_files WHERE manifest_id=?", request.ManifestId)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -114,7 +114,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		// Iterate over rows for manifest and add row to channel to be picked up by worker.
 		for rows.Next() {
 			r := record{}
-			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.s3Key)
+			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId)
 			if err != nil {
 				log.Fatal(err)
 			}

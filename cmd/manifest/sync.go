@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"strconv"
 )
 
 var SyncCmd = &cobra.Command{
@@ -17,8 +18,14 @@ var SyncCmd = &cobra.Command{
 	Long:  `Syncs manifest with server.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
+		i, err := strconv.ParseInt(args[0], 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		manifestId := int32(i)
+
 		req := pb.SyncManifestRequest{
-			ManifestId: args[0],
+			ManifestId: manifestId,
 		}
 
 		port := viper.GetString("agent.port")

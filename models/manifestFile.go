@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"log"
@@ -9,21 +10,68 @@ import (
 )
 
 type ManifestFile struct {
-	Id         int32     `json:"id"`
-	ManifestId int32     `json:"manifest_id"`
-	SourcePath string    `json:"source_path"`
-	TargetPath string    `json:"target_path"`
-	S3Key      string    `json:"s3_key"`
-	Status     string    `json:"status"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	Id         int32              `json:"id"`
+	ManifestId int32              `json:"manifest_id"`
+	UploadId   uuid.UUID          `json:"upload_id""`
+	SourcePath string             `json:"source_path"`
+	TargetPath string             `json:"target_path"`
+	Status     ManifestFileStatus `json:"status"`
+	CreatedAt  time.Time          `json:"created_at"`
+	UpdatedAt  time.Time          `json:"updated_at"`
 }
 
 type ManifestFileParams struct {
 	SourcePath string `json:"source_path"`
 	TargetPath string `json:"target_path"`
-	S3Key      string `json:"s3_key"`
 	ManifestId int32  `json:"manifest_id"`
+}
+
+type ManifestFileStatus int64
+
+const (
+	FileRegistered ManifestFileStatus = iota
+	FileSynced
+	FileUploading
+	FileCompleted
+	FileVerified
+	FileCancelled
+)
+
+func (s ManifestFileStatus) String() string {
+	switch s {
+	case FileRegistered:
+		return "Indexed"
+	case FileSynced:
+		return "Synced"
+	case FileUploading:
+		return "Uploading"
+	case FileCompleted:
+		return "Completed"
+	case FileVerified:
+		return "Verified"
+	case FileCancelled:
+		return "Cancelled"
+	default:
+		return "Initiated"
+	}
+}
+
+func (s ManifestFileStatus) ManifestFileStatusMap(value string) ManifestFileStatus {
+	switch value {
+	case "Indexed":
+		return FileRegistered
+	case "Synced":
+		return FileSynced
+	case "Uploading":
+		return FileUploading
+	case "Completed":
+		return FileCompleted
+	case "Verified":
+		return FileVerified
+	case "Cancelled":
+		return FileCancelled
+	}
+	return FileRegistered
 }
 
 func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]ManifestFile, error) {
@@ -34,18 +82,22 @@ func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]Manifes
 		return nil, err
 	}
 
+	var status string
 	var allRecords []ManifestFile
 	for rows.Next() {
 		var currentRecord ManifestFile
 		err = rows.Scan(
 			&currentRecord.Id,
 			&currentRecord.ManifestId,
+			&currentRecord.UploadId,
 			&currentRecord.SourcePath,
 			&currentRecord.TargetPath,
-			&currentRecord.S3Key,
-			&currentRecord.Status,
+			&status,
 			&currentRecord.CreatedAt,
 			&currentRecord.UpdatedAt)
+
+		var s ManifestFileStatus
+		currentRecord.Status = s.ManifestFileStatusMap(status)
 
 		if err != nil {
 			log.Println("ERROR: ", err)
@@ -63,16 +115,20 @@ func (*ManifestFile) GetAll() ([]ManifestFile, error) {
 	var allRecords []ManifestFile
 	if err == nil {
 		for rows.Next() {
+			var status string
 			var currentRecord ManifestFile
 			err = rows.Scan(
 				&currentRecord.Id,
+				&currentRecord.ManifestId,
+				&currentRecord.UploadId,
 				&currentRecord.SourcePath,
 				&currentRecord.TargetPath,
-				&currentRecord.S3Key,
-				&currentRecord.ManifestId,
-				&currentRecord.Status,
+				&status,
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
+
+			var s ManifestFileStatus
+			currentRecord.Status = s.ManifestFileStatusMap(status)
 
 			if err != nil {
 				log.Println("ERROR: ", err)
@@ -88,17 +144,18 @@ func (*ManifestFile) GetAll() ([]ManifestFile, error) {
 // Add adds multiple rows to the UploadRecords database.
 func (*ManifestFile) Add(records []ManifestFileParams) error {
 
+	uploadId := uuid.New()
 	currentTime := time.Now()
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?)"
 	var vals []interface{}
 	var inserts []string
 	indexStr := pb.ListManifestFilesResponse_INDEXED.String()
 
-	sqlInsert := "INSERT INTO manifest_files(source_path, target_path, s3_key, " +
+	sqlInsert := "INSERT INTO manifest_files(source_path, target_path, upload_id, " +
 		"manifest_id, status, created_at, updated_at) VALUES "
 	for _, row := range records {
 		inserts = append(inserts, rowSQL)
-		vals = append(vals, row.SourcePath, row.TargetPath, row.S3Key, row.ManifestId,
+		vals = append(vals, row.SourcePath, row.TargetPath, uploadId.String(), row.ManifestId,
 			indexStr, currentTime, currentTime)
 	}
 	sqlInsert = sqlInsert + strings.Join(inserts, ",")

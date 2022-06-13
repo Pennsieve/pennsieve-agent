@@ -6,15 +6,16 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/fs"
 	"log"
 	"path/filepath"
+	"strings"
 )
 
 type fileWalk chan string
@@ -44,7 +45,7 @@ func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsReq
 			OrganizationId:   m.OrganizationId,
 			DatasetName:      m.DatasetName,
 			DatasetId:        m.DatasetId,
-			Status:           m.Status,
+			Status:           m.Status.String(),
 		})
 	}
 	response := pb.ListManifestsResponse{Manifests: r}
@@ -163,25 +164,23 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 // ListManifestFiles lists files from an existing upload manifest.
 func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListManifestFilesResponse, error) {
 	var uploadRecords models.ManifestFile
-	result, err := uploadRecords.Get(6, 100, 0) //request.ManifestId, request.Limit, request.Offset)
+	result, err := uploadRecords.Get(request.ManifestId, request.Limit, request.Offset)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("Number of results: ", len(result))
-
 	var r []*pb.ListManifestFilesResponse_FileUpload
 	for _, m := range result {
 
-		statusInt := pb.ListManifestFilesResponse_StatusType_value[m.Status]
+		statusInt := pb.ListManifestFilesResponse_StatusType_value[strings.ToUpper(m.Status.String())]
 		st := pb.ListManifestFilesResponse_StatusType(statusInt)
 
 		r = append(r, &pb.ListManifestFilesResponse_FileUpload{
-			Id:         int32(m.Id),
+			Id:         m.Id,
 			ManifestId: m.ManifestId,
 			SourcePath: m.SourcePath,
 			TargetPath: m.TargetPath,
-			S3Key:      m.S3Key,
+			UploadId:   m.UploadId.String(),
 			Status:     st,
 		})
 
@@ -193,39 +192,78 @@ func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifest
 
 }
 
-// SyncManifest synchronizes the state of the manifest between local and cloud server.
-//func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
-//
-//	//var uploadSession models.Manifest
-//	//manifests, err := uploadSession.Get(request.ManifestId)
-//	//if err != nil {
-//	//	return nil, err
-//	//}
-//	//
-//	//client := api.PennsieveClient
-//	//client.BaseURL = pennsieve.BaseURLV2
-//	//
-//	//var uploadRecord models.ManifestFile
-//	//files, err := uploadRecord.Get(request.ManifestId, 100, 0)
-//	//
-//	//var requestFiles []pennsieve.ManifestRequestFile
-//	//for _, file := range files {
-//	//	reqFile := pennsieve.ManifestRequestFile{
-//	//		UploadID:   file.Id,
-//	//		S3Key:      file.S3Key,
-//	//		TargetPath: file.TargetPath,
-//	//		TargetName: file.SourcePath,
-//	//	}
-//	//	requestFiles = append(requestFiles, reqFile)
-//	//}
-//	//
-//	//requestBody := pennsieve.ManifestRequest{
-//	//	ID:    request.ManifestId,
-//	//	Files: requestFiles,
-//	//}
-//	//client.Manifest.Create(context.Background(), requestBody)
-//
-//}
+//SyncManifest synchronizes the state of the manifest between local and cloud server.
+func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
+
+	// Manifest Status:
+	// (INITIATED, IN_PROGRESS, COMPLETED, CANCELED)
+
+	// Manifest File Status:
+	// (LOCAL, PENDING, UPLOADING, COMPLETED, CANCELED)
+
+	// 1. Iterate over files in local manifest
+	// - if status is NEW --> upload
+	// - if status is DELETED --> remove
+	// - if status is SYNCED, UPLOADED --> ignore
+	//
+	// 2. Call create endpoint without manifest id on first batch with 1000 files
+	// 3. Add returned manifestId to Local manifest.
+	// 4. Recurrently call endpoint with returned manifest id
+	// 5. Same process for removing files.
+	//
+	// 6. Call Sync endpoint and update local manifest with status updates from server.
+	// -
+
+	var m models.Manifest
+	manifest, err := m.Get(request.ManifestId)
+	if err != nil {
+		return nil, err
+	}
+
+	manifestNodeId := ""
+	if manifest.NodeId.Valid {
+		manifestNodeId = manifest.NodeId.String
+	}
+
+	client := api.PennsieveClient
+	client.BaseURL = pennsieve.BaseURLV2
+
+	var f models.ManifestFile
+	files, err := f.Get(request.ManifestId, 100, 0)
+
+	var requestFiles []pennsieve.ManifestRequestFile
+	for _, file := range files {
+		s3Key := fmt.Sprintf("%s/%d", manifest.NodeId, f.UploadId)
+		reqFile := pennsieve.ManifestRequestFile{
+			UploadID:   file.UploadId.String(),
+			S3Key:      s3Key,
+			TargetPath: file.TargetPath,
+			TargetName: file.SourcePath,
+		}
+		requestFiles = append(requestFiles, reqFile)
+	}
+
+	requestBody := pennsieve.ManifestRequest{
+		DatasetId: manifest.DatasetId,
+		ID:        manifestNodeId,
+		Files:     requestFiles,
+	}
+
+	fmt.Println(requestBody)
+
+	response, err := client.Manifest.Create(context.Background(), requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	r := pb.SyncManifestResponse{
+		ManifestNodeId: response.ManifestNodeId,
+		NrFilesAdded:   int32(response.NrFilesAdded),
+	}
+
+	return &r, nil
+
+}
 
 // HELPER FUNCTIONS
 // ----------------------------------------------
@@ -293,7 +331,6 @@ func addUploadRecords(paths []string, localBasePath string, targetBasePath strin
 		newRecord := models.ManifestFileParams{
 			SourcePath: row,
 			TargetPath: filepath.Join(targetBasePath, relPath),
-			S3Key:      uuid.New().String(),
 			ManifestId: manifestId,
 		}
 		records = append(records, newRecord)

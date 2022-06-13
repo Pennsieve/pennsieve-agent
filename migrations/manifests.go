@@ -10,9 +10,9 @@ const ManifestFiles = `
 CREATE TABLE IF NOT EXISTS manifest_files (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	manifest_id INTEGER NOT NULL,
+	upload_id VARCHAR(255) NOT NULL,
 	source_path TEXT NOT NULL,
 	target_path TEXT,
-	s3_key TEXT NOT NULL,
 	status VARCHAR(255) NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,

@@ -27,6 +27,7 @@ type AgentClient interface {
 	AddToManifest(ctx context.Context, in *AddToManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	RemoveFromManifest(ctx context.Context, in *RemoveFromManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	//	rpc ResetManifest(ResetManifestRequest) returns (SimpleStatusResponse) {}
 	ListManifests(ctx context.Context, in *ListManifestsRequest, opts ...grpc.CallOption) (*ListManifestsResponse, error)
 	ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListManifestFilesResponse, error)
 	SyncManifest(ctx context.Context, in *SyncManifestRequest, opts ...grpc.CallOption) (*SyncManifestResponse, error)
@@ -219,6 +220,7 @@ type AgentServer interface {
 	AddToManifest(context.Context, *AddToManifestRequest) (*SimpleStatusResponse, error)
 	RemoveFromManifest(context.Context, *RemoveFromManifestRequest) (*SimpleStatusResponse, error)
 	DeleteManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
+	//	rpc ResetManifest(ResetManifestRequest) returns (SimpleStatusResponse) {}
 	ListManifests(context.Context, *ListManifestsRequest) (*ListManifestsResponse, error)
 	ListManifestFiles(context.Context, *ListManifestFilesRequest) (*ListManifestFilesResponse, error)
 	SyncManifest(context.Context, *SyncManifestRequest) (*SyncManifestResponse, error)

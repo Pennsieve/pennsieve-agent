@@ -9,6 +9,7 @@ service Agent {
 	rpc AddToManifest(AddToManifestRequest) returns (SimpleStatusResponse) {}
 	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
+//	rpc ResetManifest(ResetManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ListManifests(ListManifestsRequest) returns (ListManifestsResponse) {}
 	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListManifestFilesResponse) {}
 	rpc SyncManifest(SyncManifestRequest) returns (SyncManifestResponse) {}
@@ -119,7 +120,8 @@ message ListManifestFilesResponse{
 		SYNCED = 1; 		// File manifest synchronized with Cloud
 		UPLOADING = 3; 	// File being uploaded
 		COMPLETED = 4; 	// File completed uploading
-		CANCELED = 5; 	// File Upload canceled (manually, or failed)
+		VERIFIED = 5;   // File imported in cloud
+		CANCELLED = 6; 	// File Upload canceled (manually, or failed)
 	}
 
 	message FileUpload {
@@ -127,7 +129,7 @@ message ListManifestFilesResponse{
 		int32 manifest_id = 2;
 		string source_path = 3;
 		string target_path = 4;
-		string s3_key = 5;
+		string upload_id = 5;
 		StatusType status = 6;
 	}
 
@@ -168,11 +170,15 @@ message UseDatasetResponse {
 }
 
 message SyncManifestRequest {
-	string manifest_id = 1;
+	int32 manifest_id = 1;
 }
 
 message SyncManifestResponse {
-	string manifest_id = 1;
-	string nr_files_added = 2;
-	string nr_files_removed = 3;
+	string manifest_node_id = 1;
+	int32 nr_files_added = 2;
+	int32 nr_files_removed = 3;
+}
+
+message ResetManifestRequest {
+	int32 manifest_id = 1;
 }

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"log"
 	"time"
 )
@@ -18,7 +17,7 @@ type Manifest struct {
 	OrganizationName string         `json:"organization_name"`
 	DatasetId        string         `json:"dataset_id"`
 	DatasetName      string         `json:"dataset_name"`
-	Status           string         `json:"status"`
+	Status           ManifestStatus `json:"status"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 }
@@ -32,9 +31,48 @@ type ManifestParams struct {
 	DatasetName      string `json:"dataset_name"`
 }
 
-// Get returns all rows in the Upload Record Table
-func (*Manifest) Get(id int64) (*Manifest, error) {
+type ManifestStatus int64
 
+const (
+	ManifestInitiated ManifestStatus = iota
+	ManifestUploading
+	ManifestCompleted
+	ManifestCancelled
+)
+
+func (s ManifestStatus) String() string {
+	switch s {
+	case ManifestInitiated:
+		return "Initiated"
+	case ManifestUploading:
+		return "InProgress"
+	case ManifestCompleted:
+		return "Completed"
+	case ManifestCancelled:
+		return "Cancelled"
+	default:
+		return "Initiated"
+	}
+}
+
+func (s ManifestStatus) ManifestStatusMap(value string) ManifestStatus {
+	switch value {
+	case "Initiated":
+		return ManifestInitiated
+	case "InProgress":
+		return ManifestUploading
+	case "Completed":
+		return ManifestCompleted
+	case "Cancelled":
+		return ManifestCancelled
+	}
+	return ManifestInitiated
+}
+
+// Get returns all rows in the Upload Record Table
+func (*Manifest) Get(id int32) (*Manifest, error) {
+
+	var statusStr string
 	manifest := &Manifest{}
 	err := db.DB.QueryRow(fmt.Sprintf(
 		"SELECT * FROM manifests WHERE id=%d", id)).Scan(
@@ -46,9 +84,12 @@ func (*Manifest) Get(id int64) (*Manifest, error) {
 		&manifest.OrganizationName,
 		&manifest.DatasetId,
 		&manifest.DatasetName,
-		&manifest.Status,
+		&statusStr,
 		&manifest.CreatedAt,
 		&manifest.UpdatedAt)
+
+	var m ManifestStatus
+	manifest.Status = m.ManifestStatusMap(statusStr)
 
 	return manifest, err
 }
@@ -59,6 +100,7 @@ func (*Manifest) GetAll() ([]Manifest, error) {
 	var allSessions []Manifest
 	if err == nil {
 		for rows.Next() {
+			var statusStr string
 			var currentRecord Manifest
 			err = rows.Scan(
 				&currentRecord.Id,
@@ -69,9 +111,12 @@ func (*Manifest) GetAll() ([]Manifest, error) {
 				&currentRecord.OrganizationName,
 				&currentRecord.DatasetId,
 				&currentRecord.DatasetName,
-				&currentRecord.Status,
+				&statusStr,
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
+
+			var m ManifestStatus
+			currentRecord.Status = m.ManifestStatusMap(statusStr)
 
 			if err != nil {
 				log.Println("ERROR: ", err)
@@ -91,31 +136,13 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 		"organization_name, dataset_id, dataset_name, " +
 		"status, created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id;"
 
-	//sqlInsert := "INSERT INTO manifests(user_id, user_name, organization_id,  " +
-	//	"organization_name, dataset_id, dataset_name, " +
-	//	"status, created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
-	//stmt, err := db.DB.Prepare(sqlInsert)
-	//if err != nil {
-	//	log.Fatalln("ERROR: ", err)
-	//}
-	//defer stmt.Close()
-
-	indexStr := pb.ListManifestFilesResponse_INDEXED.String()
-
 	currentTime := time.Now()
 	var id int32
 	err := db.DB.QueryRow(sqlStatement, s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
-		s.DatasetName, indexStr, currentTime, currentTime).Scan(&id)
+		s.DatasetName, ManifestInitiated.String(), currentTime, currentTime).Scan(&id)
 	if err != nil {
 		panic(err)
 	}
-	// format all vals at once
-	//currentTime := time.Now()
-	//_, err = stmt.Exec(s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
-	//	s.DatasetName, indexStr, currentTime, currentTime)
-	//if err != nil {
-	//	log.Println(err)
-	//}
 
 	createdManifest := Manifest{
 		Id:               id,
@@ -126,15 +153,15 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 		OrganizationName: s.OrganizationName,
 		DatasetId:        s.DatasetId,
 		DatasetName:      s.DatasetName,
-		Status:           indexStr,
+		Status:           ManifestInitiated,
 		CreatedAt:        currentTime,
 		UpdatedAt:        currentTime,
 	}
 
 	return &createdManifest, err
-
 }
 
+// Remove removes a manifest from the local DB.
 func (*Manifest) Remove(manifestId int32) error {
 	sqlDelete := "DELETE FROM manifests WHERE id = ?"
 	stmt, err := db.DB.Prepare(sqlDelete)
@@ -151,3 +178,5 @@ func (*Manifest) Remove(manifestId int32) error {
 
 	return err
 }
+
+//func (*Manifest) SetStatus(manifestId int32, status)
