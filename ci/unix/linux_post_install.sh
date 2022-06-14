@@ -57,10 +57,10 @@ sudo chown -R $USER:$USER "$PS_HOME/"
 chmod -R a+rX "$PS_HOME"
 chmod 755 "$PS_PATH"
 
-# Create the cache directory:
-if [ ! -d "$PS_HOME/cache" ]; then
-	mkdir "$PS_HOME/cache"
-fi
+## Create the cache directory:
+#if [ ! -d "$PS_HOME/cache" ]; then
+#	mkdir "$PS_HOME/cache"
+#fi
 
 # Symlink $PS_EXECUTABLE to /usr/local/bin:
 if [ -d "/usr/local/bin" ]; then

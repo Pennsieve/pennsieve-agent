@@ -9,7 +9,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
-	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	"github.com/pennsieve/pennsieve-go-api/models/manifest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/fs"
@@ -215,26 +215,25 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 	// -
 
 	var m models.Manifest
-	manifest, err := m.Get(request.ManifestId)
+	localManifest, err := m.Get(request.ManifestId)
 	if err != nil {
 		return nil, err
 	}
 
 	manifestNodeId := ""
-	if manifest.NodeId.Valid {
-		manifestNodeId = manifest.NodeId.String
+	if localManifest.NodeId.Valid {
+		manifestNodeId = localManifest.NodeId.String
 	}
 
 	client := api.PennsieveClient
-	client.BaseURL = pennsieve.BaseURLV2
 
 	var f models.ManifestFile
 	files, err := f.Get(request.ManifestId, 100, 0)
 
-	var requestFiles []pennsieve.ManifestRequestFile
+	var requestFiles []manifest.FileDTO
 	for _, file := range files {
-		s3Key := fmt.Sprintf("%s/%d", manifest.NodeId, f.UploadId)
-		reqFile := pennsieve.ManifestRequestFile{
+		s3Key := fmt.Sprintf("%s/%d", localManifest.NodeId, f.UploadId)
+		reqFile := manifest.FileDTO{
 			UploadID:   file.UploadId.String(),
 			S3Key:      s3Key,
 			TargetPath: file.TargetPath,
@@ -243,8 +242,8 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 		requestFiles = append(requestFiles, reqFile)
 	}
 
-	requestBody := pennsieve.ManifestRequest{
-		DatasetId: manifest.DatasetId,
+	requestBody := manifest.DTO{
+		DatasetId: localManifest.DatasetId,
 		ID:        manifestNodeId,
 		Files:     requestFiles,
 	}

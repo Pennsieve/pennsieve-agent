@@ -72,13 +72,6 @@ func GetActiveUser() (*models.UserInfo, error) {
 		return nil, err
 	}
 
-	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
-	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
-	if customAPIHost != "" {
-		//fmt.Println("Using custom API-Host: ", customAPIHost)
-		PennsieveClient.BaseURL = customAPIHost
-	}
-
 	apiToken := viper.GetString(userSettings.Profile + ".api_token")
 	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
 
@@ -112,13 +105,10 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	apiSecret := viper.GetString(profile + ".api_secret")
 	environment := viper.GetString(profile + ".env")
 
-	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
+	// Directly update baseURL, so we can authenticate against new profile before setting up new Client
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
-		fmt.Println("Using custom API-Host: ", customAPIHost)
-		PennsieveClient.BaseURL = customAPIHost
-	} else {
-		PennsieveClient.BaseURL = viper.GetString("api_host")
+		PennsieveClient.Authentication.BaseUrl = customAPIHost
 	}
 
 	credentials, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
@@ -149,6 +139,9 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 		fmt.Println("Error Creating new UserSettings")
 		return nil, err
 	}
+
+	// Initialize new Client
+	InitializeAPI()
 
 	// Get UserInfo associated with settings
 	newUserInfo, err := models.GetUserInfo(existingUser.ID, profile)
