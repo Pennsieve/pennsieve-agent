@@ -33,10 +33,12 @@ This will trigger Github Actions to create a new release with the same name.
 ## Building the GRPC Protobuf 
 The gRPC server is defined in the ```protos/agent.proto``` file. Use the following command to generate the go structs, GRPC client and server interfaces: 
 
-``protoc --go_out=. --go_opt=paths=source_relative \
+```
+export PATH="$PATH:$(go env GOPATH)/bin"
+protoc --go_out=. --go_opt=paths=source_relative \
 --go-grpc_out=. --go-grpc_opt=paths=source_relative \
 protos/agent.proto
-``
+```
 
 for Python, use:
 ``` python -m grpc_tools.protoc --python_out=build/gen/ -I. --grpc_python_out=build/gen protos/agent.proto```
