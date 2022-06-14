@@ -37,6 +37,88 @@ jobs:
           draft: false
           prerelease: false
 
+  linux-release:
+    runs-on: ubuntu-latest
+    needs: [read-tag, create-release]
+    env:
+      PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
+      PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
+      PRODUCT_NAME: Pennsieve
+      PACKAGE_BINARY_NAME: pennsieve
+      PS_PATH: /opt/pennsieve
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        id: install-deps
+        run: |
+          sudo apt-get install ruby ruby-dev rubygems-integration build-essential
+          sudo apt-get install dpkg-dev lintian debhelper pkg-config autoconf libtool openssl libssl-dev
+          sudo gem install fpm
+      - name: Setup directories
+        id: setup-dirs
+        run: |
+          mkdir -p ~/.pennsieve
+          BUILD_DIR=$(mktemp -d)
+          mkdir $BUILD_DIR/bin
+          echo "BUILD_DIR = $BUILD_DIR"
+          echo "::set-output name=build-dir::$BUILD_DIR"
+      - name: Read version
+        id: read-version
+        run: |
+          VERSION=$(ci/unix/version.sh)
+          echo "VERSION = $VERSION"
+          echo "::set-output name=version::$VERSION"
+#      - name: Cache build release
+#        uses: actions/cache@v2
+#        with:
+#          path: ./target/release
+#          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
+      - name: Build release
+        id: build-release
+        run: go build . -ldflags '-s'
+      - name: Package assets
+        id: package-assets
+        env:
+          BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
+          PS_VERSION: ${{ steps.read-version.outputs.version }}
+          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
+        run: |
+          echo "BUILD_DIR=$BUILD_DIR"
+          echo "PS_VERSION=$PS_VERSION"
+          echo "PS_EXECUTABLE=$PS_EXECUTABLE"
+          echo "::set-output name=asset-file::pennsieve_${{ env.PS_VERSION }}_amd64.deb"
+          cp ./target/release/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
+          mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
+          cp ./resources/config* ${{ env.BUILD_DIR }}
+          fpm \
+            -f \
+            --verbose \
+            -s dir \
+            -t deb \
+            --prefix="${{ env.PS_PATH }}" \
+            --url="https://www.pennsieve.com" \
+            --deb-no-default-config-files \
+            -n "${{ env.PACKAGE_BINARY_NAME }}" \
+            --after-install ci/unix/linux_post_install.sh \
+            -v ${{ env.PS_VERSION }} \
+            --template-scripts \
+            --template-value ps_path="${{ env.PS_PATH }}" \
+            --template-value ps_version="${{ env.PS_VERSION }}" \
+            --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
+            --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
+            "${{ env.BUILD_DIR }}/=."
+      - name: Publish assets
+        id: publish-assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload-url }}
+          asset_path: ./${{ steps.package-assets.outputs.asset-file }}
+          asset_name: ${{ steps.package-assets.outputs.asset-file }}
+          asset_content_type: application/octet-stream
+
   mac-release:
     runs-on: macos-latest
     needs: [ read-tag, create-release ]
@@ -86,7 +168,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build .
+        run: go build . -ldflags '-s'
       - name: Package assets
         id: package-assets
         env:
