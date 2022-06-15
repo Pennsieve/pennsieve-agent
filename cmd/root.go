@@ -143,7 +143,7 @@ func initConfig() {
 		fmt.Println("Selected Profile: ", selectedProfile)
 
 		if selectedProfile == "" {
-			log.Fatalln("No default profile defined in %s. Please update configuration.\n",
+			log.Fatalf("No default profile defined in %s. Please update configuration.\n\n",
 				viper.ConfigFileUsed())
 		}
 
