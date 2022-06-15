@@ -232,7 +232,7 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 
 	var requestFiles []manifest.FileDTO
 	for _, file := range files {
-		s3Key := fmt.Sprintf("%s/%d", localManifest.NodeId, f.UploadId)
+		s3Key := fmt.Sprintf("%s/%d", manifestNodeId, f.UploadId)
 		reqFile := manifest.FileDTO{
 			UploadID:   file.UploadId.String(),
 			S3Key:      s3Key,
