@@ -22,8 +22,6 @@ type UserSettingsParams struct {
 func (*UserSettings) Get() (*UserSettings, error) {
 	rows, err := db.DB.Query("SELECT * FROM user_settings")
 	if err != nil {
-		fmt.Println("Error connecting to sqlite:", err, "\n\nRun: \n"+
-			"$ pennsieve-server config init \n\nto initialize the local database. ")
 		return nil, err
 	}
 

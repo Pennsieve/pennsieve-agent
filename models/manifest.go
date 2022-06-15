@@ -4,22 +4,23 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-go-api/models/manifest"
 	"log"
 	"time"
 )
 
 type Manifest struct {
-	Id               int32          `json:"id"`
-	NodeId           sql.NullString `json:"node_id"`
-	UserId           string         `json:"user_id"`
-	UserName         string         `json:"user_name"`
-	OrganizationId   string         `json:"organization_id"`
-	OrganizationName string         `json:"organization_name"`
-	DatasetId        string         `json:"dataset_id"`
-	DatasetName      string         `json:"dataset_name"`
-	Status           ManifestStatus `json:"status"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	Id               int32                   `json:"id"`
+	NodeId           sql.NullString          `json:"node_id"`
+	UserId           string                  `json:"user_id"`
+	UserName         string                  `json:"user_name"`
+	OrganizationId   string                  `json:"organization_id"`
+	OrganizationName string                  `json:"organization_name"`
+	DatasetId        string                  `json:"dataset_id"`
+	DatasetName      string                  `json:"dataset_name"`
+	Status           manifest.ManifestStatus `json:"status"`
+	CreatedAt        time.Time               `json:"created_at"`
+	UpdatedAt        time.Time               `json:"updated_at"`
 }
 
 type ManifestParams struct {
@@ -31,67 +32,29 @@ type ManifestParams struct {
 	DatasetName      string `json:"dataset_name"`
 }
 
-type ManifestStatus int64
-
-const (
-	ManifestInitiated ManifestStatus = iota
-	ManifestUploading
-	ManifestCompleted
-	ManifestCancelled
-)
-
-func (s ManifestStatus) String() string {
-	switch s {
-	case ManifestInitiated:
-		return "Initiated"
-	case ManifestUploading:
-		return "InProgress"
-	case ManifestCompleted:
-		return "Completed"
-	case ManifestCancelled:
-		return "Cancelled"
-	default:
-		return "Initiated"
-	}
-}
-
-func (s ManifestStatus) ManifestStatusMap(value string) ManifestStatus {
-	switch value {
-	case "Initiated":
-		return ManifestInitiated
-	case "InProgress":
-		return ManifestUploading
-	case "Completed":
-		return ManifestCompleted
-	case "Cancelled":
-		return ManifestCancelled
-	}
-	return ManifestInitiated
-}
-
 // Get returns all rows in the Upload Record Table
 func (*Manifest) Get(id int32) (*Manifest, error) {
 
 	var statusStr string
-	manifest := &Manifest{}
+	res := &Manifest{}
 	err := db.DB.QueryRow(fmt.Sprintf(
 		"SELECT * FROM manifests WHERE id=%d", id)).Scan(
-		&manifest.Id,
-		&manifest.NodeId,
-		&manifest.UserId,
-		&manifest.UserName,
-		&manifest.OrganizationId,
-		&manifest.OrganizationName,
-		&manifest.DatasetId,
-		&manifest.DatasetName,
+		&res.Id,
+		&res.NodeId,
+		&res.UserId,
+		&res.UserName,
+		&res.OrganizationId,
+		&res.OrganizationName,
+		&res.DatasetId,
+		&res.DatasetName,
 		&statusStr,
-		&manifest.CreatedAt,
-		&manifest.UpdatedAt)
+		&res.CreatedAt,
+		&res.UpdatedAt)
 
-	var m ManifestStatus
-	manifest.Status = m.ManifestStatusMap(statusStr)
+	var m manifest.ManifestStatus
+	res.Status = m.ManifestStatusMap(statusStr)
 
-	return manifest, err
+	return res, err
 }
 
 // GetAll returns all rows in the Upload Record Table
@@ -115,7 +78,7 @@ func (*Manifest) GetAll() ([]Manifest, error) {
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
 
-			var m ManifestStatus
+			var m manifest.ManifestStatus
 			currentRecord.Status = m.ManifestStatusMap(statusStr)
 
 			if err != nil {
@@ -139,7 +102,7 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 	currentTime := time.Now()
 	var id int32
 	err := db.DB.QueryRow(sqlStatement, s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
-		s.DatasetName, ManifestInitiated.String(), currentTime, currentTime).Scan(&id)
+		s.DatasetName, manifest.ManifestInitiated.String(), currentTime, currentTime).Scan(&id)
 	if err != nil {
 		panic(err)
 	}
@@ -153,7 +116,7 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 		OrganizationName: s.OrganizationName,
 		DatasetId:        s.DatasetId,
 		DatasetName:      s.DatasetName,
-		Status:           ManifestInitiated,
+		Status:           manifest.ManifestInitiated,
 		CreatedAt:        currentTime,
 		UpdatedAt:        currentTime,
 	}

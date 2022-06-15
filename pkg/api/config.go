@@ -13,7 +13,7 @@ import (
 var PennsieveClient *pennsieve.Client
 var ActiveUser *models.UserInfo
 
-func InitializeAPI() (*models.UserInfo, error) {
+func InitializeAPI() error {
 	// Initialize Pennsieve Client
 
 	// Get current user-settings. This is either 0, or 1 entry.
@@ -36,8 +36,5 @@ func InitializeAPI() (*models.UserInfo, error) {
 	}
 
 	PennsieveClient = pennsieve.NewClient(apiV1Url, apiV2Url)
-
-	GetActiveUser()
-
-	return ActiveUser, err
+	return err
 }

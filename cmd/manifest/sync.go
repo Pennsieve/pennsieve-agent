@@ -44,8 +44,8 @@ var SyncCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Synced Manifest: %d added and %d removed",
-			manifestResponse.NrFilesAdded, manifestResponse.NrFilesRemoved)
+		fmt.Printf("Synced Manifest: %s -- %d added and %d removed",
+			manifestResponse.ManifestNodeId, manifestResponse.NrFilesAdded, manifestResponse.NrFilesRemoved)
 	},
 }
 

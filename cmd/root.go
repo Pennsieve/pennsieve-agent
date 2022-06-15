@@ -24,6 +24,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
+	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	dbConfig "github.com/pennsieve/pennsieve-agent/pkg/db"
@@ -53,10 +54,13 @@ var rootCmd = &cobra.Command{
 			cache the updated session-token so next calls do not require re-authentication.
 		*/
 
-		creds := api.PennsieveClient.APISession
-		if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
-			fmt.Println("Client credentials updated --> Update session token in UserInfo")
-			models.UpdateTokenForUser(api.ActiveUser, &api.PennsieveClient.APISession)
+		if api.PennsieveClient != nil {
+
+			creds := api.PennsieveClient.APISession
+			if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
+				fmt.Println("Client credentials updated --> Update session token in UserInfo")
+				models.UpdateTokenForUser(api.ActiveUser, &api.PennsieveClient.APISession)
+			}
 		}
 
 	},
@@ -74,11 +78,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Initialize SQLITE database
-	_, err := dbConfig.InitializeDB()
-	if err != nil {
-		log.Panicln("Driver creation failed:", err)
-	}
+	fmt.Println("In Init")
 
 	rootCmd.AddCommand(whoami.WhoamiCmd)
 	rootCmd.AddCommand(config.ConfigCmd)
@@ -98,9 +98,9 @@ func init() {
 // initConfig reads in db file and ENV variables if set.
 func initConfig() {
 
-	// initialize client after initializing Viper as it needs viper to get api key/secret
-	defer api.InitializeAPI()
+	fmt.Println("In initConfig")
 
+	// initialize client after initializing Viper as it needs viper to get api key/secret
 	if cfgFile != "" {
 		// Use db file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -128,4 +128,37 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Println("Error reading db file:", viper.ConfigFileUsed())
 	}
+
+	// Initialize SQLITE database
+	_, err := dbConfig.InitializeDB()
+
+	// Get current user-settings. This is either 0, or 1 entry.
+	var clientSession models.UserSettings
+	_, err = clientSession.Get()
+	if err != nil {
+		fmt.Println("Setup database")
+		migrations.Run()
+
+		selectedProfile := viper.GetString("global.default_profile")
+		fmt.Println("Selected Profile: ", selectedProfile)
+
+		if selectedProfile == "" {
+			log.Fatalln("No default profile defined in %s. Please update configuration.\n",
+				viper.ConfigFileUsed())
+		}
+
+		// Create new user settings
+		params := models.UserSettingsParams{
+			UserId:  "",
+			Profile: selectedProfile,
+		}
+		_, err = models.CreateNewUserSettings(params)
+		if err != nil {
+			log.Fatalln("Error Creating new UserSettings")
+		}
+
+	}
+
+	api.InitializeAPI()
+
 }

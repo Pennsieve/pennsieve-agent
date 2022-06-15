@@ -17,7 +17,6 @@ var ConfigCmd = &cobra.Command{
 }
 
 func init() {
-	ConfigCmd.AddCommand(InitCmd)
 
 	// Here you will define your flags and configuration settings.
 

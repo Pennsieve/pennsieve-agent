@@ -22,6 +22,7 @@ func GetActiveUser() (*models.UserInfo, error) {
 	userSettings, err := clientSession.Get()
 
 	if err != nil {
+
 		// If no entry is found in database, check default profile in db and setup DB
 		if errors.Is(err, &models.NoClientSessionError{}) {
 			fmt.Println("No record found in User Settings --> Checking Default Profile.")
@@ -33,14 +34,34 @@ func GetActiveUser() (*models.UserInfo, error) {
 				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
 					viper.ConfigFileUsed())
 			}
+			//
+			//apiToken := viper.GetString(selectedProfile + ".api_token")
+			//apiSecret := viper.GetString(selectedProfile + ".api_secret")
+			//
+			//fmt.Printf("before auth")
+			//_, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
+			//if err != nil {
+			//	fmt.Println("TJISS OSIJODS")
+			//	return nil, err
+			//}
+			//
+			//fmt.Printf("beyond auth")
+			//user, err := PennsieveClient.User.GetUser(context.Background(), nil)
+			//
+			//fmt.Println("beyond user")
 
-			apiToken := viper.GetString(selectedProfile + ".api_token")
-			apiSecret := viper.GetString(selectedProfile + ".api_secret")
-
-			_, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
+			// Create new user settings
+			params := models.UserSettingsParams{
+				UserId:  "",
+				Profile: selectedProfile,
+			}
+			_, err = models.CreateNewUserSettings(params)
 			if err != nil {
+				fmt.Println("Error Creating new UserSettings")
 				return nil, err
 			}
+
+			fmt.Printf("about to switch")
 
 			currentUser, err := SwitchUser(selectedProfile)
 			if err != nil {
@@ -93,6 +114,7 @@ func GetActiveUser() (*models.UserInfo, error) {
 
 // SwitchUser switches between profiles and returns active userInfo.
 func SwitchUser(profile string) (*models.UserInfo, error) {
+
 	// Check if profile exist
 	isSet := viper.IsSet(profile + ".api_token")
 	if !isSet {
@@ -108,18 +130,22 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	// Directly update baseURL, so we can authenticate against new profile before setting up new Client
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
-		PennsieveClient.Authentication.BaseUrl = customAPIHost
+		PennsieveClient.SetBasePathForServices(customAPIHost, "https://api2.pennsieve.net")
+	} else {
+		PennsieveClient.SetBasePathForServices(pennsieve.BaseURLV1, pennsieve.BaseURLV2)
 	}
 
+	// Check credentials of new profile
 	credentials, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
 	if err != nil {
 		fmt.Println("Problem with authentication")
 		return nil, err
 	}
 
+	// Get the User for the new profile
 	existingUser, err := PennsieveClient.User.GetUser(nil, nil)
 	if err != nil {
-		fmt.Println("Problem with getting user")
+		fmt.Println("Problem with getting user", err)
 		return nil, err
 	}
 
@@ -140,10 +166,7 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 		return nil, err
 	}
 
-	// Initialize new Client
-	InitializeAPI()
-
-	// Get UserInfo associated with settings
+	// Get UserInfo associated with settings or create if not exist.
 	newUserInfo, err := models.GetUserInfo(existingUser.ID, profile)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -166,6 +189,7 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 				OrganizationName: org.Organization.Name,
 			}
 			newUserInfo, err = models.CreateNewUserInfo(params)
+			
 			if err != nil {
 				fmt.Println("Error creating new userinfo ")
 				return nil, err

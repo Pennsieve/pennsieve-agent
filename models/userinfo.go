@@ -96,6 +96,12 @@ func GetUserInfo(id string, profile string) (*UserInfo, error) {
 			"FROM user_record WHERE id=? AND profile=?", id, profile).Scan(
 		&user.InnerId, &user.Id, &user.Name, &user.SessionToken, &user.TokenExpire, &user.IdToken, &user.Profile, &user.Environment,
 		&user.OrganizationId, &user.OrganizationName, &user.UpdatedAt)
+
+	if err != nil {
+		log.Println(" NOT FOUND ")
+		return nil, err
+	}
+
 	return user, err
 }
 
