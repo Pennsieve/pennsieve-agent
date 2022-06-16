@@ -148,6 +148,8 @@ jobs:
         id: install-deps
         run: |
           echo "::debug:: RELEASE: [${{ needs.read-tag.outputs.tag }}]"
+          rustup update
+          cargo install cargo-wix --version ${{ env.WIX_VERSION }} --force || true
 #      - name: Cache build release
 #        uses: actions/cache@v2
 #        with:
