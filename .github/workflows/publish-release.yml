@@ -83,7 +83,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build . -ldflags '-s'
+        run: go build -ldflags '-s'
       - name: Package assets
         id: package-assets
         env:
@@ -175,7 +175,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build . -ldflags '-s'
+        run: go build -ldflags '-s'
       - name: Package assets
         id: package-assets
         env:
