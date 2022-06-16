@@ -95,7 +95,7 @@ jobs:
           echo "PS_VERSION=$PS_VERSION"
           echo "PS_EXECUTABLE=$PS_EXECUTABLE"
           echo "::set-output name=asset-file::pennsieve_${{ env.PS_VERSION }}_amd64.deb"
-          cp .${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
+          cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           cp ./resources/config* ${{ env.BUILD_DIR }}
           fpm \
