@@ -44,7 +44,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve
+      PACKAGE_BINARY_NAME: pennsieve-agent
       PS_PATH: /opt/pennsieve
     steps:
       - name: Checkout
