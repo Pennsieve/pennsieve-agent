@@ -4,74 +4,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"github.com/pennsieve/pennsieve-go-api/models/manifest"
 	"log"
 	"strings"
 	"time"
 )
 
 type ManifestFile struct {
-	Id         int32              `json:"id"`
-	ManifestId int32              `json:"manifest_id"`
-	UploadId   uuid.UUID          `json:"upload_id""`
-	SourcePath string             `json:"source_path"`
-	TargetPath string             `json:"target_path"`
-	Status     ManifestFileStatus `json:"status"`
-	CreatedAt  time.Time          `json:"created_at"`
-	UpdatedAt  time.Time          `json:"updated_at"`
+	Id         int32                       `json:"id"`
+	ManifestId int32                       `json:"manifest_id"`
+	UploadId   uuid.UUID                   `json:"upload_id""`
+	SourcePath string                      `json:"source_path"`
+	TargetPath string                      `json:"target_path"`
+	Status     manifest.ManifestFileStatus `json:"status"`
+	CreatedAt  time.Time                   `json:"created_at"`
+	UpdatedAt  time.Time                   `json:"updated_at"`
 }
 
 type ManifestFileParams struct {
 	SourcePath string `json:"source_path"`
 	TargetPath string `json:"target_path"`
 	ManifestId int32  `json:"manifest_id"`
-}
-
-type ManifestFileStatus int64
-
-const (
-	FileRegistered ManifestFileStatus = iota
-	FileSynced
-	FileUploading
-	FileCompleted
-	FileVerified
-	FileCancelled
-)
-
-func (s ManifestFileStatus) String() string {
-	switch s {
-	case FileRegistered:
-		return "Indexed"
-	case FileSynced:
-		return "Synced"
-	case FileUploading:
-		return "Uploading"
-	case FileCompleted:
-		return "Completed"
-	case FileVerified:
-		return "Verified"
-	case FileCancelled:
-		return "Cancelled"
-	default:
-		return "Initiated"
-	}
-}
-
-func (s ManifestFileStatus) ManifestFileStatusMap(value string) ManifestFileStatus {
-	switch value {
-	case "Indexed":
-		return FileRegistered
-	case "Synced":
-		return FileSynced
-	case "Uploading":
-		return FileUploading
-	case "Completed":
-		return FileCompleted
-	case "Verified":
-		return FileVerified
-	case "Cancelled":
-		return FileCancelled
-	}
-	return FileRegistered
 }
 
 func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]ManifestFile, error) {
@@ -96,7 +49,7 @@ func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]Manifes
 			&currentRecord.CreatedAt,
 			&currentRecord.UpdatedAt)
 
-		var s ManifestFileStatus
+		var s manifest.ManifestFileStatus
 		currentRecord.Status = s.ManifestFileStatusMap(status)
 
 		if err != nil {
@@ -127,7 +80,7 @@ func (*ManifestFile) GetAll() ([]ManifestFile, error) {
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
 
-			var s ManifestFileStatus
+			var s manifest.ManifestFileStatus
 			currentRecord.Status = s.ManifestFileStatusMap(status)
 
 			if err != nil {
