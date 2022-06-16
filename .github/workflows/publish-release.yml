@@ -76,7 +76,7 @@ jobs:
 #          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Build release
         id: build-release
-        run: go build . -ldflags '-s'
+        run: go build
       - name: Package assets
         id: package-assets
         env:
