@@ -52,9 +52,8 @@ jobs:
       - name: Install dependencies
         id: install-deps
         run: |
-          sudo apt-get install ruby ruby-dev rubygems-integration build-essential
-          sudo apt-get install dpkg-dev lintian debhelper pkg-config autoconf libtool openssl libssl-dev
           sudo gem install fpm
+          brew install coreutils
       - name: Setup directories
         id: setup-dirs
         run: |
@@ -74,9 +73,17 @@ jobs:
 #        with:
 #          path: ./target/release
 #          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.18.0'
+      - name: Install dependencies
+        run: |
+          go version
+          go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build
+        run: go build . -ldflags '-s'
       - name: Package assets
         id: package-assets
         env:
@@ -88,7 +95,7 @@ jobs:
           echo "PS_VERSION=$PS_VERSION"
           echo "PS_EXECUTABLE=$PS_EXECUTABLE"
           echo "::set-output name=asset-file::pennsieve_${{ env.PS_VERSION }}_amd64.deb"
-          cp ./target/release/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
+          cp .${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           cp ./resources/config* ${{ env.BUILD_DIR }}
           fpm \
@@ -97,7 +104,7 @@ jobs:
             -s dir \
             -t deb \
             --prefix="${{ env.PS_PATH }}" \
-            --url="https://www.pennsieve.com" \
+            --url="https://app.pennsieve.io" \
             --deb-no-default-config-files \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/linux_post_install.sh \
@@ -153,11 +160,11 @@ jobs:
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
-      - name: Cache build release
-        uses: actions/cache@v2
-        with:
-          path: ./target/release
-          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
+#      - name: Cache build release
+#        uses: actions/cache@v2
+#        with:
+#          path: ./target/release
+#          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
