@@ -13,7 +13,7 @@ import (
 type ManifestFile struct {
 	Id         int32                       `json:"id"`
 	ManifestId int32                       `json:"manifest_id"`
-	UploadId   uuid.UUID                   `json:"upload_id""`
+	UploadId   uuid.UUID                   `json:"upload_id"`
 	SourcePath string                      `json:"source_path"`
 	TargetPath string                      `json:"target_path"`
 	Status     manifest.ManifestFileStatus `json:"status"`
@@ -97,7 +97,6 @@ func (*ManifestFile) GetAll() ([]ManifestFile, error) {
 // Add adds multiple rows to the UploadRecords database.
 func (*ManifestFile) Add(records []ManifestFileParams) error {
 
-	uploadId := uuid.New()
 	currentTime := time.Now()
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?)"
 	var vals []interface{}
@@ -107,6 +106,7 @@ func (*ManifestFile) Add(records []ManifestFileParams) error {
 	sqlInsert := "INSERT INTO manifest_files(source_path, target_path, upload_id, " +
 		"manifest_id, status, created_at, updated_at) VALUES "
 	for _, row := range records {
+		uploadId := uuid.New()
 		inserts = append(inserts, rowSQL)
 		vals = append(vals, row.SourcePath, row.TargetPath, uploadId.String(), row.ManifestId,
 			indexStr, currentTime, currentTime)

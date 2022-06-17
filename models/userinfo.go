@@ -126,13 +126,13 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 func UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
 
 	statement, err := db.DB.Prepare(
-		"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ?")
+		"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ? WHERE id = ?")
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
 
-	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken)
+	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken, user.Id)
 	if err != nil {
 		fmt.Sprintln("Unable to update Sessiontoken in database")
 		return nil, err

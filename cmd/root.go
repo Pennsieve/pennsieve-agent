@@ -161,4 +161,5 @@ func initConfig() {
 
 	api.InitializeAPI()
 
+	api.GetActiveUser()
 }

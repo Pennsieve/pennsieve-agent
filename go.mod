@@ -2,8 +2,8 @@ module github.com/pennsieve/pennsieve-agent
 
 go 1.18
 
-//replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
-//replace github.com/pennsieve/pennsieve-go-api => ../pennsieve-go-api
+replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
+replace github.com/pennsieve/pennsieve-go-api => ../pennsieve-go-api
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.16.4

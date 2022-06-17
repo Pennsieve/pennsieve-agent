@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
@@ -15,6 +16,7 @@ import (
 	"io/fs"
 	"log"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -233,13 +235,27 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 	var requestFiles []manifest.FileDTO
 	for _, file := range files {
 		s3Key := fmt.Sprintf("%s/%d", manifestNodeId, f.UploadId)
+
+		r2 := regexp.MustCompile(`(?P<Path>([^/]*/)*)(?P<FileName>[^.]*)?\.?(?P<Extension>.*)`)
+		pathParts := r2.FindStringSubmatch(file.TargetPath)
+
+		fmt.Println(file.TargetPath)
+		fmt.Println(pathParts)
+
+		fileExtension := pathParts[r2.SubexpIndex("Extension")]
+		str := []string{pathParts[r2.SubexpIndex("FileName")], fileExtension}
+		fileName := strings.Join(str, ".")
+
 		reqFile := manifest.FileDTO{
 			UploadID:   file.UploadId.String(),
 			S3Key:      s3Key,
-			TargetPath: file.TargetPath,
-			TargetName: file.SourcePath,
+			TargetPath: pathParts[r2.SubexpIndex("Path")],
+			TargetName: fileName,
 		}
 		requestFiles = append(requestFiles, reqFile)
+
+		fmt.Println(reqFile)
+
 	}
 
 	requestBody := manifest.DTO{
@@ -252,7 +268,19 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 
 	response, err := client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
+
+		log.Println(err)
+
 		return nil, err
+	}
+
+	// Update manifestId in table if currently does not exist.
+	if !localManifest.NodeId.Valid {
+		localManifest.SetManifestNodeId(response.ManifestNodeId)
+		localManifest.NodeId = sql.NullString{
+			String: response.ManifestNodeId,
+			Valid:  true,
+		}
 	}
 
 	r := pb.SyncManifestResponse{

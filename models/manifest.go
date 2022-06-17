@@ -102,7 +102,7 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 	currentTime := time.Now()
 	var id int32
 	err := db.DB.QueryRow(sqlStatement, s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
-		s.DatasetName, manifest.ManifestInitiated.String(), currentTime, currentTime).Scan(&id)
+		s.DatasetName, manifest.Initiated.String(), currentTime, currentTime).Scan(&id)
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +116,7 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 		OrganizationName: s.OrganizationName,
 		DatasetId:        s.DatasetId,
 		DatasetName:      s.DatasetName,
-		Status:           manifest.ManifestInitiated,
+		Status:           manifest.Initiated,
 		CreatedAt:        currentTime,
 		UpdatedAt:        currentTime,
 	}
@@ -140,6 +140,23 @@ func (*Manifest) Remove(manifestId int32) error {
 	}
 
 	return err
+}
+
+func (m *Manifest) SetManifestNodeId(nodeId string) error {
+	statement, err := db.DB.Prepare(
+		"UPDATE manifests SET node_id = ? WHERE id = ?")
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = statement.Exec(nodeId, m.Id)
+	if err != nil {
+		fmt.Sprintln("Unable to update Sessiontoken in database")
+		return err
+	}
+
+	return nil
 }
 
 //func (*Manifest) SetStatus(manifestId int32, status)
