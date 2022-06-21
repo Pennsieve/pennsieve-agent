@@ -5,12 +5,10 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
-	"github.com/pennsieve/pennsieve-go-api/models/manifest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/fs"
@@ -113,7 +111,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	// --------------------------------------------------
 	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, createdManifest.Id)
 
-	log.Printf("Finished Processing %d files.\n", nrRecords)
+	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.\n", nrRecords))
 
 	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
@@ -133,7 +131,13 @@ func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestReq
 // RemoveFromManifest removes one or more files from the index for an existing manifest.
 func (s *server) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", 0)}
+	var ft models.ManifestFile
+	err := ft.RemoveFromManifest(request.ManifestId, request.RemovePath)
+	if err != nil {
+		return nil, err
+	}
+
+	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully removed files.")}
 	return &response, nil
 }
 
@@ -197,99 +201,44 @@ func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifest
 //SyncManifest synchronizes the state of the manifest between local and cloud server.
 func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
 
-	// Manifest Status:
-	// (INITIATED, IN_PROGRESS, COMPLETED, CANCELED)
+	/*
+		ManifestSync only synchronizes manifest files of status:
+		- FileInitated
+		- FileFailed
+		- FileRemoved
 
-	// Manifest File Status:
-	// (LOCAL, PENDING, UPLOADING, COMPLETED, CANCELED)
+		If successful, files with those statuses will be updated in the local db where
+		Initiate, Failed --> Synced
+		Removed --> (file removed from local db)
+	*/
 
-	// 1. Iterate over files in local manifest
-	// - if status is NEW --> upload
-	// - if status is DELETED --> remove
-	// - if status is SYNCED, UPLOADED --> ignore
-	//
-	// 2. Call create endpoint without manifest id on first batch with 1000 files
-	// 3. Add returned manifestId to Local manifest.
-	// 4. Recurrently call endpoint with returned manifest id
-	// 5. Same process for removing files.
-	//
-	// 6. Call Sync endpoint and update local manifest with status updates from server.
-	// -
-
-	var m models.Manifest
-	localManifest, err := m.Get(request.ManifestId)
+	var m *models.Manifest
+	m, err := m.Get(request.ManifestId)
 	if err != nil {
 		return nil, err
 	}
 
-	manifestNodeId := ""
-	if localManifest.NodeId.Valid {
-		manifestNodeId = localManifest.NodeId.String
-	}
-
-	client := api.PennsieveClient
-
-	var f models.ManifestFile
-	files, err := f.Get(request.ManifestId, 100, 0)
-
-	var requestFiles []manifest.FileDTO
-	for _, file := range files {
-		s3Key := fmt.Sprintf("%s/%d", manifestNodeId, f.UploadId)
-
-		r2 := regexp.MustCompile(`(?P<Path>([^/]*/)*)(?P<FileName>[^.]*)?\.?(?P<Extension>.*)`)
-		pathParts := r2.FindStringSubmatch(file.TargetPath)
-
-		fmt.Println(file.TargetPath)
-		fmt.Println(pathParts)
-
-		fileExtension := pathParts[r2.SubexpIndex("Extension")]
-		str := []string{pathParts[r2.SubexpIndex("FileName")], fileExtension}
-		fileName := strings.Join(str, ".")
-
-		reqFile := manifest.FileDTO{
-			UploadID:   file.UploadId.String(),
-			S3Key:      s3Key,
-			TargetPath: pathParts[r2.SubexpIndex("Path")],
-			TargetName: fileName,
-		}
-		requestFiles = append(requestFiles, reqFile)
-
-		fmt.Println(reqFile)
-
-	}
-
-	requestBody := manifest.DTO{
-		DatasetId: localManifest.DatasetId,
-		ID:        manifestNodeId,
-		Files:     requestFiles,
-	}
-
-	fmt.Println(requestBody)
-
-	response, err := client.Manifest.Create(context.Background(), requestBody)
+	resp, err := api.ManifestSync(m)
 	if err != nil {
-
-		log.Println(err)
-
+		log.Println("Unable to sync files.")
 		return nil, err
-	}
-
-	// Update manifestId in table if currently does not exist.
-	if !localManifest.NodeId.Valid {
-		localManifest.SetManifestNodeId(response.ManifestNodeId)
-		localManifest.NodeId = sql.NullString{
-			String: response.ManifestNodeId,
-			Valid:  true,
-		}
 	}
 
 	r := pb.SyncManifestResponse{
-		ManifestNodeId: response.ManifestNodeId,
-		NrFilesAdded:   int32(response.NrFilesAdded),
+		ManifestNodeId: resp.ManifestNodeId,
+		NrFilesUpdated: resp.NrFilesUpdated,
+		NrFilesRemoved: resp.NrFilesRemoved,
+		NrFilesFailed:  int32(len(resp.FailedFiles)),
 	}
 
 	return &r, nil
 
+}
+
+// RelocateManifestFiles allows users to update the target path for a given path.
+func (s *server) RelocateManifestFiles(ctx context.Context, request *pb.RelocateManifestFilesRequest) (*pb.SimpleStatusResponse, error) {
+
+	return nil, nil
 }
 
 // HELPER FUNCTIONS
@@ -354,16 +303,22 @@ func addUploadRecords(paths []string, localBasePath string, targetBasePath strin
 		if err != nil {
 			log.Fatal("Cannot strip base-path.")
 		}
+		r2 := regexp.MustCompile(`(?P<Path>([^\/]*\/)*)(?P<FileName>[^\.]*)?\.?(?P<Extension>.*)`)
+		pathParts := r2.FindStringSubmatch(relPath)
+
+		filePath := pathParts[r2.SubexpIndex("Path")]
+		fileExtension := pathParts[r2.SubexpIndex("Extension")]
+		str := []string{pathParts[r2.SubexpIndex("FileName")], fileExtension}
+		fileName := strings.Join(str, ".")
 
 		newRecord := models.ManifestFileParams{
 			SourcePath: row,
-			TargetPath: filepath.Join(targetBasePath, relPath),
+			TargetPath: filepath.Join(targetBasePath, filePath),
+			TargetName: fileName,
 			ManifestId: manifestId,
 		}
 		records = append(records, newRecord)
 	}
-
-	fmt.Println(records)
 
 	var record models.ManifestFile
 	err := record.Add(records)

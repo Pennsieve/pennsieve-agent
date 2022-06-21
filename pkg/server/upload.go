@@ -12,9 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
+	apiManifest "github.com/pennsieve/pennsieve-go-api/models/manifest"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
@@ -28,6 +30,7 @@ import (
 type record struct {
 	sourcePath string
 	targetPath string
+	targetName string
 	uploadId   string
 }
 
@@ -51,14 +54,14 @@ func (s *server) CancelUpload(ctx context.Context, request *pb.CancelUploadReque
 			// Only cancel if the manifest id matches requested id
 			if session.manifestId == request.ManifestId {
 				session.cancelFnc()
-				s.sendCancelSubscribers(session.manifestId)
+				s.sendCancelSubscribers(fmt.Sprintf("Cancelling all uploads."))
 				cancelCount += 1
 				return false
 			}
 		} else {
 			// Cancel all upload sessions.
 			session.cancelFnc()
-			s.sendCancelSubscribers(session.manifestId)
+			s.sendCancelSubscribers(fmt.Sprintf("Cancelling uploading manifest: %d", session.manifestId))
 			cancelCount += 1
 		}
 
@@ -72,6 +75,25 @@ func (s *server) CancelUpload(ctx context.Context, request *pb.CancelUploadReque
 // UploadManifest uploads all files associated with the provided manifest
 func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
 
+	s.messageSubscribers("Syncing manifest with Cloud.")
+
+	var m *models.Manifest
+	m, err := m.Get(request.ManifestId)
+	if err != nil {
+		return nil, err
+	}
+
+	syncResp, err := api.ManifestSync(m)
+
+	if err != nil {
+		log.Fatalln("Unable to synchronize manifest with Server, cancelling uploading.")
+		return nil, err
+	}
+
+	s.messageSubscribers(fmt.Sprintf("Manifest Synced: %s -- %d updated, %d removed, and %d failed.\n",
+		syncResp.ManifestNodeId, syncResp.NrFilesUpdated, syncResp.NrFilesRemoved, len(syncResp.FailedFiles)))
+	s.messageSubscribers("Uploading files to cloud.")
+
 	// On runtime panic, log the stacktrace but keep server alive
 	defer func() {
 		if x := recover(); x != nil {
@@ -80,6 +102,12 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 			log.Printf("Stacktrace: \n %s", string(debug.Stack()))
 		}
 	}()
+
+	// Get Manifest again and verify that nodeID is set.
+	m, err = m.Get(request.ManifestId)
+	if err != nil || !m.NodeId.Valid {
+		log.Fatalln("Unable to get Manifest")
+	}
 
 	client := api.PennsieveClient
 	client.Authentication.GetAWSCredsForUser()
@@ -99,8 +127,11 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 			close(walker)
 		}()
 
-		rows, err := dbconfig.DB.Query(
-			"SELECT source_path, target_path, upload_id FROM manifest_files WHERE manifest_id=?", request.ManifestId)
+		// Get all synced files from the local database for uploading.
+		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name FROM manifest_files "+
+			"WHERE manifest_id=%d AND status='%s';", request.ManifestId, apiManifest.FileSynced.String())
+
+		rows, err := dbconfig.DB.Query(queryStr)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -114,7 +145,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		// Iterate over rows for manifest and add row to channel to be picked up by worker.
 		for rows.Next() {
 			r := record{}
-			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId)
+			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -157,10 +188,8 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 		// Create an uploader with the client and custom options
 		uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
-			u.PartSize = chunkSize * 1024 * 1024 // 64MB per part
+			u.PartSize = chunkSize * 1024 * 1024 // ...MB per part
 		})
-
-		log.Println("Uploader: ", uploader.PartSize)
 
 		// Initiate the upload workers
 		for w := 1; w <= nrWorkers; w++ {
@@ -168,7 +197,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 			log.Println("starting worker:", w)
 			w := int32(w)
 			go func() {
-				err := s.uploadWorker(ctx, w, walker, results, request.ManifestId, uploader, cfg)
+				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg)
 				if err != nil {
 					log.Println("Error in Upload Worker:", err)
 				}
@@ -189,7 +218,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 // ----------------------------------------------
 
 func (s *server) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan record, results chan<- int, manifestId string, uploader *manager.Uploader, cfg aws.Config) error {
+	jobs <-chan record, results chan<- int, manifestNodeId string, uploader *manager.Uploader, cfg aws.Config) error {
 
 	defer func() {
 		log.Println("Closing Worker: ", workerId)
@@ -214,7 +243,8 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			s:        s,
 		}
 
-		s3Key := aws.String(filepath.Join(manifestId, record.targetPath))
+		//s3Key := aws.String(filepath.Join(manifestNodeId, record.targetPath, record.targetName))
+		s3Key := aws.String(filepath.Join(manifestNodeId, "/", record.uploadId))
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket: &s.uploadBucket,
@@ -365,7 +395,7 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 }
 
 // Send Cancel Message to Subscribers
-func (s *server) sendCancelSubscribers(manifestId string) {
+func (s *server) sendCancelSubscribers(message string) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -385,7 +415,7 @@ func (s *server) sendCancelSubscribers(manifestId string) {
 		if err := sub.stream.Send(&pb.SubsrcribeResponse{
 			Type: pb.SubsrcribeResponse_UPLOAD_CANCEL,
 			MessageData: &pb.SubsrcribeResponse_EventInfo{
-				EventInfo: &pb.SubsrcribeResponse_EventResponse{Details: manifestId}},
+				EventInfo: &pb.SubsrcribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)
 			select {

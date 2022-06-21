@@ -189,7 +189,7 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 				OrganizationName: org.Organization.Name,
 			}
 			newUserInfo, err = models.CreateNewUserInfo(params)
-			
+
 			if err != nil {
 				fmt.Println("Error creating new userinfo ")
 				return nil, err
@@ -212,7 +212,6 @@ func ReAuthenticate() (pennsieve.APISession, error) {
 		RefreshToken: apiSession.RefreshToken,
 		IsRefreshed:  apiSession.IsRefreshed,
 	}
-	fmt.Printf("NEW\n%s\n", apiSession.Token)
 
 	return newSession, err
 }

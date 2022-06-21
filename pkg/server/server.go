@@ -23,7 +23,7 @@ type server struct {
 }
 
 type uploadSession struct {
-	manifestId string
+	manifestId int32
 	cancelFnc  context.CancelFunc
 }
 

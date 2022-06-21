@@ -9,9 +9,9 @@ service Agent {
 	rpc AddToManifest(AddToManifestRequest) returns (SimpleStatusResponse) {}
 	rpc RemoveFromManifest(RemoveFromManifestRequest) returns (SimpleStatusResponse) {}
 	rpc DeleteManifest(DeleteManifestRequest) returns (SimpleStatusResponse) {}
-//	rpc ResetManifest(ResetManifestRequest) returns (SimpleStatusResponse) {}
 	rpc ListManifests(ListManifestsRequest) returns (ListManifestsResponse) {}
 	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListManifestFilesResponse) {}
+	rpc RelocateManifestFiles(RelocateManifestFilesRequest) returns (SimpleStatusResponse) {}
 	rpc SyncManifest(SyncManifestRequest) returns (SyncManifestResponse) {}
 
 	// Upload Endpoints
@@ -63,7 +63,7 @@ message SimpleStatusResponse {
 }
 
 message CancelUploadRequest {
-	string manifest_id = 1;
+	int32 manifest_id = 1;
 	bool cancel_all = 2;
 }
 
@@ -81,8 +81,8 @@ message AddToManifestRequest {
 }
 
 message RemoveFromManifestRequest {
-	string manifest_id = 1;
-	repeated int32 file_id = 2;
+	int32 manifest_id = 1;
+	string remove_path = 3;
 }
 
 message ListManifestsRequest {
@@ -116,12 +116,12 @@ message ListManifestFilesRequest{
 
 message ListManifestFilesResponse{
 	enum StatusType{
-		INDEXED = 0;  	// File indexed locally
+		INITIATED = 0;  	// File indexed locally
 		SYNCED = 1; 		// File manifest synchronized with Cloud
-		UPLOADING = 3; 	// File being uploaded
-		COMPLETED = 4; 	// File completed uploading
-		VERIFIED = 5;   // File imported in cloud
-		CANCELLED = 6; 	// File Upload canceled (manually, or failed)
+		UPLOADED = 3; 	// File being uploaded
+		VERIFIED = 4; 	// File completed uploading
+		FAILED = 5;   // File imported in cloud
+		REMOVED = 6; 	// File Upload canceled (manually, or failed)
 	}
 
 	message FileUpload {
@@ -137,7 +137,7 @@ message ListManifestFilesResponse{
 }
 
 message UploadManifestRequest{
-	string manifest_id = 1;
+	int32 manifest_id = 1;
 }
 
 message GetUserRequest {
@@ -175,10 +175,17 @@ message SyncManifestRequest {
 
 message SyncManifestResponse {
 	string manifest_node_id = 1;
-	int32 nr_files_added = 2;
+	int32 nr_files_updated = 2;
 	int32 nr_files_removed = 3;
+	int32 nr_files_failed = 4;
 }
 
 message ResetManifestRequest {
 	int32 manifest_id = 1;
+}
+
+message RelocateManifestFilesRequest {
+	int32 manifest_id = 1;
+	string path = 2;
+	string updated_path = 3;
 }

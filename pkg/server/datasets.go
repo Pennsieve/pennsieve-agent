@@ -16,14 +16,14 @@ func (s *server) UseDataset(ctx context.Context, request *pb.UseDatasetRequest) 
 	client := api.PennsieveClient
 	_, err := client.Dataset.Get(nil, datasetId)
 	if err != nil {
-		log.Fatalln("Unknown dataset: ", datasetId)
+		log.Printf("Unknown dataset: %s", datasetId)
 	}
 
 	// 2. Update UserSettings to contain dataset ID
 	var userSettings models.UserSettings
 	err = userSettings.UpdateActiveDataset(datasetId)
 	if err != nil {
-		log.Fatalln("Unable to update UserSettings:", err)
+		log.Printf("Unable to update UserSettings: %v", err)
 	}
 
 	response := pb.UseDatasetResponse{DatasetId: datasetId}

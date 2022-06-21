@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"strconv"
 )
 
 var ManifestCmd = &cobra.Command{
@@ -32,7 +33,12 @@ var ManifestCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		manifestId := args[0]
+		i, err := strconv.ParseInt(args[0], 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		manifestId := int32(i)
+
 		req := pb.UploadManifestRequest{
 			ManifestId: manifestId,
 		}
@@ -51,9 +57,9 @@ var ManifestCmd = &cobra.Command{
 			fmt.Println("Error uploading file: ", err)
 		}
 
-		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %s\n\nUse "+
+		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d\n\nUse "+
 			"\"pennsieve-agent agent subscribe\" to track progress of the uploaded files.\n\n"+
-			"Use \"pennsieve-agent upload cancel %s\" to cancel the current upload session.", manifestId, manifestId))
+			"Use \"pennsieve-agent upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
 	},
 }
 

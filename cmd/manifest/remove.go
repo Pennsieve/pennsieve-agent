@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"log"
 )
 
 var RemoveCmd = &cobra.Command{
@@ -17,12 +18,17 @@ var RemoveCmd = &cobra.Command{
 	Long:  `Creates manifest for upload.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		targetBasePath, _ := cmd.Flags().GetString("target_path")
+		manifestId, _ := cmd.Flags().GetInt32("manifest_id")
+		fmt.Println("manifest if ", manifestId)
+		if manifestId == -1 {
+			log.Fatalln("Need to specify manifest id with `manifest_id` flag.")
+		}
 
-		req := pb.CreateManifestRequest{
-			BasePath:       args[0],
-			TargetBasePath: targetBasePath,
-			Recursive:      true,
+		fmt.Println(args[0])
+
+		req := pb.RemoveFromManifestRequest{
+			ManifestId: manifestId,
+			RemovePath: args[0],
 		}
 
 		port := viper.GetString("agent.port")
@@ -35,7 +41,7 @@ var RemoveCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.CreateManifest(context.Background(), &req)
+		manifestResponse, err := client.RemoveFromManifest(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())
@@ -47,5 +53,9 @@ var RemoveCmd = &cobra.Command{
 }
 
 func init() {
+	RemoveCmd.Flags().Int32P("manifest_id", "m",
+		0, "Manifest ID.")
+
+	RemoveCmd.MarkFlagRequired("manifest_id")
 
 }

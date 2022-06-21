@@ -17,19 +17,13 @@ var CancelCmd = &cobra.Command{
 	Long:  `Cancel upload session.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		selectedManifest, err := cmd.Flags().GetString("manifest")
+		selectedManifest, err := cmd.Flags().GetInt32("manifest_id")
 		if err != nil {
 			log.Fatalln("Error getting manifest flag from command line: ", err)
 		}
 
 		// If no manifest is specified, cancel all running upload sessions.
 		cancelAll := false
-		if selectedManifest == "" {
-			fmt.Println("Cancelling all upload sessions.")
-			cancelAll = true
-		} else {
-			fmt.Println("Cancelling upload session: ", selectedManifest)
-		}
 
 		req := pb.CancelUploadRequest{
 			ManifestId: selectedManifest,
@@ -55,6 +49,9 @@ var CancelCmd = &cobra.Command{
 }
 
 func init() {
-	CancelCmd.Flags().StringP("manifest", "m", "",
+	CancelCmd.Flags().StringP("manifest_id", "m", "",
 		"Specify manifest id to be cancelled")
+
+	CancelCmd.MarkFlagRequired("manifest_id")
+
 }

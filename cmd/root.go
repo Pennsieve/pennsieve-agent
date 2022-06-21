@@ -78,8 +78,6 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	fmt.Println("In Init")
-
 	rootCmd.AddCommand(whoami.WhoamiCmd)
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(profile.ProfileCmd)
@@ -98,8 +96,6 @@ func init() {
 // initConfig reads in db file and ENV variables if set.
 func initConfig() {
 
-	fmt.Println("In initConfig")
-
 	// initialize client after initializing Viper as it needs viper to get api key/secret
 	if cfgFile != "" {
 		// Use db file from the flag.
@@ -117,7 +113,7 @@ func initConfig() {
 		// Set viper defaults
 		viper.SetDefault("env", "prod")
 		viper.SetDefault("agent.port", "9000")
-		viper.SetDefault("agent.upload_workers", "20")    // Number of concurrent files during upload
+		viper.SetDefault("agent.upload_workers", "5")     // Number of concurrent files during upload
 		viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 		viper.SetDefault("api_host", "https://api.pennsieve.io")
 	}

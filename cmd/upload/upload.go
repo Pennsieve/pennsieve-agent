@@ -28,30 +28,6 @@ var UploadCmd = &cobra.Command{
 	Use:   "upload [flags] [PATH] [...PATH]",
 	Short: "Upload files to the Pennsieve platform.",
 	Long:  `Upload files to the Pennsieve platform.`,
-	//Args:  cobra.MinimumNArgs(1),
-	//Run: func(cmd *cobra.Command, args []string) {
-	//	fmt.Println("upload called")
-	//
-	//	req := pb.UploadRequest{
-	//		BasePath:  args[0],
-	//		Recursive: true,
-	//	}
-	//
-	//	port := viper.GetString("agent.port")
-	//
-	//	conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	//	if err != nil {
-	//		fmt.Println("Error connecting to GRPC Server: ", err)
-	//	}
-	//	defer conn.Close()
-	//
-	//	client := pb.NewAgentClient(conn)
-	//	uploadResponse, err := client.UploadPath(context.Background(), &req)
-	//	if err != nil {
-	//		fmt.Println("Error uploading file: ", err)
-	//	}
-	//	fmt.Println(uploadResponse)
-	//},
 }
 
 func init() {
