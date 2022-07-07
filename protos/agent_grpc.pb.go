@@ -23,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
 	// Manifest Endpoints
-	CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error)
 	AddToManifest(ctx context.Context, in *AddToManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	RemoveFromManifest(ctx context.Context, in *RemoveFromManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
@@ -54,8 +54,8 @@ func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
 	return &agentClient{cc}
 }
 
-func (c *agentClient) CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
-	out := new(SimpleStatusResponse)
+func (c *agentClient) CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error) {
+	out := new(CreateManifestResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/CreateManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func (c *agentClient) UseDataset(ctx context.Context, in *UseDatasetRequest, opt
 // for forward compatibility
 type AgentServer interface {
 	// Manifest Endpoints
-	CreateManifest(context.Context, *CreateManifestRequest) (*SimpleStatusResponse, error)
+	CreateManifest(context.Context, *CreateManifestRequest) (*CreateManifestResponse, error)
 	AddToManifest(context.Context, *AddToManifestRequest) (*SimpleStatusResponse, error)
 	RemoveFromManifest(context.Context, *RemoveFromManifestRequest) (*SimpleStatusResponse, error)
 	DeleteManifest(context.Context, *DeleteManifestRequest) (*SimpleStatusResponse, error)
@@ -263,7 +263,7 @@ type AgentServer interface {
 type UnimplementedAgentServer struct {
 }
 
-func (UnimplementedAgentServer) CreateManifest(context.Context, *CreateManifestRequest) (*SimpleStatusResponse, error) {
+func (UnimplementedAgentServer) CreateManifest(context.Context, *CreateManifestRequest) (*CreateManifestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateManifest not implemented")
 }
 func (UnimplementedAgentServer) AddToManifest(context.Context, *AddToManifestRequest) (*SimpleStatusResponse, error) {

@@ -53,7 +53,7 @@ func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsReq
 }
 
 // CreateManifest recursively adds paths from folder into local DB.
-func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
@@ -113,7 +113,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.\n", nrRecords))
 
-	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
+	response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
 
 }
