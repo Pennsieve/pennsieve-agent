@@ -146,6 +146,8 @@ github.com/pennsieve/pennsieve-go v0.1.6 h1:TQ/H9Zzjt/1h9eLKGmBY54OvbVaJlM7sldwH
 github.com/pennsieve/pennsieve-go v0.1.6/go.mod h1:27rz5+zt1zF56yjcYhQjQFBc0uCoZPBdCzDGGr/Lagk=
 github.com/pennsieve/pennsieve-go-api v0.2.1 h1:nK42Z8Z0AOYPLvFxWaXKEJPSg6R4AsechH6f1z5jeGQ=
 github.com/pennsieve/pennsieve-go-api v0.2.1/go.mod h1:ZW2fEW+gWNkPH4cFeqt0gwQU+uzk+XsDr4YGQZ3DB+M=
+github.com/pennsieve/pennsieve-go-api v0.2.2 h1:40E5iqw7Fh205lGaL3XDDqa20j/wRlSkMtUPHEcCmQA=
+github.com/pennsieve/pennsieve-go-api v0.2.2/go.mod h1:ZW2fEW+gWNkPH4cFeqt0gwQU+uzk+XsDr4YGQZ3DB+M=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
