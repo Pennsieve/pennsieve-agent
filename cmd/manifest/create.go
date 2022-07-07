@@ -41,7 +41,7 @@ var CreateCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println(manifestResponse.Status)
+		fmt.Println("Manifest ID:", manifestResponse.ManifestId, "Message:", manifestResponse.Message)
 	},
 }
 
