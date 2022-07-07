@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
-	"github.com/pennsieve/pennsieve-go-api/models/manifest"
+	"github.com/pennsieve/pennsieve-go-api/models/manifest/manifestFile"
 	"log"
 	"strings"
 	"time"
 )
 
 type ManifestFile struct {
-	Id         int32                       `json:"id"`
-	ManifestId int32                       `json:"manifest_id"`
-	UploadId   uuid.UUID                   `json:"upload_id"`
-	SourcePath string                      `json:"source_path"`
-	TargetPath string                      `json:"target_path"`
-	TargetName string                      `json:"target_name"`
-	Status     manifest.ManifestFileStatus `json:"status"`
-	CreatedAt  time.Time                   `json:"created_at"`
-	UpdatedAt  time.Time                   `json:"updated_at"`
+	Id         int32               `json:"id"`
+	ManifestId int32               `json:"manifest_id"`
+	UploadId   uuid.UUID           `json:"upload_id"`
+	SourcePath string              `json:"source_path"`
+	TargetPath string              `json:"target_path"`
+	TargetName string              `json:"target_name"`
+	Status     manifestFile.Status `json:"status"`
+	CreatedAt  time.Time           `json:"created_at"`
+	UpdatedAt  time.Time           `json:"updated_at"`
 }
 
 type ManifestFileParams struct {
@@ -53,7 +53,7 @@ func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]Manifes
 			&currentRecord.CreatedAt,
 			&currentRecord.UpdatedAt)
 
-		var s manifest.ManifestFileStatus
+		var s manifestFile.Status
 		currentRecord.Status = s.ManifestFileStatusMap(status)
 
 		if err != nil {
@@ -67,7 +67,7 @@ func (*ManifestFile) Get(manifestId int32, limit int32, offset int32) ([]Manifes
 }
 
 // GetByStatus returns files in a manifest filtered by status.
-func (*ManifestFile) GetByStatus(manifestId int32, statusArray []manifest.ManifestFileStatus, limit int32, offset int32) ([]ManifestFile, error) {
+func (*ManifestFile) GetByStatus(manifestId int32, statusArray []manifestFile.Status, limit int, offset int) ([]ManifestFile, error) {
 
 	var statusList []string
 	for _, reqStatus := range statusArray {
@@ -77,9 +77,10 @@ func (*ManifestFile) GetByStatus(manifestId int32, statusArray []manifest.Manife
 	queryStr := fmt.Sprintf("SELECT * FROM manifest_files WHERE manifest_id = ? "+
 		"AND status IN %s ORDER BY id LIMIT ? OFFSET ?", statusQueryString)
 
+	log.Println(queryStr)
 	rows, err := db.DB.Query(queryStr, manifestId, limit, offset)
 	if err != nil {
-		log.Println("adsdsadsadasdsa", err)
+		log.Println("Error getting rows from Manifest Files:", err)
 		return nil, err
 	}
 
@@ -98,7 +99,7 @@ func (*ManifestFile) GetByStatus(manifestId int32, statusArray []manifest.Manife
 			&currentRecord.CreatedAt,
 			&currentRecord.UpdatedAt)
 
-		var s manifest.ManifestFileStatus
+		var s manifestFile.Status
 		currentRecord.Status = s.ManifestFileStatusMap(st)
 
 		if err != nil {
@@ -132,7 +133,7 @@ func (*ManifestFile) GetAll() ([]ManifestFile, error) {
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
 
-			var s manifest.ManifestFileStatus
+			var s manifestFile.Status
 			currentRecord.Status = s.ManifestFileStatusMap(status)
 
 			if err != nil {
@@ -153,7 +154,7 @@ func (*ManifestFile) Add(records []ManifestFileParams) error {
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?, ?)"
 	var vals []interface{}
 	var inserts []string
-	indexStr := manifest.FileInitiated.String()
+	indexStr := manifestFile.Initiated.String()
 
 	sqlInsert := "INSERT INTO manifest_files(source_path, target_path, target_name, upload_id, " +
 		"manifest_id, status, created_at, updated_at) VALUES "
@@ -182,15 +183,64 @@ func (*ManifestFile) Add(records []ManifestFileParams) error {
 
 }
 
-// SyncResponseStatusUpdate updates local DB based on successful/unsuccessful updates remotely.
+func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
+
+	allStatus := []manifestFile.Status{
+		manifestFile.Initiated,
+		manifestFile.Synced,
+		manifestFile.Imported,
+		manifestFile.Finalized,
+		manifestFile.Verified,
+		manifestFile.Unknown,
+		manifestFile.Failed,
+		manifestFile.Removed,
+	}
+
+	idByStatus := map[string][]string{}
+	// create map from array
+	for _, s := range allStatus {
+		statusString := s.String()
+		for _, f := range statusList {
+			if f.Status == s {
+				idByStatus[statusString] = append(idByStatus[statusString], fmt.Sprintf("'%s'", f.UploadId))
+			}
+		}
+	}
+
+	// Iterate over map and update SQL
+	for key, s := range idByStatus {
+		if len(s) > 0 {
+			allUploadIds := strings.Join(s, ",")
+
+			sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s' "+
+				"WHERE manifest_id = %d AND upload_id IN (%s);", key, manifestId, allUploadIds)
+
+			log.Println(sqlStatement)
+
+			_, err := db.DB.Exec(sqlStatement)
+			if err != nil {
+				log.Println("Unable to update status in manifest files for manifest:", manifestId, "--", err)
+				return err
+			}
+
+		}
+
+	}
+
+	return nil
+	//
+
+}
+
+// SyncResponseStatusUpdate2 updates local DB based on successful/unsuccessful updates remotely.
 // 1. Set to SYNCED for all files that were successfully synchronized (Initiated, Failed)
 // 2. Remove files with REMOVED that were successfully removed remotely.
-func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, failedFiles []string) {
+func (*ManifestFile) SyncResponseStatusUpdate2(manifestId int32, failedFiles []string) {
 
 	// Set INITIATED and FAILED to SYNCED
-	requestStatus := []manifest.ManifestFileStatus{
-		manifest.FileInitiated,
-		manifest.FileFailed,
+	requestStatus := []manifestFile.Status{
+		manifestFile.Initiated,
+		manifestFile.Failed,
 	}
 
 	var statusList []string
@@ -205,7 +255,7 @@ func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, failedFiles []st
 	}
 
 	queryString := fmt.Sprintf("UPDATE manifest_files SET status = '%s' WHERE manifest_id = %d AND status in %s",
-		manifest.FileSynced.String(), manifestId, statusQueryString)
+		manifestFile.Synced.String(), manifestId, statusQueryString)
 
 	if len(failedList) > 0 {
 		failedFilesString := fmt.Sprintf("(%s)", strings.Join(failedList, ","))
@@ -232,7 +282,7 @@ func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, failedFiles []st
 
 	// REMOVE FILES THAT WERE SUCCESSFULLY REMOVED
 	queryString = fmt.Sprintf("DELETE FROM manifest_files WHERE manifest_id = %d AND status = '%s'",
-		manifestId, manifest.FileRemoved.String())
+		manifestId, manifestFile.Removed.String())
 
 	if len(failedList) > 0 {
 		failedFilesString := fmt.Sprintf("(%s)", strings.Join(failedList, ","))
@@ -291,7 +341,7 @@ func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, failedFiles []st
 func (*ManifestFile) RemoveFromManifest(manifestId int32, removePath string) error {
 
 	pathLikeExpr := fmt.Sprintf("'%s%%'", removePath)
-	initatedStatus := manifest.FileInitiated.String()
+	initatedStatus := manifestFile.Initiated.String()
 	queryStr := fmt.Sprintf("DELETE FROM manifest_files WHERE manifest_id = %d "+
 		"AND source_path LIKE %s and status = '%s';", manifestId, pathLikeExpr, initatedStatus)
 
@@ -302,8 +352,8 @@ func (*ManifestFile) RemoveFromManifest(manifestId int32, removePath string) err
 		return err
 	}
 
-	syncStatus := manifest.FileSynced.String()
-	removeStatus := manifest.FileRemoved.String()
+	syncStatus := manifestFile.Synced.String()
+	removeStatus := manifestFile.Removed.String()
 	queryStr2 := fmt.Sprintf("UPDATE manifest_files SET status = '%s' WHERE manifest_id = %d "+
 		"AND source_path LIKE %s and status = '%s';", removeStatus, manifestId, pathLikeExpr, syncStatus)
 
@@ -333,4 +383,24 @@ func (*ManifestFile) ReplacePath(manifestId int32, path string, replacePath stri
 	//
 	//log.Println(queryStr)
 
+}
+
+func (*ManifestFile) ResetStatusForManifest(manifestId int32) error {
+
+	log.Println("IN RESET MANIFEST")
+	currentTime := time.Now()
+
+	initiatedStatusStr := manifestFile.Initiated.String()
+	sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s', updated_at = %d WHERE manifest_id = %d",
+		initiatedStatusStr, currentTime.Unix(), manifestId)
+
+	log.Println(sqlStatement)
+	// format all vals at once
+	_, err := db.DB.Exec(sqlStatement)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	return nil
 }

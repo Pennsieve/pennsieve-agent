@@ -13,6 +13,7 @@ service Agent {
 	rpc ListManifestFiles(ListManifestFilesRequest) returns (ListManifestFilesResponse) {}
 	rpc RelocateManifestFiles(RelocateManifestFilesRequest) returns (SimpleStatusResponse) {}
 	rpc SyncManifest(SyncManifestRequest) returns (SyncManifestResponse) {}
+	rpc ResetManifest(ResetManifestRequest) returns (SimpleStatusResponse) {}
 
 	// Upload Endpoints
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
@@ -118,10 +119,12 @@ message ListManifestFilesResponse{
 	enum StatusType{
 		INITIATED = 0;  	// File indexed locally
 		SYNCED = 1; 		// File manifest synchronized with Cloud
-		UPLOADED = 3; 	// File being uploaded
-		VERIFIED = 4; 	// File completed uploading
+		IMPORTED = 2;
+		FINALIZED = 3;
+		VERIFIED = 4;
 		FAILED = 5;   // File imported in cloud
 		REMOVED = 6; 	// File Upload canceled (manually, or failed)
+		UNKNOWN = 7;
 	}
 
 	message FileUpload {

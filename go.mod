@@ -7,7 +7,7 @@ replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 replace github.com/pennsieve/pennsieve-go-api => ../pennsieve-go-api
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.16.5
+	github.com/aws/aws-sdk-go-v2 v1.16.6
 	github.com/aws/aws-sdk-go-v2/config v1.15.7
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.2
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.3
@@ -31,8 +31,8 @@ require (
 	github.com/aws/aws-sdk-go v1.43.25 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.5 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.7 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.3 // indirect
@@ -40,7 +40,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.6 // indirect
-	github.com/aws/smithy-go v1.11.3 // indirect
+	github.com/aws/smithy-go v1.12.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

@@ -226,8 +226,8 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 
 	r := pb.SyncManifestResponse{
 		ManifestNodeId: resp.ManifestNodeId,
-		NrFilesUpdated: resp.NrFilesUpdated,
-		NrFilesRemoved: resp.NrFilesRemoved,
+		NrFilesUpdated: int32(resp.NrFilesUpdated),
+		NrFilesRemoved: int32(resp.NrFilesRemoved),
 		NrFilesFailed:  int32(len(resp.FailedFiles)),
 	}
 
@@ -239,6 +239,19 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 func (s *server) RelocateManifestFiles(ctx context.Context, request *pb.RelocateManifestFilesRequest) (*pb.SimpleStatusResponse, error) {
 
 	return nil, nil
+}
+
+// ResetManifest allows users to reset the status for all files in a manifest
+func (s *server) ResetManifest(ctx context.Context, request *pb.ResetManifestRequest) (*pb.SimpleStatusResponse, error) {
+
+	var m models.ManifestFile
+	err := m.ResetStatusForManifest(request.ManifestId)
+	if err != nil {
+		log.Fatalln("Cannot reset manifest: ", err)
+	}
+
+	response := pb.SimpleStatusResponse{Status: "Success"}
+	return &response, nil
 }
 
 // HELPER FUNCTIONS

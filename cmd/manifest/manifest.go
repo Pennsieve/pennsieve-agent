@@ -42,11 +42,11 @@ This list includes only upload manifests that are initiated from the current mac
 
 		t := table.NewWriter()
 		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"Upload Manifest", "User Name", "Organization Name", "Dataset ID", "Status"})
+		t.AppendHeader(table.Row{"Upload Manifest", "User Name", "Organization Name", "Dataset ID", "Status", "nodeId"})
 		for _, s := range manifestResponse.Manifests {
 			const maxLength = 100
 			dsName := trimName(s.DatasetName, maxLength)
-			t.AppendRow([]interface{}{s.Id, s.UserName, s.OrganizationName, dsName, s.Status})
+			t.AppendRow([]interface{}{s.Id, s.UserName, s.OrganizationName, dsName, s.Status, s.NodeId})
 		}
 
 		t.Render()
@@ -60,6 +60,7 @@ func init() {
 	ManifestCmd.AddCommand(RemoveCmd)
 	ManifestCmd.AddCommand(DeleteCmd)
 	ManifestCmd.AddCommand(SyncCmd)
+	ManifestCmd.AddCommand(ResetCmd)
 }
 
 func trimName(str string, max int) string {

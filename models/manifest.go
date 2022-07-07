@@ -10,17 +10,17 @@ import (
 )
 
 type Manifest struct {
-	Id               int32                   `json:"id"`
-	NodeId           sql.NullString          `json:"node_id"`
-	UserId           string                  `json:"user_id"`
-	UserName         string                  `json:"user_name"`
-	OrganizationId   string                  `json:"organization_id"`
-	OrganizationName string                  `json:"organization_name"`
-	DatasetId        string                  `json:"dataset_id"`
-	DatasetName      string                  `json:"dataset_name"`
-	Status           manifest.ManifestStatus `json:"status"`
-	CreatedAt        time.Time               `json:"created_at"`
-	UpdatedAt        time.Time               `json:"updated_at"`
+	Id               int32           `json:"id"`
+	NodeId           sql.NullString  `json:"node_id"`
+	UserId           string          `json:"user_id"`
+	UserName         string          `json:"user_name"`
+	OrganizationId   string          `json:"organization_id"`
+	OrganizationName string          `json:"organization_name"`
+	DatasetId        string          `json:"dataset_id"`
+	DatasetName      string          `json:"dataset_name"`
+	Status           manifest.Status `json:"status"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
 type ManifestParams struct {
@@ -34,6 +34,8 @@ type ManifestParams struct {
 
 // Get returns all rows in the Upload Record Table
 func (*Manifest) Get(id int32) (*Manifest, error) {
+
+	log.Println("Getting manifest with ID: ", id)
 
 	var statusStr string
 	res := &Manifest{}
@@ -51,7 +53,7 @@ func (*Manifest) Get(id int32) (*Manifest, error) {
 		&res.CreatedAt,
 		&res.UpdatedAt)
 
-	var m manifest.ManifestStatus
+	var m manifest.Status
 	res.Status = m.ManifestStatusMap(statusStr)
 
 	return res, err
@@ -78,7 +80,7 @@ func (*Manifest) GetAll() ([]Manifest, error) {
 				&currentRecord.CreatedAt,
 				&currentRecord.UpdatedAt)
 
-			var m manifest.ManifestStatus
+			var m manifest.Status
 			currentRecord.Status = m.ManifestStatusMap(statusStr)
 
 			if err != nil {

@@ -49,7 +49,7 @@ var CancelCmd = &cobra.Command{
 }
 
 func init() {
-	CancelCmd.Flags().StringP("manifest_id", "m", "",
+	CancelCmd.Flags().Int32P("manifest_id", "m", 0,
 		"Specify manifest id to be cancelled")
 
 	CancelCmd.MarkFlagRequired("manifest_id")

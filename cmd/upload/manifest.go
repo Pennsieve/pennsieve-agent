@@ -39,6 +39,8 @@ var ManifestCmd = &cobra.Command{
 		}
 		manifestId := int32(i)
 
+		fmt.Println("CMD: Manifest ID:", manifestId)
+
 		req := pb.UploadManifestRequest{
 			ManifestId: manifestId,
 		}

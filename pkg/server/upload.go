@@ -16,7 +16,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
-	apiManifest "github.com/pennsieve/pennsieve-go-api/models/manifest"
+	"github.com/pennsieve/pennsieve-go-api/models/manifest/manifestFile"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
@@ -77,9 +77,12 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	s.messageSubscribers("Syncing manifest with Cloud.")
 
+	log.Println("Server starting upload manifest", request.ManifestId)
+
 	var m *models.Manifest
 	m, err := m.Get(request.ManifestId)
 	if err != nil {
+		log.Fatalln("Cannot get Manifest based on ID.")
 		return nil, err
 	}
 
@@ -122,6 +125,9 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	// Database crawler: the database crawler populates a channel with records to be uploaded
 	go func() {
 
+		// If context is cancelled, this go-routine will stop as the channel closes when
+		// the containing function returns.
+
 		// Close walker when all records for manifest were added to channel
 		defer func() {
 			close(walker)
@@ -129,7 +135,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 		// Get all synced files from the local database for uploading.
 		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name FROM manifest_files "+
-			"WHERE manifest_id=%d AND status='%s';", request.ManifestId, apiManifest.FileSynced.String())
+			"WHERE manifest_id=%d AND status='%s';", request.ManifestId, manifestFile.Synced.String())
 
 		rows, err := dbconfig.DB.Query(queryStr)
 		if err != nil {
@@ -243,7 +249,6 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			s:        s,
 		}
 
-		//s3Key := aws.String(filepath.Join(manifestNodeId, record.targetPath, record.targetName))
 		s3Key := aws.String(filepath.Join(manifestNodeId, "/", record.uploadId))
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
@@ -299,11 +304,22 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 						}
 					}
 				}
+
+				err = file.Close()
+				if err != nil {
+					log.Fatalln("Could not close file.")
+				}
+
 				break
 			} else {
 				// Process error generically
 				log.Println("Failed to upload", record.sourcePath)
 				log.Println("Error:", err.Error())
+
+				err = file.Close()
+				if err != nil {
+					log.Fatalln("Could not close file.")
+				}
 			}
 
 			continue

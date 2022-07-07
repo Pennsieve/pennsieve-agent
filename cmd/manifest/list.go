@@ -81,7 +81,7 @@ func init() {
 func PrettyPrint(files *protos.ListManifestFilesResponse, manifestID string, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.SetTitle(fmt.Sprintf("Files for upload session: %s", manifestID))
+	t.SetTitle(fmt.Sprintf("Files for upload manifest: %s", manifestID))
 	if showFull {
 		t.AppendHeader(table.Row{"id", "Upload ID", "Source Path", "Target Path", "Status"})
 		for _, path := range files.File {
