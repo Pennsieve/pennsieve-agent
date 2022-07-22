@@ -142,6 +142,10 @@ github.com/mitchellh/mapstructure v1.4.3 h1:OVowDSCllw/YjdLkam3/sm7wEtOy59d8ndGg
 github.com/mitchellh/mapstructure v1.4.3/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/pelletier/go-toml v1.9.4 h1:tjENF6MfZAg8e4ZmZTeWaWiT2vXtsoO6+iuOjFhECwM=
 github.com/pelletier/go-toml v1.9.4/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
+github.com/pennsieve/pennsieve-go v1.1.0 h1:PfbOSdruUt6fpNRMHYUb1nMp7/l1Evixk7sbbaCJP7g=
+github.com/pennsieve/pennsieve-go v1.1.0/go.mod h1:27rz5+zt1zF56yjcYhQjQFBc0uCoZPBdCzDGGr/Lagk=
+github.com/pennsieve/pennsieve-go-api v0.2.2 h1:40E5iqw7Fh205lGaL3XDDqa20j/wRlSkMtUPHEcCmQA=
+github.com/pennsieve/pennsieve-go-api v0.2.2/go.mod h1:ZW2fEW+gWNkPH4cFeqt0gwQU+uzk+XsDr4YGQZ3DB+M=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
