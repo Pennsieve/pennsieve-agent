@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,6 +34,9 @@ var WhoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Displays information about the logged in user.",
 	Long:  `Displays information about the logged in user.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		req := pb.GetUserRequest{}

@@ -2,6 +2,7 @@ package dataset
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
@@ -15,6 +16,9 @@ var DatasetCmd = &cobra.Command{
 	Use:   "dataset",
 	Short: "Set your current working dataset.",
 	Long:  `Set your current working dataset.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		showFull, _ := cmd.Flags().GetBool("full")
 

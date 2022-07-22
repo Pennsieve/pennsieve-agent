@@ -33,7 +33,7 @@ This will trigger Github Actions to create a new release with the same name.
 ## Building the GRPC Protobuf 
 The gRPC server is defined in the ```protos/agent.proto``` file. Use the following command to generate the go structs, GRPC client and server interfaces: 
 
-```
+```shell
 export PATH="$PATH:$(go env GOPATH)/bin"
 protoc --go_out=. --go_opt=paths=source_relative \
 --go-grpc_out=. --go-grpc_opt=paths=source_relative \
@@ -48,3 +48,15 @@ for Python, use:
 We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
 
 The goal is to keep testing simple and effective. There is no need to make testing itself complex. 
+
+
+## Pennsieve Configuration File
+The CLI depends on a configuration file in the ~/.pennsieve folder. You can initialize this file 
+with the ```pennsieve-agent config wizard``` command. 
+
+If you are using a profile for a non-standard environment, you can manually add the following key/values to the configuration file:
+
+```shell
+api_host = XXXX (eg. https://api.pennsieve.net)
+upload_bucket = XXXXX (eg. pennsieve-dev-uploads-v2-use1)
+```

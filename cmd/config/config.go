@@ -2,7 +2,11 @@
 package config
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 var ConfigCmd = &cobra.Command{
@@ -11,7 +15,15 @@ var ConfigCmd = &cobra.Command{
 	Long:  `Show the current Pennsieve configuration file.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		//TODO Show current config.ini file.
+		home, err := os.UserHomeDir()
+		pennsieveFolder := filepath.Join(home, ".pennsieve")
+		configFile := filepath.Join(pennsieveFolder, "config.ini")
+		data, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			fmt.Println("Unable to render Pennsieve configuration file.")
+			os.Exit(1)
+		}
+		fmt.Println(string(data))
 
 	},
 }

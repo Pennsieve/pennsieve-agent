@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,6 +21,9 @@ var ManifestCmd = &cobra.Command{
 	Long: `Renders a list of upload manifests and their current status. 
 
 This list includes only upload manifests that are initiated from the current machine.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		req := pb.ListManifestsRequest{}

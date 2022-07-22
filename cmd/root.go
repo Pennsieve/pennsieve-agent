@@ -24,14 +24,11 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
-	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	dbConfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -55,7 +52,6 @@ var rootCmd = &cobra.Command{
 		*/
 
 		if api.PennsieveClient != nil {
-
 			creds := api.PennsieveClient.APISession
 			if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
 				fmt.Println("Client credentials updated --> Update session token in UserInfo")
@@ -76,7 +72,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initViper)
 
 	rootCmd.AddCommand(whoami.WhoamiCmd)
 	rootCmd.AddCommand(config.ConfigCmd)
@@ -87,14 +83,14 @@ func init() {
 	rootCmd.AddCommand(dataset.DatasetCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "db", "",
-		"db file (default is $HOME/.pennsieve/db.ini)")
+		"db file (default is $HOME/.pennsieve/config.ini)")
 
 	rootCmd.Flags().BoolP("toggle", "t", false,
 		"Help message for toggle")
 }
 
 // initConfig reads in db file and ENV variables if set.
-func initConfig() {
+func initViper() {
 
 	// initialize client after initializing Viper as it needs viper to get api key/secret
 	if cfgFile != "" {
@@ -106,57 +102,18 @@ func initConfig() {
 		cobra.CheckErr(err)
 
 		// Search db in home directory with name ".pennsieve-server" (without extension).
-		viper.AddConfigPath(home)
 		viper.SetConfigType("ini")
 		viper.AddConfigPath(filepath.Join(home, ".pennsieve"))
 
+		fmt.Println(viper.ConfigFileUsed())
+
 		// Set viper defaults
-		viper.SetDefault("env", "prod")
 		viper.SetDefault("agent.port", "9000")
 		viper.SetDefault("agent.upload_workers", "5")     // Number of concurrent files during upload
 		viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
-		viper.SetDefault("api_host", "https://api.pennsieve.io")
-		viper.SetDefault("upload_bucket", "pennsieve-prod-uploads-v2-use1")
+		viper.SetDefault("global.default_profile", "user")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a db file is found, read it in.
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Error reading db file:", viper.ConfigFileUsed())
-	}
-
-	// Initialize SQLITE database
-	_, err := dbConfig.InitializeDB()
-
-	// Get current user-settings. This is either 0, or 1 entry.
-	var clientSession models.UserSettings
-	_, err = clientSession.Get()
-	if err != nil {
-		fmt.Println("Setup database")
-		migrations.Run()
-
-		selectedProfile := viper.GetString("global.default_profile")
-		fmt.Println("Selected Profile: ", selectedProfile)
-
-		if selectedProfile == "" {
-			log.Fatalf("No default profile defined in %s. Please update configuration.\n\n",
-				viper.ConfigFileUsed())
-		}
-
-		// Create new user settings
-		params := models.UserSettingsParams{
-			UserId:  "",
-			Profile: selectedProfile,
-		}
-		_, err = models.CreateNewUserSettings(params)
-		if err != nil {
-			log.Fatalln("Error Creating new UserSettings")
-		}
-
-	}
-
-	api.InitializeAPI()
-
-	api.GetActiveUser()
 }

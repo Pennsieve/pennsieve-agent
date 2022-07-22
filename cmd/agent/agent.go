@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/spf13/cobra"
 )
 
@@ -9,6 +10,9 @@ var AgentCmd = &cobra.Command{
 	Use:   "agent",
 	Short: "Starts the Agent gRPC server",
 
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		args = append(args, "daemon")
