@@ -18,7 +18,7 @@ func TestRecordCreation(t *testing.T) {
 		filepath.Join(localBasePath, "File 1.png"),
 		filepath.Join(localBasePath, "Folder 1", "Folder 1 - File 1.png"),
 		filepath.Join(localBasePath, "file.with.many.periods.png"),
-		filepath.Join(localBasePath, "file ,.\\[]@#$%@~."),
+		filepath.Join(localBasePath, "file ,.[]@#$%@~."),
 	}
 
 	targetBasePath := ""
@@ -45,7 +45,7 @@ func TestRecordCreation(t *testing.T) {
 
 	assert.Equal(t, "file.with.many.periods.png", records[4].TargetName,
 		"Record should handle files with multiple periods.")
-	assert.Equal(t, "file ,.\\[]@#$%@~.", records[5].TargetName,
+	assert.Equal(t, "file ,.[]@#$%@~.", records[5].TargetName,
 		"Record should handle ood characters")
 
 	// Rerun with new target base path.

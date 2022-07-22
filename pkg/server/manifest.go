@@ -326,7 +326,7 @@ func recordsFromPaths(paths []string, localBasePath string, targetBasePath strin
 		if err != nil {
 			log.Fatal("Cannot strip base-path.")
 		}
-		r2 := regexp.MustCompile(`(?P<Path>([^\/]*\/)*)(?P<FileName>[^\.]*)?\.?(?P<Extension>.*)`)
+		r2 := regexp.MustCompile(`(?P<Path>([^\/\\]*[\/\\])*)(?P<FileName>[^\.]*)?\.?(?P<Extension>.*)`)
 		pathParts := r2.FindStringSubmatch(relPath)
 
 		filePath := pathParts[r2.SubexpIndex("Path")]
