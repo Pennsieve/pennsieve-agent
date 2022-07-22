@@ -338,9 +338,12 @@ func recordsFromPaths(paths []string, localBasePath string, targetBasePath strin
 		str := []string{pathParts[r2.SubexpIndex("FileName")], fileExtension}
 		fileName := strings.Join(str, ".")
 
+		targetPath := filepath.Join(targetBasePath, filePath)
+		targetPath = filepath.ToSlash(targetPath)
+
 		newRecord := models.ManifestFileParams{
 			SourcePath: row,
-			TargetPath: filepath.Join(targetBasePath, filePath),
+			TargetPath: targetPath,
 			TargetName: fileName,
 			ManifestId: manifestId,
 		}
