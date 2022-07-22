@@ -2,21 +2,25 @@ package server
 
 import (
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestRecordCreation(t *testing.T) {
 
+	home, _ := os.UserHomeDir()
+	localBasePath := filepath.Join(home, "testUpload")
+
 	paths := []string{
-		"/Users/user1/testUpload/.DS_Store",
-		"/Users/user1/testUpload/Folder 1/.DS_Store",
-		"/Users/user1/testUpload/File 1.png",
-		"/Users/user1/testUpload/Folder 1/Folder 1 - File 1.png",
-		"/Users/user1/testUpload/file.with.many.periods.png",
-		"/Users/user1/testUpload/file ,.\\[]@#$%@~.",
+		filepath.Join(localBasePath, ".DS_Store"),
+		filepath.Join(localBasePath, "Folder 1", ".DS_Store"),
+		filepath.Join(localBasePath, "File 1.png"),
+		filepath.Join(localBasePath, "Folder 1", "Folder 1 - File 1.png"),
+		filepath.Join(localBasePath, "file.with.many.periods.png"),
+		filepath.Join(localBasePath, "file ,.\\[]@#$%@~."),
 	}
 
-	localBasePath := "/Users/user1/testUpload"
 	targetBasePath := ""
 	manifestId := int32(1)
 
