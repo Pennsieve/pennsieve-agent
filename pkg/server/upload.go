@@ -203,7 +203,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 			log.Println("starting worker:", w)
 			w := int32(w)
 			go func() {
-				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg)
+				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.UploadBucket)
 				if err != nil {
 					log.Println("Error in Upload Worker:", err)
 				}
@@ -224,7 +224,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 // ----------------------------------------------
 
 func (s *server) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan record, results chan<- int, manifestNodeId string, uploader *manager.Uploader, cfg aws.Config) error {
+	jobs <-chan record, results chan<- int, manifestNodeId string, uploader *manager.Uploader, cfg aws.Config, uploadBucket string) error {
 
 	defer func() {
 		log.Println("Closing Worker: ", workerId)
@@ -252,23 +252,25 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 		s3Key := aws.String(filepath.Join(manifestNodeId, "/", record.uploadId))
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
-			Bucket: &s.uploadBucket,
+			Bucket: aws.String(uploadBucket),
 			Key:    s3Key,
 			Body:   reader,
 		})
 		if err != nil {
-			//s.messageSubscribers(err.Error())
 
 			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
 			// is done automatically by the manager.
 			if errors.Is(err, context.Canceled) {
+
+				s.messageSubscribers(fmt.Sprintf("Upload canceled."))
+
 				var mu manager.MultiUploadFailure
 				if errors.As(err, &mu) {
 					//log.Println("Cancelling multi-part upload: ", record.sourcePath)
 
 					s3Session := s3.NewFromConfig(cfg)
 					input := &s3.AbortMultipartUploadInput{
-						Bucket:   aws.String(s.uploadBucket),
+						Bucket:   aws.String(uploadBucket),
 						Key:      aws.String(*s3Key),
 						UploadId: aws.String(mu.UploadID()),
 					}
@@ -283,7 +285,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 					// but can theoretically succeed if we delete parts at the same time that they are being written.
 					// In that case, we try again to delete the multipart upload.
 					inputListParts := &s3.ListPartsInput{
-						Bucket:   aws.String(s.uploadBucket),
+						Bucket:   aws.String(uploadBucket),
 						Key:      aws.String(*s3Key),
 						UploadId: aws.String(mu.UploadID()),
 					}
@@ -315,6 +317,8 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 				// Process error generically
 				log.Println("Failed to upload", record.sourcePath)
 				log.Println("Error:", err.Error())
+
+				s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
 
 				err = file.Close()
 				if err != nil {

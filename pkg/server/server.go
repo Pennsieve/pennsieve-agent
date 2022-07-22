@@ -17,9 +17,8 @@ import (
 
 type server struct {
 	pb.UnimplementedAgentServer
-	subscribers  sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFncs   sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
-	uploadBucket string
+	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
 }
 
 type uploadSession struct {
@@ -145,11 +144,11 @@ func StartAgent() error {
 	//cfg.LogLevel = 0
 	//cfg.LogTimeFormat = "MM/DD/YY hh:mmAM/PM"
 
+	//uploadBucket := viper.GetString(userSettings.Profile + "upload_bucket")
+
 	// Create new server
 	grpcServer := grpc.NewServer()
-	server := &server{
-		uploadBucket: "pennsieve-dev-uploads-v2-use1",
-	}
+	server := &server{}
 
 	// Register services
 	pb.RegisterAgentServer(grpcServer, server)

@@ -16,9 +16,10 @@ import (
 )
 
 var ListCmd = &cobra.Command{
-	Use:   "list [flags] [PATH] [...PATH]",
-	Short: "Creates manifest for upload.",
+	Use:   "list [flags] <manifestId> [offset] [limit]",
+	Short: "lists files for a manifest.",
 	Long:  `Creates manifest for upload.`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
 		limit := int32(100)

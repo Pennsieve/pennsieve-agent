@@ -15,7 +15,7 @@ import (
 var SyncCmd = &cobra.Command{
 	Use:   "sync [flags] [MANIFEST ID] ",
 	Short: "Syncs manifest with server.",
-	Long:  `Syncs manifest with server.`,
+	Long:  `Synchronizes the manifest with the Pennsieve platform. `,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		i, err := strconv.ParseInt(args[0], 10, 32)

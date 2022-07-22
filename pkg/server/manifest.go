@@ -57,10 +57,6 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
-
-	//TODO replace with real call to server
-	//uploadSessionID := uuid.New()
-
 	activeUser, _ := api.GetActiveUser()
 
 	var clientSession models.UserSettings
@@ -310,6 +306,20 @@ func addToManifest(localBasePath string, targetBasePath string, manifestId int32
 // addUploadRecords adds records to the local SQLite DB.
 func addUploadRecords(paths []string, localBasePath string, targetBasePath string, manifestId int32) error {
 
+	records := recordsFromPaths(paths, localBasePath, targetBasePath, manifestId)
+
+	var record models.ManifestFile
+	err := record.Add(records)
+	if err != nil {
+		log.Println("Error with AddUploadRecords: ", err)
+		return err
+	}
+
+	return nil
+}
+
+// recordsFromPaths creates a set of records to be stored in the dynamodb from a list of paths.
+func recordsFromPaths(paths []string, localBasePath string, targetBasePath string, manifestId int32) []models.ManifestFileParams {
 	var records []models.ManifestFileParams
 	for _, row := range paths {
 		relPath, err := filepath.Rel(localBasePath, row)
@@ -333,12 +343,5 @@ func addUploadRecords(paths []string, localBasePath string, targetBasePath strin
 		records = append(records, newRecord)
 	}
 
-	var record models.ManifestFile
-	err := record.Add(records)
-	if err != nil {
-		log.Println("Error with AddUploadRecords: ", err)
-		return err
-	}
-
-	return nil
+	return records
 }

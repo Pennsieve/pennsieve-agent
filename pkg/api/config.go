@@ -13,6 +13,7 @@ import (
 var PennsieveClient *pennsieve.Client
 var ActiveUser *models.UserInfo
 
+// InitializeAPI initializes the Pennsieve Client.
 func InitializeAPI() error {
 	// Initialize Pennsieve Client
 
@@ -36,5 +37,12 @@ func InitializeAPI() error {
 	}
 
 	PennsieveClient = pennsieve.NewClient(apiV1Url, apiV2Url)
+
+	// Set the upload bucket to a custom specified bucket if specified in the config file.
+	customUploadBucket := viper.GetString(userSettings.Profile + ".upload_bucket")
+	if customUploadBucket != "" {
+		PennsieveClient.UploadBucket = customUploadBucket
+	}
+
 	return err
 }

@@ -12,7 +12,7 @@ import (
 
 var daemon bool
 var startCmd = &cobra.Command{
-	Use:   "start",
+	Use:   "start [Options]",
 	Short: "Starts the Schema gRPC server",
 
 	Run: func(cmd *cobra.Command, args []string) {

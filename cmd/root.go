@@ -116,6 +116,7 @@ func initConfig() {
 		viper.SetDefault("agent.upload_workers", "5")     // Number of concurrent files during upload
 		viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 		viper.SetDefault("api_host", "https://api.pennsieve.io")
+		viper.SetDefault("upload_bucket", "pennsieve-prod-uploads-v2-use1")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
