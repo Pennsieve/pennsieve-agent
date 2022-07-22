@@ -34,21 +34,6 @@ func GetActiveUser() (*models.UserInfo, error) {
 				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
 					viper.ConfigFileUsed())
 			}
-			//
-			//apiToken := viper.GetString(selectedProfile + ".api_token")
-			//apiSecret := viper.GetString(selectedProfile + ".api_secret")
-			//
-			//fmt.Printf("before auth")
-			//_, err := PennsieveClient.Authentication.Authenticate(apiToken, apiSecret)
-			//if err != nil {
-			//	fmt.Println("TJISS OSIJODS")
-			//	return nil, err
-			//}
-			//
-			//fmt.Printf("beyond auth")
-			//user, err := PennsieveClient.User.GetUser(context.Background(), nil)
-			//
-			//fmt.Println("beyond user")
 
 			// Create new user settings
 			params := models.UserSettingsParams{

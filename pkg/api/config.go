@@ -30,7 +30,6 @@ func InitializeAPI() error {
 	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
 	if customAPIHost != "" {
-		//fmt.Println("Using custom API-Host: ", customAPIHost)
 		apiV1Url = customAPIHost
 		apiV2Url = "https://api2.pennsieve.net"
 

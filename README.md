@@ -42,3 +42,9 @@ protos/agent.proto
 
 for Python, use:
 ``` python -m grpc_tools.protoc --python_out=build/gen/ -I. --grpc_python_out=build/gen protos/agent.proto```
+
+
+## Testing
+We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
+
+The goal is to keep testing simple and effective. There is no need to make testing itself complex. 
