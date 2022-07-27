@@ -14,7 +14,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<?if $(var.Platform) = x64 ?>
+<?if $(sys.BUILDARCH) = x64 ?>
     <?define Win64 = "yes" ?>
     <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
 <?else ?>
@@ -41,7 +41,7 @@
             Compressed='yes'
             InstallScope='perMachine'
             SummaryCodepage='1252'
-            Platform='$(var.Platform)'/>
+            Platform='$(sys.BUILDARCH)'/>
 
         <MajorUpgrade
             Schedule='afterInstallInitialize'
