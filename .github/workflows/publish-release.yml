@@ -138,7 +138,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve
+      PACKAGE_BINARY_NAME: pennsieve-agent
       WIX_VERSION: 0.0.5
       WIX_TOOLSET_VERSION: 3.11
     steps:
@@ -165,7 +165,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build -ldflags '-s' -o $PACKAGE_BINARY_NAME
+        run: go build -ldflags '-s'
       - name: Set path for candle and light
         run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
         shell: bash
@@ -173,6 +173,8 @@ jobs:
         id: package-assets
         shell: pwsh
         run: |
+          echo "::debug:: pwd: " pwd
+          echo ":::debug:: " ls
           candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension -dVersion='1.0.20'           
           light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension
           echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
