@@ -172,9 +172,6 @@ jobs:
         run: |
           wix\tools\candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension
           wix\tools\light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension -dWixUILicenseRtf="ci\windows\wix\License.rtf"
-          
-
-#          cargo wix --no-build --bin-path "C:\Program Files (x86)\WiX Toolset v${{ env.WIX_TOOLSET_VERSION }}\bin" --license ci\windows\wix\License.rtf --nocapture --verbose --product-name ${{ env.PRODUCT_NAME }} --binary-name ${{ env.PACKAGE_BINARY_NAME }} ci\windows\wix\main.wxs
           echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
         id: publish-assets
