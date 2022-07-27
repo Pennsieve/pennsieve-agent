@@ -137,7 +137,7 @@ jobs:
     env:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
-      PRODUCT_NAME: Pennsieve
+      PRODUCT_NAME: Pennsieve-agent
       PACKAGE_BINARY_NAME: pennsieve-agent
       WIX_VERSION: 0.0.5
       WIX_TOOLSET_VERSION: 3.11
