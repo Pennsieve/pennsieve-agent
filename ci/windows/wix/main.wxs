@@ -73,7 +73,7 @@
                             Id='LicenseFile'
                             Name='Pennsieve License'
                             DiskId='1'
-                            Source=!(wix.WixUILicenseRtf)
+                            Source='!(wix.WixUILicenseRtf)'
                             KeyPath='yes'/>
                     </Component>
                     <Component Id='pennsieveBinary' Guid='*' Win64='$(var.Win64)'>
