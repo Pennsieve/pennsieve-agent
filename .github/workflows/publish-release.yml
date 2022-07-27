@@ -148,8 +148,8 @@ jobs:
         id: install-deps
         run: |
           echo "::debug:: RELEASE: [${{ needs.read-tag.outputs.tag }}]"
-          rustup update
-          cargo install cargo-wix --version ${{ env.WIX_VERSION }} --force || true
+#          rustup update
+#          cargo install cargo-wix --version ${{ env.WIX_VERSION }} --force || true
 #      - name: Cache build release
 #        uses: actions/cache@v2
 #        with:
@@ -170,7 +170,11 @@ jobs:
         id: package-assets
         shell: pwsh
         run: |
-          cargo wix --no-build --bin-path "C:\Program Files (x86)\WiX Toolset v${{ env.WIX_TOOLSET_VERSION }}\bin" --license ci\windows\wix\License.rtf --nocapture --verbose --product-name ${{ env.PRODUCT_NAME }} --binary-name ${{ env.PACKAGE_BINARY_NAME }} ci\windows\wix\main.wxs
+          wix\tools\candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension
+          wix\tools\light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension -dWixUILicenseRtf="ci\windows\wix\License.rtf"
+          
+
+#          cargo wix --no-build --bin-path "C:\Program Files (x86)\WiX Toolset v${{ env.WIX_TOOLSET_VERSION }}\bin" --license ci\windows\wix\License.rtf --nocapture --verbose --product-name ${{ env.PRODUCT_NAME }} --binary-name ${{ env.PACKAGE_BINARY_NAME }} ci\windows\wix\main.wxs
           echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
         id: publish-assets
@@ -191,7 +195,7 @@ jobs:
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
       PACKAGE_BINARY_NAME: pennsieve-agent
-      PS_PATH: /usr/local/opt/pennsieve
+      PS_PATH: /opt/pennsieve
       APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
       KEYCHAIN: "pennsieve-agent"
       KEYCHAIN_PASSWORD: "password"
@@ -266,7 +270,7 @@ jobs:
             --template-scripts \
             --template-value ps_path="${{ env.PS_PATH }}" \
             --template-value ps_version="${{ env.PS_VERSION }}" \
-            --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
+            --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \f
             --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
             "${{ env.BUILD_DIR }}/=."
             echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
