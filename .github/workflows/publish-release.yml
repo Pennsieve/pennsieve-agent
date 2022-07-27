@@ -167,8 +167,8 @@ jobs:
         id: build-release
         run: go build -ldflags '-s'
       - name: Set path for candle and light
-          run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
-          shell: bash
+        run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
+        shell: bash
       - name: Package assets
         id: package-assets
         shell: pwsh
