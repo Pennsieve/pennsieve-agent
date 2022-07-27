@@ -57,7 +57,7 @@
                         <Component Id='CreateCacheDir' Guid='A7B7C6B5-A522-4AF6-9383-6D2B7F05F2F1'>
                             <RemoveFolder Id='RemoveCacheDir' Directory='CacheDir' On='uninstall'/>
                             <RemoveFolder Id='RemovePennsieveAgentDir' Directory='PennsieveAgentDir' On='uninstall'/>
-                            <RegistryKey="none" Key="cacheDirKey" Root="HKCU">
+                            <RegistryKey Key="cacheDirKey" Root="HKCU">
                                 <RegistryValue Type="integer" Value="1" KeyPath="yes"/>
                             </RegistryKey>
                             <CreateFolder/>
@@ -81,7 +81,7 @@
                             Id='pennsieveEXE'
                             Name='pennsieve.exe'
                             DiskId='1'
-                            Source='pennsieve.exe'
+                            Source='target\release\pennsieve.exe'
                             KeyPath='yes'/>
                     </Component>
                 </Directory>
