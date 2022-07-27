@@ -173,7 +173,7 @@ jobs:
         id: package-assets
         shell: pwsh
         run: |
-          candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension
+          candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension --product-name ${{ env.PRODUCT_NAME }} --binary-name ${{ env.PACKAGE_BINARY_NAME }}
           light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension -dWixUILicenseRtf="ci\windows\wix\License.rtf"
           echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
