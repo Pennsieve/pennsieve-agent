@@ -166,12 +166,15 @@ jobs:
       - name: Build release
         id: build-release
         run: go build -ldflags '-s'
+      - name: Set path for candle and light
+          run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
+          shell: bash
       - name: Package assets
         id: package-assets
         shell: pwsh
         run: |
-          wix\tools\candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension
-          wix\tools\light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension -dWixUILicenseRtf="ci\windows\wix\License.rtf"
+          candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension
+          light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension -dWixUILicenseRtf="ci\windows\wix\License.rtf"
           echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
         id: publish-assets
