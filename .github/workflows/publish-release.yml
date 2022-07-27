@@ -138,7 +138,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve-agent
+      PACKAGE_BINARY_NAME: pennsieve
       WIX_VERSION: 0.0.5
       WIX_TOOLSET_VERSION: 3.11
     steps:
@@ -165,7 +165,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build -ldflags '-s'
+        run: go build -ldflags '-s' -o $PACKAGE_BINARY_NAME
       - name: Set path for candle and light
         run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
         shell: bash
