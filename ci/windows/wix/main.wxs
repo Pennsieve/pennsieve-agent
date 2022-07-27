@@ -30,7 +30,7 @@
         Manufacturer='The University of Pennsylvania'
         Language='1033'
         Codepage='1252'
-        Version='v1.0.14'>
+        Version='$(var.Version)'>
 
         <Package Id='*'
             Keywords='Installer'
