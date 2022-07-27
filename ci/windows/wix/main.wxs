@@ -25,7 +25,7 @@
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
     <Product
         Id='*'
-        Name='$(var.ProductName)'
+        Name='Pennsieve'
         UpgradeCode='33AC4C4B-6D20-4B0D-8E00-76C718241A8D'
         Manufacturer='The University of Pennsylvania'
         Language='1033'
@@ -45,10 +45,10 @@
 
         <MajorUpgrade
             Schedule='afterInstallInitialize'
-            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+            DowngradeErrorMessage='A newer version of Pennsieve is already installed. Setup will now exit.'/>
 
         <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
-        <Property Id='DiskPrompt' Value='$(var.ProductName) Installation'/>
+        <Property Id='DiskPrompt' Value='Pennsieve Installation'/>
 
         <Directory Id='TARGETDIR' Name='SourceDir'>
             <Directory Id='USERPROFILEFOLDER'>
@@ -67,7 +67,7 @@
                 </Directory>
             </Directory>
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
-                <Directory Id='APPLICATIONFOLDER' Name='$(var.ProductName)'>
+                <Directory Id='APPLICATIONFOLDER' Name='Pennsieve'>
                     <Component Id='License' Guid='*' Win64='$(var.Win64)'>
                         <File
                             Id='LicenseFile'
@@ -76,12 +76,12 @@
                             Source='$(var.WixUILicenseRtf)'
                             KeyPath='yes'/>
                     </Component>
-                    <Component Id='$(var.BinaryName)Binary' Guid='*' Win64='$(var.Win64)'>
+                    <Component Id='pennsieveBinary' Guid='*' Win64='$(var.Win64)'>
                         <File
-                            Id='$(var.BinaryName)EXE'
-                            Name='$(var.BinaryName).exe'
+                            Id='pennsieveEXE'
+                            Name='pennsieve.exe'
                             DiskId='1'
-                            Source='target\release\$(var.BinaryName).exe'
+                            Source='target\release\pennsieve.exe'
                             KeyPath='yes'/>
                     </Component>
                 </Directory>
@@ -114,12 +114,12 @@
             Display='expand'
             Absent='disallow'>
             <ComponentRef Id='License'/>
-            <ComponentRef Id='$(var.BinaryName)Binary'/>
+            <ComponentRef Id='pennsieveBinary'/>
             <ComponentRef Id='CreateCacheDir'/>
             <Feature
                 Id='Environment'
                 Title='PATH Environment Variable'
-                Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.'
+                Description='Add the install location of the Pennsieve executable to the PATH system environment variable. This allows the Pennsieve executable to be called from any location.'
                 Level='1'
                 Absent='allow'>
                 <ComponentRef Id='AddPennsieveToPath'/>

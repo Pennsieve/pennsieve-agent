@@ -174,9 +174,7 @@ jobs:
         shell: pwsh
         run: |
           candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension |
-          -dProductName="${{ env.PRODUCT_NAME }}" |
-          -dBinaryName="${{ env.PACKAGE_BINARY_NAME }}" |
-          -dVersion="${{ env.PS_VERSION }}" |
+          -dVersion="${{ needs.read-tag.outputs.tag }}" |
           -d
           light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension -dWixUILicenseRtf="ci\windows\wix\License.rtf"
           echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
