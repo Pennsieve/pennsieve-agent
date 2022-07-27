@@ -81,7 +81,7 @@
                             Id='pennsieveEXE'
                             Name='pennsieve.exe'
                             DiskId='1'
-                            Source='target\release\pennsieve.exe'
+                            Source='pennsieve.exe'
                             KeyPath='yes'/>
                     </Component>
                 </Directory>
