@@ -185,7 +185,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload-url }}
-          asset_path: ./target/wix/${{ steps.package-assets.outputs.asset-file }}
+          asset_path: ${{ steps.package-assets.outputs.asset-file }}
           asset_name: ${{ steps.package-assets.outputs.asset-file }}
           asset_content_type: application/octet-stream
 
