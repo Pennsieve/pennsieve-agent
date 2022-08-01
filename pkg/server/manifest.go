@@ -57,7 +57,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
-	activeUser, _ := api.GetActiveUser()
+	activeUser, _ := api.UpdateActiveUser()
 
 	var clientSession models.UserSettings
 	curClientSession, err := clientSession.Get()

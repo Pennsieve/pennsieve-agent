@@ -29,6 +29,7 @@ import (
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -52,10 +53,15 @@ var rootCmd = &cobra.Command{
 		*/
 
 		if api.PennsieveClient != nil {
+
 			creds := api.PennsieveClient.APISession
 			if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
+				activeUser, err := api.GetActiveUser()
+				if err != nil {
+					log.Fatalln("Unable to get active user")
+				}
 				fmt.Println("Client credentials updated --> Update session token in UserInfo")
-				models.UpdateTokenForUser(api.ActiveUser, &api.PennsieveClient.APISession)
+				models.UpdateTokenForUser(activeUser, &api.PennsieveClient.APISession)
 			}
 		}
 

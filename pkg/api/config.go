@@ -11,7 +11,6 @@ import (
 )
 
 var PennsieveClient *pennsieve.Client
-var ActiveUser *models.UserInfo
 
 // InitializeAPI initializes the Pennsieve Client.
 func InitializeAPI() error {

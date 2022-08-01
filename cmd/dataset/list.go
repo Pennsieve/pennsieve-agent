@@ -1,6 +1,8 @@
 package dataset
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+)
 
 // whoamiCmd represents the whoami command
 var ListCmd = &cobra.Command{

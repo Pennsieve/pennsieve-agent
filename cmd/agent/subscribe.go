@@ -17,7 +17,7 @@ import (
 
 var subscribeCmd = &cobra.Command{
 	Use:   "subscribe",
-	Short: "Subscribe to Agent messages",
+	Short: "Subscribe to messages from the Pennsieve Agent.",
 	Long: `Open long-lived connection to the server server and visualize messages from the server.
 
 `,

@@ -56,7 +56,7 @@ func InitDB() {
 		log.Fatalln("Unable to initialize API: ", err)
 	}
 
-	_, err = api.GetActiveUser()
+	_, err = api.UpdateActiveUser()
 	if err != nil {
 		log.Fatalln("Unable to get active user: ", err)
 	}

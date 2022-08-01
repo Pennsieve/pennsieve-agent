@@ -26,7 +26,7 @@ var ShowCmd = &cobra.Command{
 	Short: "Shows current profile",
 	Long:  `Shows current profile`,
 	Run: func(cmd *cobra.Command, args []string) {
-		activeUser, _ := api.GetActiveUser()
+		activeUser, _ := api.UpdateActiveUser()
 		fmt.Println("Current profile: ", activeUser.Profile)
 	},
 }

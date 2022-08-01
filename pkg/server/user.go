@@ -9,7 +9,7 @@ import (
 
 func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
 
-	activeUser, err := api.GetActiveUser()
+	activeUser, err := api.UpdateActiveUser()
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
 
 	apiSession, _ := api.ReAuthenticate()
-	activeUser, err := api.GetActiveUser()
+	activeUser, err := api.UpdateActiveUser()
 	if err != nil {
 		return nil, err
 	}

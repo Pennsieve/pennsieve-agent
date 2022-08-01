@@ -13,7 +13,7 @@ import (
 var daemon bool
 var startCmd = &cobra.Command{
 	Use:   "start [Options]",
-	Short: "Starts the Schema gRPC server",
+	Short: "Starts the Pennsieve Agent (blocking)",
 
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -52,10 +52,6 @@ var startCmd = &cobra.Command{
 			//		break
 			//	}
 			//}
-
-			//stdout = nil
-
-			// Check that We
 
 			// Store server PID in lock file, so we can terminate server when needed.
 			fmt.Printf("Agent start, [PID] %d running...\n", command.Process.Pid)

@@ -15,8 +15,11 @@ var WizardCmd = &cobra.Command{
 	Short: "Create a new config file using the configuration wizard.",
 	Long: `Create a new config file using the configuration wizard.
 
+Use the Pennsieve configuration wizard to create a new Pennsieve Configuration file and add an initial set of 
+API credentials. 
 
-
+NOTE: This method will remove any existing configuration file if it exists and previously defined API-Keys and secrets 
+will not be recoverable. Use the 'pennsieve profile create' function to add profiles to an existing configuration file.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 

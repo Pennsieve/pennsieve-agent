@@ -14,8 +14,80 @@ import (
 	"log"
 )
 
-// GetActiveUser returns userInfo for active user and updates local SQlite DB
+//GetActiveUserId returns userId of the active user
+func GetActiveUserId() (string, error) {
+	var clientSession models.UserSettings
+	userSettings, err := clientSession.Get()
+	if err != nil {
+		return "", fmt.Errorf("No active user found in %s.\n",
+			viper.ConfigFileUsed())
+	}
+
+	return userSettings.UserId, nil
+
+}
+
+// GetActiveUser returns the user that is currently set in UserSettings table
+// This method does not update the active session, or handles situations where
+// the active user is not set.
+//
+// Use the UpdateActiveUser method to handle those situations.
 func GetActiveUser() (*models.UserInfo, error) {
+	// Get current user-settings. This is either 0, or 1 entry.
+	var clientSession models.UserSettings
+	userSettings, err := clientSession.Get()
+
+	if err != nil {
+
+		// If no entry is found in database, check default profile in db and setup DB
+		if errors.Is(err, &models.NoClientSessionError{}) {
+			fmt.Println("No record found in User Settings --> Checking Default Profile.")
+
+			selectedProfile := viper.GetString("global.default_profile")
+			fmt.Println("Selected Profile: ", selectedProfile)
+
+			if selectedProfile == "" {
+				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
+					viper.ConfigFileUsed())
+			}
+
+			// Create new user settings
+			params := models.UserSettingsParams{
+				UserId:  "",
+				Profile: selectedProfile,
+			}
+			_, err = models.CreateNewUserSettings(params)
+			if err != nil {
+				fmt.Println("Error Creating new UserSettings")
+				return nil, err
+			}
+
+			fmt.Printf("about to switch")
+
+			currentUser, err := SwitchUser(selectedProfile)
+			if err != nil {
+				fmt.Println("Error switching user.")
+				return nil, err
+			}
+
+			return currentUser, nil
+		} else {
+			return nil, err
+		}
+
+	}
+
+	// If entries found in database, continue with active profile
+	currentUserInfo, err := models.GetUserInfo(userSettings.UserId, userSettings.Profile)
+	if err != nil {
+		return nil, err
+	}
+
+	return currentUserInfo, nil
+}
+
+// UpdateActiveUser returns userInfo for active user and updates local SQlite DB
+func UpdateActiveUser() (*models.UserInfo, error) {
 
 	// Get current user-settings. This is either 0, or 1 entry.
 	var clientSession models.UserSettings
@@ -78,9 +150,6 @@ func GetActiveUser() (*models.UserInfo, error) {
 		return nil, err
 	}
 
-	apiToken := viper.GetString(userSettings.Profile + ".api_token")
-	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
-
 	PennsieveClient.APISession = pennsieve.APISession{
 		Token:        currentUserInfo.SessionToken,
 		IdToken:      currentUserInfo.IdToken,
@@ -88,6 +157,9 @@ func GetActiveUser() (*models.UserInfo, error) {
 		RefreshToken: currentUserInfo.RefreshToken,
 		IsRefreshed:  false,
 	}
+
+	apiToken := viper.GetString(userSettings.Profile + ".api_token")
+	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
 
 	PennsieveClient.APICredentials = pennsieve.APICredentials{
 		ApiKey:    apiToken,
