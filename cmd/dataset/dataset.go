@@ -28,6 +28,7 @@ var DatasetCmd = &cobra.Command{
 		client := api.PennsieveClient
 		response, err := client.Dataset.Get(nil, s.UseDatasetId)
 		if err != nil {
+			log.Println(err)
 			log.Fatalln("Unknown dataset: ", s.UseDatasetId)
 		}
 

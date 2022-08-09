@@ -72,6 +72,7 @@ message CreateManifestRequest {
 	string base_path = 1;
 	string target_base_path = 2;
 	bool recursive = 3;
+	repeated string files = 4;
 }
 
 message CreateManifestResponse {
@@ -84,6 +85,8 @@ message AddToManifestRequest {
 	string base_path = 2;
 	string target_base_path = 3;
 	bool recursive = 4;
+	repeated string files = 5;
+
 }
 
 message RemoveFromManifestRequest {

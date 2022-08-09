@@ -82,6 +82,9 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// Check dataset exist (should be redundant) and grab name
 	ds, err := api.PennsieveClient.Dataset.Get(nil, curClientSession.UseDatasetId)
+	if err != nil {
+		log.Println(err)
+	}
 
 	newSession := models.ManifestParams{
 		UserId:           activeUser.Id,
@@ -105,7 +108,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 2. Walk over folder and populate DB with file-paths.
 	// --------------------------------------------------
-	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, createdManifest.Id)
+	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
 
 	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.\n", nrRecords))
 
@@ -116,7 +119,8 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 // AddToManifest adds files to existing upload manifest.
 func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestRequest) (*pb.SimpleStatusResponse, error) {
-	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.ManifestId)
+
+	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
 
 	log.Printf("Finished Adding %d files.\n", nrRecords)
 
@@ -264,14 +268,33 @@ func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
 }
 
 // addToManifest walks over provided path and adds records to DB
-func addToManifest(localBasePath string, targetBasePath string, manifestId int32) (int, error) {
+func addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (int, error) {
+
+	if len(files) > 0 && len(localBasePath) > 0 {
+		err := status.Error(codes.NotFound,
+			"Unable to add to Manifest.\n "+
+				"\t You cannot specify both 'basePath' and 'files'.")
+
+		log.Println(err)
+		return 0, err
+
+	}
+
 	batchSize := 50 // Update DB with 50 paths per batch
 	walker := make(fileWalk, batchSize)
 	go func() {
-		// Gather the files to upload by walking the path recursively
-		if err := filepath.WalkDir(localBasePath, walker.Walk); err != nil {
-			log.Println("Walk failed:", err)
+
+		if len(files) > 0 {
+			for _, f := range files {
+				walker <- f
+			}
+		} else {
+			// Gather the files to upload by walking the path recursively
+			if err := filepath.WalkDir(localBasePath, walker.Walk); err != nil {
+				log.Println("Walk failed:", err)
+			}
 		}
+
 		close(walker)
 	}()
 
