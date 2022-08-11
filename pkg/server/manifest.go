@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"io/fs"
 	"log"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -345,33 +346,70 @@ func addUploadRecords(paths []string, localBasePath string, targetBasePath strin
 func recordsFromPaths(paths []string, localBasePath string, targetBasePath string, manifestId int32) []models.ManifestFileParams {
 	var records []models.ManifestFileParams
 	for _, row := range paths {
-		relPath, err := filepath.Rel(localBasePath, row)
-		if err != nil {
-			log.Fatal("Cannot strip base-path.")
+		if len(localBasePath) > 0 && pathIsDirectory(localBasePath) {
+			// localBasePath was provided, and it is a folder/directory
+			fileName, targetPath := fileTargetPath(row, localBasePath, targetBasePath)
+			newRecord := models.ManifestFileParams{
+				SourcePath: row,
+				TargetPath: targetPath,
+				TargetName: fileName,
+				ManifestId: manifestId,
+			}
+			records = append(records, newRecord)
+		} else {
+			// localBasePath was not provided, or it is the path to a file
+			fileName := filepath.Base(row)
+			targetPath := targetBasePath
+			newRecord := models.ManifestFileParams{
+				SourcePath: row,
+				TargetPath: targetPath,
+				TargetName: fileName,
+				ManifestId: manifestId,
+			}
+			records = append(records, newRecord)
 		}
-
-		// ensure path separator is slash
-		relPath = filepath.ToSlash(relPath)
-
-		r2 := regexp.MustCompile(`(?P<Path>([^\/]*\/)*)(?P<FileName>[^\.]*)?\.?(?P<Extension>.*)`)
-		pathParts := r2.FindStringSubmatch(relPath)
-
-		filePath := pathParts[r2.SubexpIndex("Path")]
-		fileExtension := pathParts[r2.SubexpIndex("Extension")]
-		str := []string{pathParts[r2.SubexpIndex("FileName")], fileExtension}
-		fileName := strings.Join(str, ".")
-
-		targetPath := filepath.Join(targetBasePath, filePath)
-		targetPath = filepath.ToSlash(targetPath)
-
-		newRecord := models.ManifestFileParams{
-			SourcePath: row,
-			TargetPath: targetPath,
-			TargetName: fileName,
-			ManifestId: manifestId,
-		}
-		records = append(records, newRecord)
 	}
 
 	return records
+}
+
+func pathIsDirectory(path string) bool {
+	result := false
+	// get file info for path
+	fi, err := os.Stat(path)
+	if err != nil {
+		log.Fatal("Error in checking whether path is a directory: ", err)
+	} else {
+		// check file info mode to determine if path is a directory or a file
+		switch mode := fi.Mode(); {
+		case mode.IsDir():
+			result = true
+		case mode.IsRegular():
+			result = false
+		}
+	}
+	return result
+}
+
+func fileTargetPath(file string, basePath string, targetBasePath string) (string, string) {
+	relPath, err := filepath.Rel(basePath, file)
+	if err != nil {
+		log.Fatal("Cannot strip base-path.")
+	}
+
+	// ensure path separator is slash
+	relPath = filepath.ToSlash(relPath)
+
+	r2 := regexp.MustCompile(`(?P<Path>([^\/]*\/)*)(?P<FileName>[^\.]*)?\.?(?P<Extension>.*)`)
+	pathParts := r2.FindStringSubmatch(relPath)
+
+	filePath := pathParts[r2.SubexpIndex("Path")]
+	fileExtension := pathParts[r2.SubexpIndex("Extension")]
+	str := []string{pathParts[r2.SubexpIndex("FileName")], fileExtension}
+	fileName := strings.Join(str, ".")
+
+	targetPath := filepath.Join(targetBasePath, filePath)
+	targetPath = filepath.ToSlash(targetPath)
+
+	return fileName, targetPath
 }
