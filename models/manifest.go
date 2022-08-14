@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
-	"github.com/pennsieve/pennsieve-go-api/models/manifest"
+	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	"log"
 	"time"
 )

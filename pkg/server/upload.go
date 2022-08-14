@@ -16,7 +16,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
-	"github.com/pennsieve/pennsieve-go-api/models/manifest/manifestFile"
+	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
