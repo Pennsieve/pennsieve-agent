@@ -32,10 +32,9 @@ func ManifestSync(m *models.Manifest) (*SyncResponse, error) {
 
 	var f models.ManifestFile
 
-	// Sync all files except those who have status 'Verified'
 	requestStatus := []manifestFile.Status{
 		manifestFile.Initiated,
-		manifestFile.Synced,
+		manifestFile.Changed,
 		manifestFile.Failed,
 		manifestFile.Removed,
 		manifestFile.Imported,
@@ -44,7 +43,7 @@ func ManifestSync(m *models.Manifest) (*SyncResponse, error) {
 	}
 
 	offset := 0
-	const pageSize = 500
+	const pageSize = 250
 	allResponse := SyncResponse{
 		ManifestNodeId: manifestNodeId,
 		NrFilesUpdated: int(0),

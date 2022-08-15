@@ -122,6 +122,28 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	walker := make(recordWalk, nrWorkers)
 	results := make(chan int, nrWorkers)
 
+	//tickerDone := make(chan bool)
+	//ticker := time.NewTicker(10 * time.Second)
+	//// Ticker to get status updates from the server periodically
+	//go func() {
+	//	for {
+	//		select {
+	//		case <-tickerDone:
+	//			ticker.Stop()
+	//			return
+	//		case <-ticker.C:
+	//			fmt.Println("Ticker Callback")
+	//			var m models.ManifestFile
+	//			reqStatus := []manifestFile.Status{
+	//				manifestFile.Uploaded,
+	//			}
+	//
+	//			api.ManifestSync()
+	//
+	//		}
+	//	}
+	//}()
+
 	// Database crawler: the database crawler populates a channel with records to be uploaded
 	go func() {
 
@@ -333,6 +355,12 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 		err = file.Close()
 		if err != nil {
 			log.Fatalln("Could not close file.")
+		}
+
+		var m models.ManifestFile
+		err = m.SetStatus(manifestFile.Uploaded, record.uploadId)
+		if err != nil {
+			log.Fatalln("Could not update status of file.")
 		}
 	}
 	return nil

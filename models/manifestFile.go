@@ -183,6 +183,25 @@ func (*ManifestFile) Add(records []ManifestFileParams) error {
 
 }
 
+// SetStatus updates status in sqllite db for file
+func (m *ManifestFile) SetStatus(s manifestFile.Status, uploadId string) error {
+
+	statement, err := db.DB.Prepare(
+		"UPDATE manifestFile SET status=? WHERE upload_id=?")
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = statement.Exec(s.String(), uploadId)
+	if err != nil {
+		fmt.Sprintln("Unable to update manifest file status")
+		return err
+	}
+
+	return nil
+}
+
 func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
 
 	allStatus := []manifestFile.Status{
