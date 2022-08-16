@@ -11,6 +11,8 @@ func TestRecordCreation(t *testing.T) {
 
 	home, _ := os.UserHomeDir()
 	localBasePath := filepath.Join(home, "testUpload")
+	err := os.MkdirAll(localBasePath, os.ModePerm)
+	assert.Nil(t, err)
 
 	paths := []string{
 		filepath.Join(localBasePath, ".DS_Store"),
