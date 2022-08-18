@@ -183,6 +183,11 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	apiToken := viper.GetString(profile + ".api_token")
 	apiSecret := viper.GetString(profile + ".api_secret")
 	environment := viper.GetString(profile + ".env")
+	customUploadBucket := viper.GetString(profile + ".upload_bucket")
+
+	if customUploadBucket != "" {
+		PennsieveClient.UploadBucket = customUploadBucket
+	}
 
 	// Directly update baseURL, so we can authenticate against new profile before setting up new Client
 	customAPIHost := viper.GetString(profile + ".api_host")

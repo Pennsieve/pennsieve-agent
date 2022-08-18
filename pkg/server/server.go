@@ -139,13 +139,6 @@ func StartAgent() error {
 		return err
 	}
 
-	//// initialize logger
-	//var cfg Config
-	//cfg.LogLevel = 0
-	//cfg.LogTimeFormat = "MM/DD/YY hh:mmAM/PM"
-
-	//uploadBucket := viper.GetString(userSettings.Profile + "upload_bucket")
-
 	// Create new server
 	grpcServer := grpc.NewServer()
 	server := &server{}

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-agent/pkg/db"
@@ -154,7 +155,7 @@ func (*ManifestFile) Add(records []ManifestFileParams) error {
 	const rowSQL = "(?, ?, ?, ?, ?, ?, ?, ?)"
 	var vals []interface{}
 	var inserts []string
-	indexStr := manifestFile.Initiated.String()
+	indexStr := manifestFile.Local.String()
 
 	sqlInsert := "INSERT INTO manifest_files(source_path, target_path, target_name, upload_id, " +
 		"manifest_id, status, created_at, updated_at) VALUES "
@@ -183,11 +184,45 @@ func (*ManifestFile) Add(records []ManifestFileParams) error {
 
 }
 
+// BatchSetStatus updates the status of a batch of upload files.
+func (m *ManifestFile) BatchSetStatus(dd *sql.DB, s manifestFile.Status, uploadIds []string) error {
+
+	UploadIdStr := "('" + strings.Join(uploadIds, "','") + "')"
+
+	query := fmt.Sprintf("UPDATE manifest_files SET status='%s' WHERE upload_id IN %s;", s.String(), UploadIdStr)
+	_, err := dd.Exec(query)
+	if err != nil {
+		fmt.Sprintln("Unable to update manifest file status for batch. Here is why: ", err)
+		return err
+	}
+
+	return nil
+}
+
+// SetStatus updates status in sqllite db for file
+func (m *ManifestFile) SetStatus(dd *sql.DB, s manifestFile.Status, uploadId string) error {
+
+	statement, err := dd.Prepare(
+		"UPDATE manifest_files SET status=? WHERE upload_id=?")
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = statement.Exec(s.String(), uploadId)
+	if err != nil {
+		fmt.Sprintln("Unable to update manifest file status. Here is why: ", err)
+		return err
+	}
+
+	return nil
+}
+
 func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
 
 	allStatus := []manifestFile.Status{
-		manifestFile.Initiated,
-		manifestFile.Synced,
+		manifestFile.Local,
+		manifestFile.Registered,
 		manifestFile.Imported,
 		manifestFile.Finalized,
 		manifestFile.Verified,
@@ -239,7 +274,7 @@ func (*ManifestFile) SyncResponseStatusUpdate2(manifestId int32, failedFiles []s
 
 	// Set INITIATED and FAILED to SYNCED
 	requestStatus := []manifestFile.Status{
-		manifestFile.Initiated,
+		manifestFile.Local,
 		manifestFile.Failed,
 	}
 
@@ -255,7 +290,7 @@ func (*ManifestFile) SyncResponseStatusUpdate2(manifestId int32, failedFiles []s
 	}
 
 	queryString := fmt.Sprintf("UPDATE manifest_files SET status = '%s' WHERE manifest_id = %d AND status in %s",
-		manifestFile.Synced.String(), manifestId, statusQueryString)
+		manifestFile.Registered.String(), manifestId, statusQueryString)
 
 	if len(failedList) > 0 {
 		failedFilesString := fmt.Sprintf("(%s)", strings.Join(failedList, ","))
@@ -341,7 +376,7 @@ func (*ManifestFile) SyncResponseStatusUpdate2(manifestId int32, failedFiles []s
 func (*ManifestFile) RemoveFromManifest(manifestId int32, removePath string) error {
 
 	pathLikeExpr := fmt.Sprintf("'%s%%'", removePath)
-	initatedStatus := manifestFile.Initiated.String()
+	initatedStatus := manifestFile.Local.String()
 	queryStr := fmt.Sprintf("DELETE FROM manifest_files WHERE manifest_id = %d "+
 		"AND source_path LIKE %s and status = '%s';", manifestId, pathLikeExpr, initatedStatus)
 
@@ -352,7 +387,7 @@ func (*ManifestFile) RemoveFromManifest(manifestId int32, removePath string) err
 		return err
 	}
 
-	syncStatus := manifestFile.Synced.String()
+	syncStatus := manifestFile.Registered.String()
 	removeStatus := manifestFile.Removed.String()
 	queryStr2 := fmt.Sprintf("UPDATE manifest_files SET status = '%s' WHERE manifest_id = %d "+
 		"AND source_path LIKE %s and status = '%s';", removeStatus, manifestId, pathLikeExpr, syncStatus)
@@ -390,7 +425,7 @@ func (*ManifestFile) ResetStatusForManifest(manifestId int32) error {
 	log.Println("IN RESET MANIFEST")
 	currentTime := time.Now()
 
-	initiatedStatusStr := manifestFile.Initiated.String()
+	initiatedStatusStr := manifestFile.Local.String()
 	sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s', updated_at = %d WHERE manifest_id = %d",
 		initiatedStatusStr, currentTime.Unix(), manifestId)
 

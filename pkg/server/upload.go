@@ -112,6 +112,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		log.Fatalln("Unable to get Manifest")
 	}
 
+	log.Println("GETTING CREDS FROM AWS")
 	client := api.PennsieveClient
 	client.Authentication.GetAWSCredsForUser()
 
@@ -121,6 +122,26 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	walker := make(recordWalk, nrWorkers)
 	results := make(chan int, nrWorkers)
+
+	tickerDone := make(chan bool)
+	ticker := time.NewTicker(10 * time.Second)
+	// Ticker to get status updates from the server periodically
+	go func() {
+		for {
+			select {
+			case <-tickerDone:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+
+				// Checking status of files on server and verify.
+				// This should return a list of files that have recently been finalized and then set the status of
+				// those files to "Verified" on the server.
+				api.VerifyFinalizedStatus(m)
+
+			}
+		}
+	}()
 
 	// Database crawler: the database crawler populates a channel with records to be uploaded
 	go func() {
@@ -135,7 +156,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 		// Get all synced files from the local database for uploading.
 		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name FROM manifest_files "+
-			"WHERE manifest_id=%d AND status='%s';", request.ManifestId, manifestFile.Synced.String())
+			"WHERE manifest_id=%d AND status='%s';", request.ManifestId, manifestFile.Registered.String())
 
 		rows, err := dbconfig.DB.Query(queryStr)
 		if err != nil {
@@ -166,6 +187,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 	// Upload Manager: the upload manager creates n upload workers to upload files provided by the Database Crawler.
 	go func() {
+
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithCredentialsProvider(
 				credentials.StaticCredentialsProvider{
@@ -212,6 +234,9 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 
 		// Wait until all workers and record crawler
 		uploadWg.Wait()
+
+		// Cancel ticker
+		tickerDone <- true
 
 		log.Println("Returned from uploader")
 	}()
@@ -333,6 +358,12 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 		err = file.Close()
 		if err != nil {
 			log.Fatalln("Could not close file.")
+		}
+
+		var m models.ManifestFile
+		err = m.SetStatus(dbconfig.DB, manifestFile.Uploaded, record.uploadId)
+		if err != nil {
+			log.Fatalln("Could not update status of file. Here is why: ", err)
 		}
 	}
 	return nil

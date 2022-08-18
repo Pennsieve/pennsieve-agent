@@ -37,15 +37,14 @@ var SyncCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := pb.NewAgentClient(conn)
-		manifestResponse, err := client.SyncManifest(context.Background(), &req)
+		_, err = client.SyncManifest(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())
 			return
 		}
 
-		fmt.Printf("Synced Manifest: %s -- %d updated, %d removed, and %d failed.",
-			manifestResponse.ManifestNodeId, manifestResponse.NrFilesUpdated, manifestResponse.NrFilesRemoved, manifestResponse.NrFilesFailed)
+		fmt.Printf("Manifest synchronized with Pennsieve server.")
 	},
 }
 
