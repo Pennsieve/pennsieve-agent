@@ -213,12 +213,18 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 	*/
 
 	var m *models.Manifest
-	m, err := m.Get(request.ManifestId)
+	manifest, err := m.Get(request.ManifestId)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := api.ManifestSync(m)
+	// Verify uploaded files that are in Finalized state.
+	log.Println("Verifying files")
+	api.VerifyFinalizedStatus(manifest)
+
+	// Sync local files with the server.
+	log.Println("Syncing files.")
+	resp, err := api.ManifestSync(manifest)
 	if err != nil {
 		log.Println("Unable to sync files.")
 		return nil, err

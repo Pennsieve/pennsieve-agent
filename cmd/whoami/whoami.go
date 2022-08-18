@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -82,6 +83,7 @@ func PrettyPrint(info *pb.UserResponse, showFull bool) {
 			{"PROFILE", info.Profile},
 			{"ENVIRONMENT", info.Environment},
 			{"SESSION-TOKEN", info.SessionToken},
+			{"HOST", api.PennsieveClient.Authentication.BaseUrl},
 		})
 	}
 

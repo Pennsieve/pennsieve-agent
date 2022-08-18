@@ -125,14 +125,16 @@ message ListManifestFilesRequest{
 
 message ListManifestFilesResponse{
 	enum StatusType{
-		INITIATED = 0;  	// File indexed locally
-		SYNCED = 1; 		// File manifest synchronized with Cloud
+		LOCAL = 0;  	// File indexed locally
+		REGISTERED = 1; 		// File manifest synchronized with Cloud
 		IMPORTED = 2;
 		FINALIZED = 3;
 		VERIFIED = 4;
 		FAILED = 5;   // File imported in cloud
 		REMOVED = 6; 	// File Upload canceled (manually, or failed)
 		UNKNOWN = 7;
+		CHANGES = 8;
+		UPLOADED = 9;
 	}
 
 	message FileUpload {
