@@ -133,7 +133,7 @@ message ListManifestFilesResponse{
 		FAILED = 5;   // File imported in cloud
 		REMOVED = 6; 	// File Upload canceled (manually, or failed)
 		UNKNOWN = 7;
-		CHANGES = 8;
+		CHANGED = 8;
 		UPLOADED = 9;
 	}
 
