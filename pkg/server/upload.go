@@ -189,6 +189,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	go func() {
 
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithRegion("us-east-1"),
 			config.WithCredentialsProvider(
 				credentials.StaticCredentialsProvider{
 					Value: aws.Credentials{
