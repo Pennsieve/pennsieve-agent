@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/pennsieve-agent/models"
@@ -17,6 +16,7 @@ import (
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"log"
@@ -191,14 +191,11 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithRegion("us-east-1"),
 			config.WithCredentialsProvider(
-				credentials.StaticCredentialsProvider{
-					Value: aws.Credentials{
-						AccessKeyID:     *client.AWSCredentials.AccessKeyId,
-						SecretAccessKey: *client.AWSCredentials.SecretKey,
-						SessionToken:    *client.AWSCredentials.SessionToken,
-						Source:          "Pennsieve Agent",
-					},
-				}))
+				pennsieve.AWSCredentialProviderWithExpiration{
+					AuthService: client.Authentication,
+				},
+			),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
