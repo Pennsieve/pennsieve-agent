@@ -5,17 +5,19 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
 )
 
-// whoamiCmd represents the whoami command
+// DatasetCmd shows the currently active dataset.
 var DatasetCmd = &cobra.Command{
 	Use:   "dataset",
-	Short: "Set your current working dataset.",
-	Long:  `Set your current working dataset.`,
+	Short: "Show the active dataset.",
+	Long: `Shows the dataset that is currently active. 
+
+Any manifests that are created will be uploaded to the active dataset.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		config.InitDB()
 	},
@@ -45,13 +47,14 @@ func init() {
 
 }
 
-func PrettyPrint(ds *pennsieve.GetDatasetResponse, showFull bool) {
+func PrettyPrint(ds *dataset.GetDatasetResponse, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetTitle("Active dataset")
 	t.AppendRows([]table.Row{
 		{"NAME", ds.Content.Name},
-		{"ID", ds.Content.ID},
+		{"INT ID", ds.Content.IntID},
+		{"NODE ID", ds.Content.ID},
 		{"ORGANIZATION", ds.Organization},
 	})
 	if showFull {

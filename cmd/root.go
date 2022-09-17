@@ -26,7 +26,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	models2 "github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
@@ -38,8 +38,8 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "pennsieve-server",
-	Short: "A brief description of your application",
+	Use:   "pennsieve",
+	Short: "A Command Line Interface for the Pennsieve Platform.",
 	Long:  ``,
 
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -55,12 +55,12 @@ var rootCmd = &cobra.Command{
 		if api.PennsieveClient != nil {
 
 			creds := api.PennsieveClient.APISession
-			if creds != (pennsieve.APISession{}) && creds.IsRefreshed {
+			if creds != (models2.APISession{}) && creds.IsRefreshed {
 				activeUser, err := api.GetActiveUser()
 				if err != nil {
 					log.Fatalln("Unable to get active user")
 				}
-				fmt.Println("Client credentials updated --> Update session token in UserInfo")
+				log.Println("Client credentials updated --> Update session token in UserInfo")
 				models.UpdateTokenForUser(activeUser, &api.PennsieveClient.APISession)
 			}
 		}
@@ -91,8 +91,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "db", "",
 		"db file (default is $HOME/.pennsieve/config.ini)")
 
-	rootCmd.Flags().BoolP("toggle", "t", false,
-		"Help message for toggle")
 }
 
 // initConfig reads in db file and ENV variables if set.
@@ -115,7 +113,7 @@ func initViper() {
 
 		// Set viper defaults
 		viper.SetDefault("agent.port", "9000")
-		viper.SetDefault("agent.upload_workers", "5")     // Number of concurrent files during upload
+		viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
 		viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 		viper.SetDefault("global.default_profile", "user")
 	}
