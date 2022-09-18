@@ -112,9 +112,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		log.Fatalln("Unable to get Manifest")
 	}
 
-	log.Println("GETTING CREDS FROM AWS")
 	client := api.PennsieveClient
-	client.Authentication.GetAWSCredsForUser()
 
 	// TODO: create second channel to update upload status
 	chunkSize := viper.GetInt64("agent.upload_chunk_size")
@@ -196,6 +194,7 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 				},
 			),
 		)
+
 		if err != nil {
 			log.Fatal(err)
 		}

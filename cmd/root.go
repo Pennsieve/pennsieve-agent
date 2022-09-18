@@ -53,7 +53,6 @@ var rootCmd = &cobra.Command{
 		*/
 
 		if api.PennsieveClient != nil {
-
 			creds := api.PennsieveClient.APISession
 			if creds != (models2.APISession{}) && creds.IsRefreshed {
 				activeUser, err := api.GetActiveUser()

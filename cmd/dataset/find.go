@@ -9,35 +9,42 @@ import (
 	"os"
 )
 
-// ListCmd renders a list of datasets for a user.
-var ListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all datasets.",
-	Long:  `List all datasets in a Pennsieve Workspace that are accessible to the user.`,
+// FindCmd lists datasets based on input query
+var FindCmd = &cobra.Command{
+	Use:   "find '<query>'",
+	Short: "Find datasets",
+	Args:  cobra.MinimumNArgs(1),
+	Long: `Lists datasets based on a query.
+
+Search is fuzzy and returns datasets based on matches in:
+- title
+- authors
+- tags
+- description
+`,
 	Run: func(cmd *cobra.Command, args []string) {
-		offset, _ := cmd.Flags().GetInt("offset")
+		query := args[0]
+
 		limit, _ := cmd.Flags().GetInt("limit")
 
 		client := api.PennsieveClient
-		response, err := client.Dataset.List(nil, limit, offset)
+		response, err := client.Dataset.Find(nil, limit, query)
 		if err != nil {
 			log.Println(err)
 		}
 
-		PrettyPrintList(response)
+		log.Println(response)
+
+		PrettyPrintFind(response)
 	},
 }
 
 func init() {
-	ListCmd.Flags().IntP("offset", "o",
-		0, "Offset (default 0) ")
-
-	ListCmd.Flags().IntP("limit", "l",
+	FindCmd.Flags().IntP("limit", "l",
 		100, "Limit")
-
 }
 
-func PrettyPrintList(ds *dataset.ListDatasetResponse) {
+func PrettyPrintFind(ds *dataset.ListDatasetResponse) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetTitle("Datasets")
