@@ -33,8 +33,6 @@ Search is fuzzy and returns datasets based on matches in:
 			log.Println(err)
 		}
 
-		log.Println(response)
-
 		PrettyPrintFind(response)
 	},
 }
