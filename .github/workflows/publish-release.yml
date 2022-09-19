@@ -138,7 +138,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve-agent
+      PACKAGE_BINARY_NAME: pennsieve
       WIX_VERSION: 0.0.5
       WIX_TOOLSET_VERSION: 3.11
     steps:
@@ -148,13 +148,6 @@ jobs:
         id: install-deps
         run: |
           echo "::debug:: RELEASE: [${{ needs.read-tag.outputs.tag }}]"
-#          rustup update
-#          cargo install cargo-wix --version ${{ env.WIX_VERSION }} --force || true
-#      - name: Cache build release
-#        uses: actions/cache@v2
-#        with:
-#          path: ./target/release
-#          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
@@ -176,8 +169,8 @@ jobs:
           echo "::debug:: pwd: " pwd
           echo ":::debug:: " ls
           candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension -dVersion='1.0.20'           
-          light.exe obj\*.wixobj -o pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension
-          echo "::set-output name=asset-file::pennsieve-agent-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
+          light.exe obj\*.wixobj -o pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension
+          echo "::set-output name=asset-file::pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
         id: publish-assets
         uses: actions/upload-release-asset@v1
