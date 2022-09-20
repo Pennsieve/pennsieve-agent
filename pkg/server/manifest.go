@@ -109,7 +109,12 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 2. Walk over folder and populate DB with file-paths.
 	// --------------------------------------------------
-	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
+	nrRecords, err := addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
+	if err != nil {
+		s.messageSubscribers(fmt.Sprintf("Error with accessing files on: %s", request.BasePath))
+		response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: fmt.Sprintf("Creating manifest failed.")}
+		return &response, nil
+	}
 
 	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.\n", nrRecords))
 
@@ -289,6 +294,7 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 
 	batchSize := 50 // Update DB with 50 paths per batch
 	walker := make(fileWalk, batchSize)
+	errs := make(chan error, 1) // Use channel to export error if walk fails.
 	go func() {
 
 		if len(files) > 0 {
@@ -299,10 +305,12 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 			// Gather the files to upload by walking the path recursively
 			if err := filepath.WalkDir(localBasePath, walker.Walk); err != nil {
 				log.Println("Walk failed:", err)
+				errs <- fmt.Errorf("walkError: Unable to read: %s", localBasePath)
 			}
 		}
 
 		close(walker)
+		close(errs)
 	}()
 
 	// Get paths from channel, and when <batchSize> number of paths,
@@ -314,7 +322,10 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 		item, ok := <-walker
 		if !ok {
 			// Final batch of items
-			addUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			err := addUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			if err != nil {
+				return 0, err
+			}
 			totalIndexed += len(items)
 			break
 		}
@@ -323,14 +334,20 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 		i++
 		if i == batchSize {
 			// Standard batch of items
-			addUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			err := addUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			if err != nil {
+				return 0, err
+			}
 
 			i = 0
 			totalIndexed += batchSize
 			items = nil
 		}
 	}
-	return totalIndexed, nil
+
+	hasError := <-errs
+
+	return totalIndexed, hasError
 }
 
 // addUploadRecords adds records to the local SQLite DB.
@@ -338,11 +355,13 @@ func addUploadRecords(paths []string, localBasePath string, targetBasePath strin
 
 	records := recordsFromPaths(paths, localBasePath, targetBasePath, manifestId)
 
-	var record models.ManifestFile
-	err := record.Add(records)
-	if err != nil {
-		log.Println("Error with AddUploadRecords: ", err)
-		return err
+	if len(records) > 0 {
+		var record models.ManifestFile
+		err := record.Add(records)
+		if err != nil {
+			log.Println("Error with AddUploadRecords: ", err)
+			return err
+		}
 	}
 
 	return nil

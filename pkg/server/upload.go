@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/viper"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -271,7 +270,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			s:        s,
 		}
 
-		s3Key := aws.String(filepath.Join(manifestNodeId, "/", record.uploadId))
+		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.uploadId))
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(uploadBucket),
