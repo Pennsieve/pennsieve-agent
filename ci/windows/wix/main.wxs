@@ -79,9 +79,9 @@
                     <Component Id='pennsieveBinary' Guid='*' Win64='$(var.Win64)'>
                         <File
                             Id='pennsieveEXE'
-                            Name='pennsieve-agent.exe'
+                            Name='pennsieve.exe'
                             DiskId='1'
-                            Source='pennsieve-agent.exe'
+                            Source='pennsieve.exe'
                             KeyPath='yes'/>
                     </Component>
                 </Directory>
