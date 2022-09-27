@@ -53,6 +53,7 @@ jobs:
         id: install-deps
         run: |
           sudo gem install fpm
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           brew install coreutils
       - name: Setup directories
         id: setup-dirs
