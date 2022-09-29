@@ -31,7 +31,6 @@ func InitializeAPI() error {
 	if customAPIHost != "" {
 		apiV1Url = customAPIHost
 		apiV2Url = "https://api2.pennsieve.net"
-
 	}
 
 	PennsieveClient = pennsieve.NewClient(apiV1Url, apiV2Url)

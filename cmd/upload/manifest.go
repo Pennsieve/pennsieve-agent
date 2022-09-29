@@ -18,6 +18,7 @@ package upload
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -56,12 +57,12 @@ var ManifestCmd = &cobra.Command{
 		client := pb.NewAgentClient(conn)
 		_, err = client.UploadManifest(context.Background(), &req)
 		if err != nil {
-			fmt.Println("Error uploading file: ", err)
+			shared.HandleAgentError(err, fmt.Sprintln("Error uploading file: ", err))
 		}
 
 		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d\n\nUse "+
-			"\"pennsieve-agent agent subscribe\" to track progress of the uploaded files.\n\n"+
-			"Use \"pennsieve-agent upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
+			"\"pennsieve agent subscribe\" to track progress of the uploaded files.\n\n"+
+			"Use \"pennsieve upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
 	},
 }
 

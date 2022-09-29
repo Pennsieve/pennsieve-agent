@@ -3,6 +3,7 @@ package upload
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,7 +42,7 @@ var CancelCmd = &cobra.Command{
 		client := pb.NewAgentClient(conn)
 		uploadResponse, err := client.CancelUpload(context.Background(), &req)
 		if err != nil {
-			fmt.Println("Error uploading file: ", err)
+			shared.HandleAgentError(err, fmt.Sprintf("Error uploading file: %v", err))
 		}
 		fmt.Println(uploadResponse)
 

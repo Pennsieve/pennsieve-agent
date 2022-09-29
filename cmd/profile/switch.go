@@ -19,12 +19,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"os"
 )
 
@@ -52,8 +52,7 @@ var SwitchCmd = &cobra.Command{
 		client := pb.NewAgentClient(conn)
 		switchResponse, err := client.SwitchProfile(context.Background(), &req)
 		if err != nil {
-			st := status.Convert(err)
-			fmt.Println(st.Message())
+			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete switchUser command: %v", err))
 			return
 		}
 
