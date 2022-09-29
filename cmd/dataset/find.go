@@ -2,6 +2,7 @@ package dataset
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	"github.com/spf13/cobra"
@@ -22,6 +23,9 @@ Search is fuzzy and returns datasets based on matches in:
 - tags
 - description
 `,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 

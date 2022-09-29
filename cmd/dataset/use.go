@@ -3,6 +3,7 @@ package dataset
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
@@ -18,7 +19,10 @@ var UseCmd = &cobra.Command{
 	Use:   "use <dataset>",
 	Short: "Set your current working dataset.",
 	Long:  `Set your current working dataset.`,
-	Args:  cobra.MinimumNArgs(1),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
 		datasetId := args[0]

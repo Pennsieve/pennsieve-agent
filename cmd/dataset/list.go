@@ -2,6 +2,7 @@ package dataset
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	"github.com/spf13/cobra"
@@ -14,6 +15,9 @@ var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all datasets.",
 	Long:  `List all datasets in a Pennsieve Workspace that are accessible to the user.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		config.InitDB()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		offset, _ := cmd.Flags().GetInt("offset")
 		limit, _ := cmd.Flags().GetInt("limit")
