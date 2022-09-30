@@ -22,6 +22,8 @@ service Agent {
 	// Server Endpoints
 	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
 	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
+	rpc Stop(StopRequest) returns (StopResponse) {}
+	rpc Ping(PingRequest) returns (PingResponse) {}
 
 	// User Endpoints
 	rpc GetUser(GetUserRequest) returns (UserResponse) {}
@@ -92,6 +94,21 @@ message AddToManifestRequest {
 message RemoveFromManifestRequest {
 	int32 manifest_id = 1;
 	string remove_path = 3;
+}
+
+message PingRequest {
+}
+
+message PingResponse {
+	bool success = 1;
+}
+
+message StopRequest {
+
+}
+
+message StopResponse {
+	bool success = 1;
 }
 
 message ListManifestsRequest {

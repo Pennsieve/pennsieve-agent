@@ -15,6 +15,8 @@ import (
 	"sync"
 )
 
+var GRPCServer *grpc.Server
+
 type server struct {
 	pb.UnimplementedAgentServer
 	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
@@ -80,6 +82,19 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 	return &pb.SubsrcribeResponse{}, nil
 }
 
+func (s *server) Stop(ctx context.Context, request *pb.StopRequest) (*pb.StopResponse, error) {
+
+	log.Println("Stopping Agent Server.")
+	go GRPCServer.Stop()
+
+	return &pb.StopResponse{Success: true}, nil
+}
+
+func (s *server) Ping(ctx context.Context, request *pb.PingRequest) (*pb.PingResponse, error) {
+
+	return &pb.PingResponse{Success: true}, nil
+}
+
 // HELPER FUNCTIONS
 // ----------------------------------------------
 
@@ -140,15 +155,15 @@ func StartAgent() error {
 	}
 
 	// Create new server
-	grpcServer := grpc.NewServer()
+	GRPCServer = grpc.NewServer()
 	server := &server{}
 
 	// Register services
-	pb.RegisterAgentServer(grpcServer, server)
+	pb.RegisterAgentServer(GRPCServer, server)
 
 	fmt.Printf("GRPC server listening on: %s", lis.Addr())
 
-	if err := grpcServer.Serve(lis); err != nil {
+	if err := GRPCServer.Serve(lis); err != nil {
 		fmt.Println("failed to serve: ", err)
 		return err
 	}
