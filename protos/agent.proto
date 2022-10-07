@@ -49,15 +49,31 @@ message SubsrcribeResponse {
 		int64 current = 3;
 		int32 worker_id = 4;
 	}
+	message SyncResponse {
+		SyncStatus status_type = 12;
+		enum SyncStatus{
+			INIT = 0;
+			IN_PROGRESS = 1;
+			COMPLETE = 2;
+		}
+
+		SyncStatus status = 1;
+		int64 total = 2;
+		int64 nr_synced = 3;
+		int32 worker_id = 4;
+	}
+
 	enum MessageType{
 		EVENT = 0; // Server log message
 		UPLOAD_STATUS = 1;	// Upload Status Message
 		UPLOAD_CANCEL = 2; // Upload was cancelled
+		SYNC_STATUS = 3; // Sync Status message
 	}
 	MessageType type = 8;
 	oneof message_data {
 		UploadResponse upload_status = 9;
 		EventResponse event_info = 10;
+		SyncResponse sync_status = 11;
 	}
 }
 

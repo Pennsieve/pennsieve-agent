@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
+	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"log"
+	"math/rand"
 	"strconv"
+	"time"
 )
 
 var SyncCmd = &cobra.Command{
@@ -43,7 +47,20 @@ var SyncCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Manifest synchronized with Pennsieve server.")
+		s1 := rand.NewSource(time.Now().UnixNano())
+		r1 := rand.New(s1)
+		SubscribeClient, err := subscriber.GetClient(int32(r1.Intn(100)))
+		if err != nil {
+			log.Fatal(err)
+		}
+		// Dispatch client goroutine
+		fmt.Printf("Synchronizing manifest.\n You can safely Ctr-C as synchronization will continue to run in the background.")
+		fmt.Println("\n\nUse " +
+			"\"pennsieve agent subscribe\" to track all events from the Pennsieve Agent.")
+
+		fmt.Println("\n------------")
+		SubscribeClient.Start([]pb.SubsrcribeResponse_MessageType{pb.SubsrcribeResponse_SYNC_STATUS}, true)
+
 	},
 }
 

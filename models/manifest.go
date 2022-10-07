@@ -144,17 +144,24 @@ func (*Manifest) Remove(manifestId int32) error {
 	return err
 }
 
+// SetManifestNodeId updates the manifest Node ID in the Manifest object and Database
 func (m *Manifest) SetManifestNodeId(nodeId string) error {
+
+	m.NodeId = sql.NullString{
+		String: nodeId,
+		Valid:  true,
+	}
+
 	statement, err := db.DB.Prepare(
 		"UPDATE manifests SET node_id = ? WHERE id = ?")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 
 	_, err = statement.Exec(nodeId, m.Id)
 	if err != nil {
-		fmt.Sprintln("Unable to update Sessiontoken in database")
+		log.Println("Unable to update Manifest Node Id in database: ", err)
 		return err
 	}
 

@@ -94,7 +94,6 @@ func UpdateActiveUser() (*models.UserInfo, error) {
 	userSettings, err := clientSession.Get()
 
 	if err != nil {
-
 		// If no entry is found in database, check default profile in db and setup DB
 		if errors.Is(err, &models.NoClientSessionError{}) {
 			fmt.Println("No record found in User Settings --> Checking Default Profile.")
@@ -130,7 +129,6 @@ func UpdateActiveUser() (*models.UserInfo, error) {
 		} else {
 			return nil, err
 		}
-
 	}
 
 	// If entries found in database, continue with active profile
@@ -175,8 +173,7 @@ func SwitchUser(profile string) (*models.UserInfo, error) {
 	// Check if profile exist
 	isSet := viper.IsSet(profile + ".api_token")
 	if !isSet {
-		fmt.Printf("Profile %s not found\n", profile)
-		return nil, fmt.Errorf("")
+		return nil, errors.New(fmt.Sprintf("Profile not found: %s", profile))
 	}
 
 	// Profile exists, verify login and refresh token if necessary

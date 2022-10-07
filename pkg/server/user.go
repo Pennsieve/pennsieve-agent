@@ -5,6 +5,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"log"
 )
 
 func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
@@ -31,6 +32,7 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 
 	activeUser, err := api.SwitchUser(request.Profile)
 	if err != nil {
+		log.Println("Error:SwitchProfile: ", err)
 		return nil, err
 	}
 

@@ -14,7 +14,6 @@ import (
 	"log"
 )
 
-// whoamiCmd represents the whoami command
 var UseCmd = &cobra.Command{
 	Use:   "use <dataset>",
 	Short: "Set your current working dataset.",
@@ -32,7 +31,6 @@ var UseCmd = &cobra.Command{
 		}
 
 		port := viper.GetString("agent.port")
-
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			fmt.Println("Error connecting to GRPC Server: ", err)
@@ -40,9 +38,11 @@ var UseCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
+		ctx := context.Background()
+
 		// Update active dataset using GRPC
 		client := pb.NewAgentClient(conn)
-		useDatasetResponse, err := client.UseDataset(context.Background(), &req)
+		useDatasetResponse, err := client.UseDataset(ctx, &req)
 		if err != nil {
 			st := status.Convert(err)
 			fmt.Println(st.Message())
@@ -51,10 +51,11 @@ var UseCmd = &cobra.Command{
 
 		// Get the dataset directly from service to render
 		pennsieveClient := api.PennsieveClient
-		response, err := pennsieveClient.Dataset.Get(nil, useDatasetResponse.DatasetId)
+		response, err := pennsieveClient.Dataset.Get(ctx, useDatasetResponse.DatasetId)
 		if err != nil {
-			log.Println(err)
-			log.Fatalln("Unknown dataset: ", useDatasetResponse.DatasetId)
+			fmt.Println("Error fetching dataset from Pennsieve: ", useDatasetResponse.DatasetId)
+			log.Println("CMD:Dataset:Use: ", err)
+			return
 		}
 
 		PrettyPrint(response, false)

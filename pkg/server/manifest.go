@@ -5,10 +5,16 @@ package server
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
+	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/fs"
@@ -17,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type fileWalk chan string
@@ -230,17 +237,23 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 
 	// Sync local files with the server.
 	log.Println("Syncing files.")
-	resp, err := api.ManifestSync(manifest)
+
+	// Create Context and store cancel function in server object.
+	ctx, cancelFnc := context.WithCancel(context.Background())
+	session := uploadSession{
+		manifestId: request.GetManifestId(),
+		cancelFnc:  cancelFnc,
+	}
+	s.cancelFncs.Store(request.GetManifestId(), session)
+
+	go s.syncProcessor(ctx, manifest)
 	if err != nil {
-		log.Println("Unable to sync files.")
+		log.Println("Unable to sync files.", err)
 		return nil, err
 	}
 
 	r := pb.SyncManifestResponse{
-		ManifestNodeId: resp.ManifestNodeId,
-		NrFilesUpdated: int32(resp.NrFilesUpdated),
-		NrFilesRemoved: int32(resp.NrFilesRemoved),
-		NrFilesFailed:  int32(len(resp.FailedFiles)),
+		ManifestNodeId: manifest.NodeId.String,
 	}
 
 	return &r, nil
@@ -266,8 +279,303 @@ func (s *server) ResetManifest(ctx context.Context, request *pb.ResetManifestReq
 	return &response, nil
 }
 
+// ----------------------------------------------
+// SYNC FUNCTIONS
+// ----------------------------------------------
+
+type syncSummary struct {
+	nrFilesUpdated int
+}
+
+// syncProcessor Go routine that manages sync go sub-routines for crawling DB and syncing rows with service
+func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSummary, error) {
+
+	nrWorkers := viper.GetInt("agent.upload_workers")
+	syncWalker := make(recordWalk, nrWorkers)
+	syncResults := make(syncResult, nrWorkers)
+
+	// Get Total items to sync
+	queryStr := fmt.Sprintf("SELECT  count(*) FROM manifest_files WHERE manifest_id=? AND status NOT IN ('Uploaded','Verified', 'Registered')")
+
+	var totalNrRows int64
+	err := dbconfig.DB.QueryRow(queryStr, m.Id).Scan(&totalNrRows)
+	switch {
+	case err == sql.ErrNoRows:
+		return nil, errors.New("unable to get number of rows to be synchronized")
+	case err != nil:
+		return nil, errors.New("unable to get number of rows to be synchronized")
+	default:
+		log.Printf("About to synchronize %d files.", totalNrRows)
+	}
+
+	// Database crawler to fetch rows
+	go func() {
+		defer close(syncWalker)
+
+		// 1. Synchronize Walker
+		requestStatus := []manifestFile.Status{
+			manifestFile.Local,
+			manifestFile.Changed,
+			manifestFile.Failed,
+			manifestFile.Removed,
+			manifestFile.Imported,
+			manifestFile.Finalized,
+			manifestFile.Unknown,
+		}
+
+		var statusList []string
+		for _, reqStatus := range requestStatus {
+			statusList = append(statusList, fmt.Sprintf("'%s'", reqStatus.String()))
+		}
+		statusQueryString := fmt.Sprintf("(%s)", strings.Join(statusList, ","))
+		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files WHERE manifest_id = ? "+
+			"AND status IN %s ORDER BY id", statusQueryString)
+
+		rows, err := dbconfig.DB.QueryContext(ctx, queryStr, m.Id)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				log.Println("Unable to close rows in Upload.")
+			}
+		}(rows)
+
+		// Iterate over rows for manifest and add row to channel to be picked up by worker.
+		for rows.Next() {
+			r := record{}
+			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName, &r.status)
+			if err != nil {
+				log.Fatal(err)
+			}
+			syncWalker <- r
+		}
+
+		err = rows.Err()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	}()
+
+	// Sync handler
+	go func() {
+
+		var syncWaitGroup sync.WaitGroup
+
+		// 1. Ensure we get a manifest id from the server
+		err := getCreateManifestId(m)
+		if err != nil {
+			log.Println("Error: ", err)
+			return
+		}
+
+		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubsrcribeResponse_SyncResponse_INIT)
+
+		// 2. Create Sync Workers
+		for w := 1; w <= nrWorkers; w++ {
+			syncWaitGroup.Add(1)
+
+			log.Println("starting Sync Worker:", w)
+			workerId := int32(w)
+			go func() {
+				defer func() {
+					syncWaitGroup.Done()
+					log.Println("stopping Sync Worker:", w)
+				}()
+				err := s.syncWorker(ctx, workerId, syncWalker, syncResults, m, totalNrRows)
+				if err != nil {
+					log.Println("Error in Upload Worker:", err)
+				}
+			}()
+		}
+
+		syncWaitGroup.Wait()
+		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubsrcribeResponse_SyncResponse_COMPLETE)
+		log.Println("All sync workers complete --> closing syncResults channel")
+		close(syncResults)
+	}()
+
+	// Handling results from sync handlers.
+	// This for loop with continuously add responses from service to array of updated files.
+	// It stops when syncResults is closed, which happens when all sync handlers have finished.
+	var allStatusUpdates []manifestFile.FileStatusDTO
+	for result := range syncResults {
+		allStatusUpdates = append(allStatusUpdates, result...)
+	}
+
+	// Update file status for synchronized manifest.
+	log.Println("Updating local database with status results.")
+	var f models.ManifestFile
+	f.SyncResponseStatusUpdate(m.Id, allStatusUpdates)
+
+	return &syncSummary{nrFilesUpdated: len(allStatusUpdates)}, nil
+
+}
+
+// getCreateManifestId takes a manifest and ensures the manifest has a node-id.
+// The method checks if the manifest has a node-id, and if not, registers the manifest
+// with Pennsieve model service and sets the returned node-id in the manifest object.
+func getCreateManifestId(m *models.Manifest) error {
+
+	// Return if the node id is already set.
+	if m.NodeId.Valid {
+		return nil
+	}
+
+	log.Println("Getting new manifest ID for dataset: ", m.DatasetId)
+
+	requestBody := manifest.DTO{
+		DatasetId: m.DatasetId,
+	}
+
+	client := api.PennsieveClient
+
+	response, err := client.Manifest.Create(context.Background(), requestBody)
+	if err != nil {
+		log.Println("ERROR: Unable to get new manifest ID: ", err)
+		return err
+	}
+
+	log.Println("New Manifest ID: ", response.ManifestNodeId)
+	if response.ManifestNodeId == "" {
+		return errors.New("Error: Unexpected Manifest Node ID returned by Pennsieve.")
+	}
+
+	// Update NodeId in manifest and database
+	m.SetManifestNodeId(response.ManifestNodeId)
+
+	return nil
+}
+
+// syncWorker fetches rows from crawler and syncs with the service by batch.
+// This function is called as a go-routine and typically runs multiple instances in parallel
+func (s *server) syncWorker(ctx context.Context, workerId int32,
+	syncWalker <-chan record, result chan []manifestFile.FileStatusDTO, m *models.Manifest, totalNrRows int64) error {
+
+	const pageSize = 250
+
+	// Ensure that manifestID is set
+	if !m.NodeId.Valid {
+		return errors.New("Error: Cannot call syncWorker on manifest that has no manifest node id. ")
+	}
+
+	var requestFiles []manifestFile.FileDTO
+	for {
+		item, ok := <-syncWalker
+		if !ok {
+			// Final batch of items
+			s.syncUpdateSubscribers(totalNrRows, int64(len(requestFiles)), workerId, pb.SubsrcribeResponse_SyncResponse_IN_PROGRESS)
+			log.Println("Nr Items:", len(requestFiles))
+			response, err := syncItems(requestFiles, m.NodeId.String, m)
+			if err != nil {
+				requestFiles = nil
+				continue
+			}
+			result <- response.UpdatedFiles
+			requestFiles = nil
+			break
+		}
+
+		// TODO: CHeck that we can safely remove this as s3-key is no longer used in service
+		s3Key := fmt.Sprintf("%s/%s", m.NodeId.String, item.uploadId)
+
+		var st manifestFile.Status
+
+		reqFile := manifestFile.FileDTO{
+			UploadID:   item.uploadId,
+			S3Key:      s3Key,
+			TargetPath: item.targetPath,
+			TargetName: item.targetName,
+			Status:     st.ManifestFileStatusMap(item.status),
+		}
+		requestFiles = append(requestFiles, reqFile)
+
+		if len(requestFiles) == pageSize {
+			s.syncUpdateSubscribers(totalNrRows, pageSize, workerId, pb.SubsrcribeResponse_SyncResponse_IN_PROGRESS)
+			response, err := syncItems(requestFiles, m.NodeId.String, m)
+			if err != nil {
+				requestFiles = nil
+				continue
+			}
+			result <- response.UpdatedFiles
+
+			requestFiles = nil
+		}
+
+	}
+	return nil
+}
+
+func syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *models.Manifest) (*manifest.PostResponse, error) {
+
+	requestBody := manifest.DTO{
+		DatasetId: m.DatasetId,
+		ID:        manifestNodeId,
+		Files:     requestFiles,
+		Status:    m.Status,
+	}
+
+	client := api.PennsieveClient
+	response, err := client.Manifest.Create(context.Background(), requestBody)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	return response, nil
+}
+
 // HELPER FUNCTIONS
 // ----------------------------------------------
+
+// updateSubscribers sends upload-progress updates to all grpc-update subscribers.
+func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int32, status pb.SubsrcribeResponse_SyncResponse_SyncStatus) {
+	// A list of clients to unsubscribe in case of error
+	var unsubscribe []int32
+
+	// Iterate over all subscribers and send data to each client
+	s.subscribers.Range(func(k, v interface{}) bool {
+		id, ok := k.(int32)
+		if !ok {
+			log.Printf("Failed to cast subscriber key: %T", k)
+			return false
+		}
+		sub, ok := v.(sub)
+		if !ok {
+			log.Printf("Failed to cast subscriber value: %T", v)
+			return false
+		}
+		// Send data over the gRPC stream to the client
+		if err := sub.stream.Send(&pb.SubsrcribeResponse{
+			Type: pb.SubsrcribeResponse_SYNC_STATUS,
+			MessageData: &pb.SubsrcribeResponse_SyncStatus{
+				SyncStatus: &pb.SubsrcribeResponse_SyncResponse{
+					Total:    total,
+					Status:   status,
+					NrSynced: nrSynced,
+					WorkerId: workerId,
+				}},
+		}); err != nil {
+			log.Printf("Failed to send data to client: %v", err)
+			select {
+			case sub.finished <- true:
+				log.Printf("Unsubscribed client: %d", id)
+			default:
+				// Default case is to avoid blocking in case client has already unsubscribed
+			}
+			// In case of error the client would re-subscribe so close the subscriber stream
+			unsubscribe = append(unsubscribe, id)
+		}
+		return true
+	})
+
+	// Unsubscribe erroneous client streams
+	for _, id := range unsubscribe {
+		s.subscribers.Delete(id)
+	}
+}
 
 func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
 	if err != nil {

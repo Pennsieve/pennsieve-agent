@@ -245,26 +245,31 @@ func (*ManifestFile) SyncResponseStatusUpdate(manifestId int32, statusList []man
 	// Iterate over map and update SQL
 	for key, s := range idByStatus {
 		if len(s) > 0 {
-			allUploadIds := strings.Join(s, ",")
 
-			sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s' "+
-				"WHERE manifest_id = %d AND upload_id IN (%s);", key, manifestId, allUploadIds)
+			// Batch update statements
+			// Split the slice into batches of 200 items.
+			batch := 250
+			for i := 0; i < len(s); i += batch {
+				j := i + batch
+				if j > len(s) {
+					j = len(s)
+				}
 
-			log.Println(sqlStatement)
+				allUploadIds := strings.Join(s[i:j], ",")
+				sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s' "+
+					"WHERE manifest_id = %d AND upload_id IN (%s);", key, manifestId, allUploadIds)
 
-			_, err := db.DB.Exec(sqlStatement)
-			if err != nil {
-				log.Println("Unable to update status in manifest files for manifest:", manifestId, "--", err)
-				return err
+				log.Printf("Updating Database with %d rows\n", len(s[i:j]))
+				_, err := db.DB.Exec(sqlStatement)
+				if err != nil {
+					log.Println("Unable to update status in manifest files for manifest:", manifestId, "--", err)
+					return err
+				}
 			}
-
 		}
-
 	}
 
 	return nil
-	//
-
 }
 
 // SyncResponseStatusUpdate2 updates local DB based on successful/unsuccessful updates remotely.

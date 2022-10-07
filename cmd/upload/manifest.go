@@ -40,8 +40,6 @@ var ManifestCmd = &cobra.Command{
 		}
 		manifestId := int32(i)
 
-		fmt.Println("CMD: Manifest ID:", manifestId)
-
 		req := pb.UploadManifestRequest{
 			ManifestId: manifestId,
 		}
@@ -51,6 +49,7 @@ var ManifestCmd = &cobra.Command{
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			fmt.Println("Error connecting to GRPC Server: ", err)
+			return
 		}
 		defer conn.Close()
 
