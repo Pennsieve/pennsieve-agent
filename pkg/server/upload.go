@@ -5,8 +5,10 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pennsieve/pennsieve-agent/models"
@@ -14,7 +16,9 @@ import (
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"log"
 	"os"
 	"runtime/debug"
@@ -32,8 +36,6 @@ type record struct {
 
 type recordWalk chan record
 type syncResult chan []manifestFile.FileStatusDTO
-
-var uploadWg sync.WaitGroup
 
 // API ENDPOINT IMPLEMENTATIONS
 // --------------------------------------------
@@ -72,9 +74,7 @@ func (s *server) CancelUpload(ctx context.Context, request *pb.CancelUploadReque
 // UploadManifest uploads all files associated with the provided manifest
 func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	s.messageSubscribers("Syncing manifest with Cloud.")
-
-	log.Println("Server starting upload manifest", request.ManifestId)
+	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
 
 	var m *models.Manifest
 	m, err := m.Get(request.ManifestId)
@@ -83,8 +83,6 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		return nil, err
 	}
 
-	//s.messageSubscribers(fmt.Sprintf("Manifest Synced: %s -- %d updated, %d removed, and %d failed.\n",
-	//	syncResp.ManifestNodeId, syncResp.NrFilesUpdated, syncResp.NrFilesRemoved, len(syncResp.FailedFiles)))
 	s.messageSubscribers("Uploading files to cloud.")
 
 	// On runtime panic, log the stacktrace but keep server alive
@@ -96,23 +94,17 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		}
 	}()
 
-	//client := api.PennsieveClient
-
-	// TODO: create second channel to update upload status
-	//chunkSize := viper.GetInt64("agent.upload_chunk_size")
-	//nrWorkers := viper.GetInt("agent.upload_workers")
-
-	//walker := make(recordWalk, nrWorkers)
-	//results := make(chan int, nrWorkers)
-
 	tickerDone := make(chan bool)
 	ticker := time.NewTicker(10 * time.Second)
+
 	// Ticker to get status updates from the server periodically
+	syncTickerDelay := 15 * time.Minute // time to continue syncing files after upload complete
 	go func() {
 		for {
 			select {
 			case <-tickerDone:
 				ticker.Stop()
+				log.Println("Stopped syncing manifest: ", m.Id)
 				return
 			case <-ticker.C:
 
@@ -139,169 +131,19 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 		}
 		s.cancelFncs.Store(request.GetManifestId(), session)
 
+		// Step 1. Synchronize all files
 		s.syncProcessor(ctx, m)
 
-		uploadProcessor()
+		// Step 2. Upload all files
+		s.uploadProcessor(ctx, m)
+
+		// Wait X minutes before cancelling sync thread.
+		// TODO: improve by registering sync thread so we never have more than 1 sync thread per manifest.
+		syncTimer := time.NewTimer(syncTickerDelay)
+		<-syncTimer.C
+		tickerDone <- true
 
 	}()
-
-	//// Database crawler: the database crawler populates a channel with records to be uploaded
-	//go func() {
-	//
-	//	// Close walker when all records for manifest were added to channel
-	//	defer func() {
-	//		close(walker)
-	//		close(syncWalker)
-	//	}()
-	//
-	//	// 1. Synchronize Walker
-	//	requestStatus := []manifestFile.Status{
-	//		manifestFile.Local,
-	//		manifestFile.Changed,
-	//		manifestFile.Failed,
-	//		manifestFile.Removed,
-	//		manifestFile.Imported,
-	//		manifestFile.Finalized,
-	//		manifestFile.Unknown,
-	//	}
-	//
-	//	var statusList []string
-	//	for _, reqStatus := range requestStatus {
-	//		statusList = append(statusList, fmt.Sprintf("'%s'", reqStatus.String()))
-	//	}
-	//	statusQueryString := fmt.Sprintf("(%s)", strings.Join(statusList, ","))
-	//	queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files WHERE manifest_id = ? "+
-	//		"AND status IN %s ORDER BY id", statusQueryString)
-	//
-	//	rows, err := dbconfig.DB.Query(queryStr, m.Id)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//	defer func(rows *sql.Rows) {
-	//		err := rows.Close()
-	//		if err != nil {
-	//			log.Println("Unable to close rows in Upload.")
-	//		}
-	//	}(rows)
-	//
-	//	// Iterate over rows for manifest and add row to channel to be picked up by worker.
-	//	for rows.Next() {
-	//		r := record{}
-	//		err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName, &r.status)
-	//		if err != nil {
-	//			log.Fatal(err)
-	//		}
-	//		syncWalker <- r
-	//	}
-	//	err = rows.Err()
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//	// 2. Manifest File Walker
-	//
-	//	// If context is cancelled, this go-routine will stop as the channel closes when
-	//	// the containing function returns.
-	//
-	//	// Get all synced files from the local database for uploading.
-	//	queryStr = fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files "+
-	//		"WHERE manifest_id=%d AND status='%s';", request.ManifestId, manifestFile.Registered.String())
-	//
-	//	rows, err = dbconfig.DB.Query(queryStr)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//	defer func(rows *sql.Rows) {
-	//		err := rows.Close()
-	//		if err != nil {
-	//			log.Println("Unable to close rows in Upload.")
-	//		}
-	//	}(rows)
-	//
-	//	// Iterate over rows for manifest and add row to channel to be picked up by worker.
-	//	for rows.Next() {
-	//		r := record{}
-	//		err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName, &r.status)
-	//		if err != nil {
-	//			log.Fatal(err)
-	//		}
-	//		walker <- r
-	//	}
-	//	err = rows.Err()
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//}()
-	//
-	//// Upload Manager: the upload manager creates n upload workers to upload files provided by the Database Crawler.
-	//go func() {
-	//
-	//	// 1. Create Sync Workers
-	//	// Initiate the sync workers
-	//	for w := 1; w <= nrWorkers; w++ {
-	//		uploadWg.Add(1)
-	//		log.Println("starting Sync Worker:", w)
-	//		w := int32(w)
-	//		go func() {
-	//			err := s.syncWorker(ctx, w, syncWalker, m)
-	//			if err != nil {
-	//				log.Println("Error in Upload Worker:", err)
-	//			}
-	//		}()
-	//	}
-	//
-	//	cfg, err := config.LoadDefaultConfig(context.TODO(),
-	//		config.WithRegion("us-east-1"),
-	//		config.WithCredentialsProvider(
-	//			pennsieve.AWSCredentialProviderWithExpiration{
-	//				AuthService: client.Authentication,
-	//			},
-	//		),
-	//	)
-	//
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//	// For each file found walking, upload it to Amazon S3
-	//	ctx, cancelFnc := context.WithCancel(context.Background())
-	//	session := uploadSession{
-	//		manifestId: request.GetManifestId(),
-	//		cancelFnc:  cancelFnc,
-	//	}
-	//	s.cancelFncs.Store(request.GetManifestId(), session)
-	//	defer cancelFnc()
-	//
-	//	// Create an S3 Client with the config
-	//	s3Client := s3.NewFromConfig(cfg)
-	//
-	//	// Create an uploader with the client and custom options
-	//	uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
-	//		u.PartSize = chunkSize * 1024 * 1024 // ...MB per part
-	//	})
-	//
-	//	// Initiate the upload workers
-	//	for w := 1; w <= nrWorkers; w++ {
-	//		uploadWg.Add(1)
-	//		log.Println("starting worker:", w)
-	//		w := int32(w)
-	//		go func() {
-	//			err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.UploadBucket)
-	//			if err != nil {
-	//				log.Println("Error in Upload Worker:", err)
-	//			}
-	//		}()
-	//	}
-	//
-	//	// Wait until all workers and record crawler
-	//	uploadWg.Wait()
-	//
-	//	// Cancel ticker
-	//	tickerDone <- true
-	//
-	//	log.Println("Returned from uploader")
-	//}()
 
 	response := pb.SimpleStatusResponse{Status: "Upload initiated."}
 	return &response, nil
@@ -311,20 +153,118 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 // UPLOAD FUNCTIONS
 // ----------------------------------------------
 
-func uploadProcessor() {
+func (s *server) uploadProcessor(ctx context.Context, m *models.Manifest) {
+
+	nrWorkers := viper.GetInt("agent.upload_workers")
+	walker := make(recordWalk, nrWorkers)
+	results := make(chan int, nrWorkers)
+
+	var uploadWg sync.WaitGroup
+
+	// Database crawler to fetch rows
+	go func() {
+
+		defer close(walker)
+
+		// Get all synced files from the local database for uploading.
+		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files "+
+			"WHERE manifest_id=%d AND status='%s';", m.Id, manifestFile.Registered.String())
+
+		rows, err := dbconfig.DB.Query(queryStr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				log.Println("Unable to close rows in Upload.")
+			}
+		}(rows)
+
+		// Iterate over rows for manifest and add row to channel to be picked up by worker.
+		for rows.Next() {
+			r := record{}
+			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName, &r.status)
+			if err != nil {
+				log.Fatal(err)
+			}
+			walker <- r
+		}
+		err = rows.Err()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// Upload Handler
+	go func() {
+
+		chunkSize := viper.GetInt64("agent.upload_chunk_size")
+		nrWorkers := viper.GetInt("agent.upload_workers")
+
+		client := api.PennsieveClient
+		cfg, err := config.LoadDefaultConfig(context.TODO(),
+			config.WithRegion("us-east-1"),
+			config.WithCredentialsProvider(
+				pennsieve.AWSCredentialProviderWithExpiration{
+					AuthService: client.Authentication,
+				},
+			),
+		)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// For each file found walking, upload it to Amazon S3
+		ctx, cancelFnc := context.WithCancel(context.Background())
+		session := uploadSession{
+			manifestId: m.Id,
+			cancelFnc:  cancelFnc,
+		}
+		s.cancelFncs.Store(m.Id, session)
+		defer cancelFnc()
+
+		// Create an S3 Client with the config
+		s3Client := s3.NewFromConfig(cfg)
+
+		// Create an uploader with the client and custom options
+		uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
+			u.PartSize = chunkSize * 1024 * 1024 // ...MB per part
+		})
+
+		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_INIT)
+
+		// Initiate the upload workers
+		for w := 1; w <= nrWorkers; w++ {
+			uploadWg.Add(1)
+			log.Println("Starting upload worker: ", w)
+			w := int32(w)
+			go func() {
+				defer func() {
+					log.Println("Closing upload worker: ", w)
+					uploadWg.Done()
+				}()
+
+				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.UploadBucket)
+				if err != nil {
+					log.Println("Error in Upload Worker:", err)
+				}
+			}()
+		}
+
+		uploadWg.Wait()
+		log.Println("Upload Completed")
+		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_COMPLETE)
+
+		log.Println("Returned from uploader for manifest: ", m.Id)
+	}()
 
 }
 
-/**
-
- */
 func (s *server) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan record, results chan<- int, manifestNodeId string, uploader *manager.Uploader, cfg aws.Config, uploadBucket string) error {
-
-	defer func() {
-		log.Println("Closing Worker: ", workerId)
-		uploadWg.Done()
-	}()
+	jobs <-chan record, results chan<- int, manifestNodeId string,
+	uploader *manager.Uploader, cfg aws.Config, uploadBucket string) error {
 
 	for record := range jobs {
 
@@ -459,7 +399,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	}
 
 	r.read += int64(n)
-	r.s.updateSubscribers(r.size, r.read, r.fp.Name(), r.workerId)
+	r.s.updateSubscribers(r.size, r.read, r.fp.Name(), r.workerId, pb.SubscribeResponse_UploadResponse_IN_PROGRESS)
 
 	return n, err
 }
@@ -469,7 +409,7 @@ func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 }
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32) {
+func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32, status pb.SubscribeResponse_UploadResponse_UploadStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -486,14 +426,15 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 			return false
 		}
 		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubsrcribeResponse{
+		if err := sub.stream.Send(&pb.SubscribeResponse{
 			Type: 1,
-			MessageData: &pb.SubsrcribeResponse_UploadStatus{
-				UploadStatus: &pb.SubsrcribeResponse_UploadResponse{
+			MessageData: &pb.SubscribeResponse_UploadStatus{
+				UploadStatus: &pb.SubscribeResponse_UploadResponse{
 					FileId:   name,
 					Total:    total,
 					Current:  current,
 					WorkerId: workerId,
+					Status:   status,
 				}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)
@@ -533,10 +474,10 @@ func (s *server) sendCancelSubscribers(message string) {
 			return false
 		}
 		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubsrcribeResponse{
-			Type: pb.SubsrcribeResponse_UPLOAD_CANCEL,
-			MessageData: &pb.SubsrcribeResponse_EventInfo{
-				EventInfo: &pb.SubsrcribeResponse_EventResponse{Details: message}},
+		if err := sub.stream.Send(&pb.SubscribeResponse{
+			Type: pb.SubscribeResponse_UPLOAD_CANCEL,
+			MessageData: &pb.SubscribeResponse_EventInfo{
+				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)
 			select {

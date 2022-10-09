@@ -59,7 +59,10 @@ var SyncCmd = &cobra.Command{
 			"\"pennsieve agent subscribe\" to track all events from the Pennsieve Agent.")
 
 		fmt.Println("\n------------")
-		SubscribeClient.Start([]pb.SubsrcribeResponse_MessageType{pb.SubsrcribeResponse_SYNC_STATUS}, true)
+		SubscribeClient.Start([]pb.SubscribeResponse_MessageType{pb.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
+			Enable: true,
+			OnType: []pb.SubscribeResponse_MessageType{pb.SubscribeResponse_SYNC_STATUS},
+		})
 
 	},
 }

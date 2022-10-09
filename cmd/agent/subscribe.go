@@ -26,7 +26,10 @@ var subscribeCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		// Dispatch client goroutine
-		go client.Start(nil, false)
+		go client.Start(nil, subscriber.StopOnStatus{
+			Enable: false,
+			OnType: nil,
+		})
 		time.Sleep(time.Second * 2)
 
 		// The wait group purpose is to avoid exiting, the clients do not exit

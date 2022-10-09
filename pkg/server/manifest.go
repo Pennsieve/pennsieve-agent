@@ -247,10 +247,6 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 	s.cancelFncs.Store(request.GetManifestId(), session)
 
 	go s.syncProcessor(ctx, manifest)
-	if err != nil {
-		log.Println("Unable to sync files.", err)
-		return nil, err
-	}
 
 	r := pb.SyncManifestResponse{
 		ManifestNodeId: manifest.NodeId.String,
@@ -371,7 +367,7 @@ func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSu
 			return
 		}
 
-		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubsrcribeResponse_SyncResponse_INIT)
+		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubscribeResponse_SyncResponse_INIT)
 
 		// 2. Create Sync Workers
 		for w := 1; w <= nrWorkers; w++ {
@@ -392,7 +388,7 @@ func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSu
 		}
 
 		syncWaitGroup.Wait()
-		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubsrcribeResponse_SyncResponse_COMPLETE)
+		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubscribeResponse_SyncResponse_COMPLETE)
 		log.Println("All sync workers complete --> closing syncResults channel")
 		close(syncResults)
 	}()
@@ -466,7 +462,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 		item, ok := <-syncWalker
 		if !ok {
 			// Final batch of items
-			s.syncUpdateSubscribers(totalNrRows, int64(len(requestFiles)), workerId, pb.SubsrcribeResponse_SyncResponse_IN_PROGRESS)
+			s.syncUpdateSubscribers(totalNrRows, int64(len(requestFiles)), workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
 			log.Println("Nr Items:", len(requestFiles))
 			response, err := syncItems(requestFiles, m.NodeId.String, m)
 			if err != nil {
@@ -493,7 +489,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 		requestFiles = append(requestFiles, reqFile)
 
 		if len(requestFiles) == pageSize {
-			s.syncUpdateSubscribers(totalNrRows, pageSize, workerId, pb.SubsrcribeResponse_SyncResponse_IN_PROGRESS)
+			s.syncUpdateSubscribers(totalNrRows, pageSize, workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
 			response, err := syncItems(requestFiles, m.NodeId.String, m)
 			if err != nil {
 				requestFiles = nil
@@ -531,7 +527,7 @@ func syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *mo
 // ----------------------------------------------
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int32, status pb.SubsrcribeResponse_SyncResponse_SyncStatus) {
+func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int32, status pb.SubscribeResponse_SyncResponse_SyncStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -548,10 +544,10 @@ func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int
 			return false
 		}
 		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubsrcribeResponse{
-			Type: pb.SubsrcribeResponse_SYNC_STATUS,
-			MessageData: &pb.SubsrcribeResponse_SyncStatus{
-				SyncStatus: &pb.SubsrcribeResponse_SyncResponse{
+		if err := sub.stream.Send(&pb.SubscribeResponse{
+			Type: pb.SubscribeResponse_SYNC_STATUS,
+			MessageData: &pb.SubscribeResponse_SyncStatus{
+				SyncStatus: &pb.SubscribeResponse_SyncResponse{
 					Total:    total,
 					Status:   status,
 					NrSynced: nrSynced,

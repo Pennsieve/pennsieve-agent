@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+type StopOnStatus struct {
+	Enable bool
+	OnType []protos.SubscribeResponse_MessageType
+}
+
 // longlivedClient holds the long lived gRPC client fields
 type longlivedClient struct {
 	client protos.AgentClient // client is the long lived gRPC client
@@ -57,17 +62,17 @@ type barInfo struct {
 	fileId string
 }
 
-func (c *longlivedClient) Start(types []protos.SubsrcribeResponse_MessageType, stopOnComplete bool) {
+func (c *longlivedClient) Start(types []protos.SubscribeResponse_MessageType, stopOnComplete StopOnStatus) {
 	var err error
 
 	nrSyncedFiles := 0
 
 	if types == nil {
-		types = []protos.SubsrcribeResponse_MessageType{
-			protos.SubsrcribeResponse_UPLOAD_STATUS,
-			protos.SubsrcribeResponse_EVENT,
-			protos.SubsrcribeResponse_SYNC_STATUS,
-			protos.SubsrcribeResponse_UPLOAD_CANCEL,
+		types = []protos.SubscribeResponse_MessageType{
+			protos.SubscribeResponse_UPLOAD_STATUS,
+			protos.SubscribeResponse_EVENT,
+			protos.SubscribeResponse_SYNC_STATUS,
+			protos.SubscribeResponse_UPLOAD_CANCEL,
 		}
 	}
 
@@ -99,36 +104,45 @@ func (c *longlivedClient) Start(types []protos.SubsrcribeResponse_MessageType, s
 		}
 
 		switch response.GetType() {
-		case protos.SubsrcribeResponse_UPLOAD_STATUS:
-			if contains(types, protos.SubsrcribeResponse_UPLOAD_STATUS) {
+		case protos.SubscribeResponse_UPLOAD_STATUS:
+			if contains(types, protos.SubscribeResponse_UPLOAD_STATUS) {
 				r := response.GetUploadStatus()
 
-				// Get/Create Tracker
-				if t, ok := trackers[r.WorkerId]; ok {
-					if t.fileId == r.FileId {
-						t.bar.SetCurrent(r.GetCurrent())
-						t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
+				switch r.Status {
+				case protos.SubscribeResponse_UploadResponse_INIT:
+				case protos.SubscribeResponse_UploadResponse_IN_PROGRESS:
+					// Get/Create Tracker
+					if t, ok := trackers[r.WorkerId]; ok {
+						if t.fileId == r.FileId {
+							t.bar.SetCurrent(r.GetCurrent())
+							t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
+						} else {
+							// In this case the previous upload was completed and should have been popped.
+							c.addBar(pw, r, trackers)
+						}
+
 					} else {
-						// In this case the previous upload was completed and should have been popped.
+						// initialization of new worker progress bar.
 						c.addBar(pw, r, trackers)
 					}
-
-				} else {
-					// initialization of new worker progress bar.
-					c.addBar(pw, r, trackers)
+				case protos.SubscribeResponse_UploadResponse_COMPLETE:
+					if stopOnComplete.Enable && contains(stopOnComplete.OnType, protos.SubscribeResponse_UPLOAD_STATUS) {
+						_ = c.unsubscribe()
+						return
+					}
 				}
 			}
-		case protos.SubsrcribeResponse_EVENT:
-			if contains(types, protos.SubsrcribeResponse_EVENT) {
+		case protos.SubscribeResponse_EVENT:
+			if contains(types, protos.SubscribeResponse_EVENT) {
 				info := response.GetEventInfo()
 				fmt.Println(info.Details)
 			}
-		case protos.SubsrcribeResponse_SYNC_STATUS:
-			if contains(types, protos.SubsrcribeResponse_SYNC_STATUS) {
+		case protos.SubscribeResponse_SYNC_STATUS:
+			if contains(types, protos.SubscribeResponse_SYNC_STATUS) {
 				info := response.GetSyncStatus()
 
 				switch info.Status {
-				case protos.SubsrcribeResponse_SyncResponse_INIT:
+				case protos.SubscribeResponse_SyncResponse_INIT:
 					nrSyncedFiles = 0
 
 					syncBar = pw.AddBar(info.Total,
@@ -145,21 +159,25 @@ func (c *longlivedClient) Start(types []protos.SubsrcribeResponse_MessageType, s
 						syncBar.SetCurrent(int64(nrSyncedFiles))
 					}
 
-				case protos.SubsrcribeResponse_SyncResponse_IN_PROGRESS:
+				case protos.SubscribeResponse_SyncResponse_IN_PROGRESS:
 					nrSyncedFiles += int(info.NrSynced)
 					syncBar.SetCurrent(int64(nrSyncedFiles))
 
-				case protos.SubsrcribeResponse_SyncResponse_COMPLETE:
-					if info.Status == protos.SubsrcribeResponse_SyncResponse_COMPLETE {
+				case protos.SubscribeResponse_SyncResponse_COMPLETE:
+					if info.Status == protos.SubscribeResponse_SyncResponse_COMPLETE {
 						syncBar.Completed()
-						return
+						if stopOnComplete.Enable && contains(stopOnComplete.OnType, protos.SubscribeResponse_SYNC_STATUS) {
+							_ = c.unsubscribe()
+							return
+						}
+
 					}
 
 				}
 
 			}
-		case protos.SubsrcribeResponse_UPLOAD_CANCEL:
-			if contains(types, protos.SubsrcribeResponse_UPLOAD_CANCEL) {
+		case protos.SubscribeResponse_UPLOAD_CANCEL:
+			if contains(types, protos.SubscribeResponse_UPLOAD_CANCEL) {
 				for _, p := range trackers {
 					p.bar.Abort(true)
 				}
@@ -172,7 +190,7 @@ func (c *longlivedClient) Start(types []protos.SubsrcribeResponse_MessageType, s
 
 // https://play.golang.org/p/Qg_uv_inCek
 // contains checks if a string is present in a slice
-func contains(s []protos.SubsrcribeResponse_MessageType, str protos.SubsrcribeResponse_MessageType) bool {
+func contains(s []protos.SubscribeResponse_MessageType, str protos.SubscribeResponse_MessageType) bool {
 	for _, v := range s {
 		if v == str {
 			return true
@@ -182,7 +200,7 @@ func contains(s []protos.SubsrcribeResponse_MessageType, str protos.SubsrcribeRe
 	return false
 }
 
-func (c *longlivedClient) addBar(pw *mpb.Progress, r *protos.SubsrcribeResponse_UploadResponse, trackers map[int32]barInfo) {
+func (c *longlivedClient) addBar(pw *mpb.Progress, r *protos.SubscribeResponse_UploadResponse, trackers map[int32]barInfo) {
 	t2 := pw.AddBar(r.GetTotal(),
 		mpb.BarFillerClearOnComplete(),
 		mpb.PrependDecorators(

@@ -37,7 +37,7 @@ type AgentClient interface {
 	CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
-	Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubsrcribeResponse, error)
+	Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubscribeResponse, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	// User Endpoints
@@ -171,7 +171,7 @@ func (c *agentClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts 
 }
 
 type Agent_SubscribeClient interface {
-	Recv() (*SubsrcribeResponse, error)
+	Recv() (*SubscribeResponse, error)
 	grpc.ClientStream
 }
 
@@ -179,16 +179,16 @@ type agentSubscribeClient struct {
 	grpc.ClientStream
 }
 
-func (x *agentSubscribeClient) Recv() (*SubsrcribeResponse, error) {
-	m := new(SubsrcribeResponse)
+func (x *agentSubscribeClient) Recv() (*SubscribeResponse, error) {
+	m := new(SubscribeResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubsrcribeResponse, error) {
-	out := new(SubsrcribeResponse)
+func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubscribeResponse, error) {
+	out := new(SubscribeResponse)
 	err := c.cc.Invoke(ctx, "/protos.Agent/Unsubscribe", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ type AgentServer interface {
 	CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
-	Unsubscribe(context.Context, *SubscribeRequest) (*SubsrcribeResponse, error)
+	Unsubscribe(context.Context, *SubscribeRequest) (*SubscribeResponse, error)
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	// User Endpoints
@@ -321,7 +321,7 @@ func (UnimplementedAgentServer) CancelUpload(context.Context, *CancelUploadReque
 func (UnimplementedAgentServer) Subscribe(*SubscribeRequest, Agent_SubscribeServer) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
-func (UnimplementedAgentServer) Unsubscribe(context.Context, *SubscribeRequest) (*SubsrcribeResponse, error) {
+func (UnimplementedAgentServer) Unsubscribe(context.Context, *SubscribeRequest) (*SubscribeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unsubscribe not implemented")
 }
 func (UnimplementedAgentServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
@@ -562,7 +562,7 @@ func _Agent_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Agent_SubscribeServer interface {
-	Send(*SubsrcribeResponse) error
+	Send(*SubscribeResponse) error
 	grpc.ServerStream
 }
 
@@ -570,7 +570,7 @@ type agentSubscribeServer struct {
 	grpc.ServerStream
 }
 
-func (x *agentSubscribeServer) Send(m *SubsrcribeResponse) error {
+func (x *agentSubscribeServer) Send(m *SubscribeResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 

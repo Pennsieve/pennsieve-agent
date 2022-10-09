@@ -20,8 +20,8 @@ service Agent {
 	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
-	rpc Subscribe(SubscribeRequest) returns (stream SubsrcribeResponse) {}
-	rpc Unsubscribe(SubscribeRequest) returns (SubsrcribeResponse) {}
+	rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
+	rpc Unsubscribe(SubscribeRequest) returns (SubscribeResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 
@@ -39,7 +39,7 @@ message SubscribeRequest {
 	int32 id = 1;
 }
 
-message SubsrcribeResponse {
+message SubscribeResponse {
 	message EventResponse {
 		string details = 1;
 	}
@@ -48,9 +48,15 @@ message SubsrcribeResponse {
 		int64 total = 2;
 		int64 current = 3;
 		int32 worker_id = 4;
+		UploadStatus status = 5;
+
+		enum UploadStatus{
+			INIT = 0;
+			IN_PROGRESS = 1;
+			COMPLETE = 2;
+		}
 	}
 	message SyncResponse {
-		SyncStatus status_type = 12;
 		enum SyncStatus{
 			INIT = 0;
 			IN_PROGRESS = 1;

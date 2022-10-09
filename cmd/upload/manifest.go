@@ -19,12 +19,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
+	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"log"
+	"math/rand"
 	"strconv"
+	"time"
 )
 
 var ManifestCmd = &cobra.Command{
@@ -59,9 +63,23 @@ var ManifestCmd = &cobra.Command{
 			shared.HandleAgentError(err, fmt.Sprintln("Error uploading file: ", err))
 		}
 
-		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d\n\nUse "+
-			"\"pennsieve agent subscribe\" to track progress of the uploaded files.\n\n"+
-			"Use \"pennsieve upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
+		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d. You can safely Ctr-C as uploading process will continue to run in the background."+
+			"\n\n  Use \"pennsieve agent subscribe\" to track progress of the uploaded files.\n\n"+
+			"  Use \"pennsieve upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
+
+		fmt.Println("\n------------")
+		s1 := rand.NewSource(time.Now().UnixNano())
+		r1 := rand.New(s1)
+		SubscribeClient, err := subscriber.GetClient(int32(r1.Intn(100)))
+		if err != nil {
+			log.Fatal(err)
+		}
+		SubscribeClient.Start([]pb.SubscribeResponse_MessageType{
+			pb.SubscribeResponse_UPLOAD_STATUS, pb.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
+			Enable: true,
+			OnType: []pb.SubscribeResponse_MessageType{pb.SubscribeResponse_UPLOAD_STATUS},
+		})
+
 	},
 }
 

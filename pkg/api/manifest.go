@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"github.com/pennsieve/pennsieve-agent/models"
 	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
@@ -36,7 +35,6 @@ func VerifyFinalizedStatus(m *models.Manifest) error {
 		}
 	}
 
-	fmt.Println(len(response.ContinuationToken))
 	for {
 		if len(response.ContinuationToken) > 0 {
 			log.Println("Getting another set of files ")

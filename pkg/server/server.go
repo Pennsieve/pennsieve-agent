@@ -63,7 +63,7 @@ func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_Subscri
 
 // Unsubscribe handles a unsubscribe request from a client
 // Note: this function is not called but it here as an example of an unary RPC for unsubscribing clients
-func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) (*pb.SubsrcribeResponse, error) {
+func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) (*pb.SubscribeResponse, error) {
 	v, ok := s.subscribers.Load(request.Id)
 	if !ok {
 		return nil, fmt.Errorf("failed to load subscriber key: %d", request.Id)
@@ -79,7 +79,7 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 		// Default case is to avoid blocking in case client has already unsubscribed
 	}
 	s.subscribers.Delete(request.Id)
-	return &pb.SubsrcribeResponse{}, nil
+	return &pb.SubscribeResponse{}, nil
 }
 
 func (s *server) Stop(ctx context.Context, request *pb.StopRequest) (*pb.StopResponse, error) {
@@ -98,8 +98,12 @@ func (s *server) Ping(ctx context.Context, request *pb.PingRequest) (*pb.PingRes
 // HELPER FUNCTIONS
 // ----------------------------------------------
 
-// messageSubscribers sends a string message to all grpc-update subscribers
+// messageSubscribers sends a string message to all grpc-update subscribers and the log
 func (s *server) messageSubscribers(message string) {
+
+	// Send message to log
+	log.Printf("SubscriberMessgae: %s", message)
+
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -116,10 +120,10 @@ func (s *server) messageSubscribers(message string) {
 			return false
 		}
 		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubsrcribeResponse{
-			Type: pb.SubsrcribeResponse_EVENT,
-			MessageData: &pb.SubsrcribeResponse_EventInfo{
-				EventInfo: &pb.SubsrcribeResponse_EventResponse{Details: message}},
+		if err := sub.stream.Send(&pb.SubscribeResponse{
+			Type: pb.SubscribeResponse_EVENT,
+			MessageData: &pb.SubscribeResponse_EventInfo{
+				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)
 			select {
