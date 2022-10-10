@@ -35,6 +35,7 @@ import (
 )
 
 var cfgFile string
+var Version = "development"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -86,10 +87,19 @@ func init() {
 	rootCmd.AddCommand(agent.AgentCmd)
 	rootCmd.AddCommand(manifest.ManifestCmd)
 	rootCmd.AddCommand(dataset.DatasetCmd)
+	rootCmd.AddCommand(VersionCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "db", "",
 		"db file (default is $HOME/.pennsieve/config.ini)")
 
+}
+
+var VersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Shows the version of the Agent and CLI.",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Version:\t", Version)
+	},
 }
 
 // initConfig reads in db file and ENV variables if set.

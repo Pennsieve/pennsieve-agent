@@ -84,7 +84,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build -ldflags '-s'
+        run: go build -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:
@@ -159,7 +159,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build -o pennsieve.exe -ldflags '-s'
+        run: go build -o pennsieve.exe -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd.Version=$VERSION'"
       - name: Set path for candle and light
         run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
         shell: bash
@@ -232,7 +232,7 @@ jobs:
           go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
-        run: go build -ldflags '-s'
+        run: go build -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:

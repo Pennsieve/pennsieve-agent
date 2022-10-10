@@ -37,11 +37,13 @@ type record struct {
 type recordWalk chan record
 type syncResult chan []manifestFile.FileStatusDTO
 
-// API ENDPOINT IMPLEMENTATIONS
-// --------------------------------------------
+// ----------------------------------------------
+// UPLOAD FUNCTIONS
+// ----------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
-func (s *server) CancelUpload(ctx context.Context, request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
+func (s *server) CancelUpload(ctx context.Context,
+	request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
 
 	// TODO: Maybe only cancel uploadSessions that are actively running?
 
@@ -72,7 +74,8 @@ func (s *server) CancelUpload(ctx context.Context, request *pb.CancelUploadReque
 }
 
 // UploadManifest uploads all files associated with the provided manifest
-func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *server) UploadManifest(ctx context.Context,
+	request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
 
@@ -148,10 +151,6 @@ func (s *server) UploadManifest(ctx context.Context, request *pb.UploadManifestR
 	response := pb.SimpleStatusResponse{Status: "Upload initiated."}
 	return &response, nil
 }
-
-// ----------------------------------------------
-// UPLOAD FUNCTIONS
-// ----------------------------------------------
 
 func (s *server) uploadProcessor(ctx context.Context, m *models.Manifest) {
 
@@ -379,6 +378,10 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 	return nil
 }
 
+// ----------------------------------------------
+// CUSTOM READER FUNCTIONS
+// ----------------------------------------------
+
 type CustomReader struct {
 	workerId int32
 	fp       *os.File
@@ -408,8 +411,13 @@ func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 	return r.fp.Seek(offset, whence)
 }
 
+// ----------------------------------------------
+// SUBSCRIBER UPDATES
+// ----------------------------------------------
+
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32, status pb.SubscribeResponse_UploadResponse_UploadStatus) {
+func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32,
+	status pb.SubscribeResponse_UploadResponse_UploadStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -456,7 +464,7 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 	}
 }
 
-// Send Cancel Message to Subscribers
+// sendCancelSubscribers Send Cancel Message to Subscribers
 func (s *server) sendCancelSubscribers(message string) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32

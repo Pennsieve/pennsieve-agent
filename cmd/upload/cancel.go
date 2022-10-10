@@ -9,19 +9,22 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
+	"strconv"
 )
 
 var CancelCmd = &cobra.Command{
-	Use:   "cancel",
+	Use:   "cancel <manifestId>",
 	Short: "Cancel upload session.",
 	Long:  `Cancel upload session.`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		selectedManifest, err := cmd.Flags().GetInt32("manifest_id")
+		i, err := strconv.ParseInt(args[0], 10, 32)
 		if err != nil {
-			log.Fatalln("Error getting manifest flag from command line: ", err)
+			fmt.Printf("Error: <manifestId> should be an integer.")
+			return
 		}
+		selectedManifest := int32(i)
 
 		// If no manifest is specified, cancel all running upload sessions.
 		cancelAll := false
@@ -50,9 +53,5 @@ var CancelCmd = &cobra.Command{
 }
 
 func init() {
-	CancelCmd.Flags().Int32P("manifest_id", "m", 0,
-		"Specify manifest id to be cancelled")
-
-	CancelCmd.MarkFlagRequired("manifest_id")
 
 }

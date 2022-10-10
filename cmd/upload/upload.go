@@ -39,6 +39,4 @@ func init() {
 	UploadCmd.AddCommand(CancelCmd)
 	UploadCmd.AddCommand(ManifestCmd)
 
-	UploadCmd.Flags().BoolP("recursive", "r",
-		false, "Upload folder recursively")
 }

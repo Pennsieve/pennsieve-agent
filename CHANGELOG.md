@@ -1,3 +1,9 @@
+**1.1.17**
+- Version command in agent
+- non-blocking manifest synchronization
+- Checking for finalized files for 15min after upload complete
+- Parallelized syncing of manifest
+
 **1.1.16**
 - Improved checking for existing process for Pennsieve Agent when starting service.
 - Improved mechanism for stopping Pennsieve Agent using GRPC command instead of PID.

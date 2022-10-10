@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"math/rand"
 	"strconv"
 	"time"
@@ -38,18 +37,16 @@ var ManifestCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
+		// Check input argument (needs to be an integer)
 		i, err := strconv.ParseInt(args[0], 10, 32)
 		if err != nil {
-			panic(err)
+			fmt.Printf("Error: <manifestId> should be an integer.")
+			return
 		}
+
 		manifestId := int32(i)
-
-		req := pb.UploadManifestRequest{
-			ManifestId: manifestId,
-		}
-
+		req := pb.UploadManifestRequest{ManifestId: manifestId}
 		port := viper.GetString("agent.port")
-
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			fmt.Println("Error connecting to GRPC Server: ", err)
@@ -60,29 +57,25 @@ var ManifestCmd = &cobra.Command{
 		client := pb.NewAgentClient(conn)
 		_, err = client.UploadManifest(context.Background(), &req)
 		if err != nil {
-			shared.HandleAgentError(err, fmt.Sprintln("Error uploading file: ", err))
+			shared.HandleAgentError(err, fmt.Sprintln("Error uploading manifest: ", err))
 		}
 
-		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d. You can safely Ctr-C as uploading process will continue to run in the background."+
+		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d.\n You can safely Ctr-C as uploading process will continue to run in the background."+
 			"\n\n  Use \"pennsieve agent subscribe\" to track progress of the uploaded files.\n\n"+
 			"  Use \"pennsieve upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
 
 		fmt.Println("\n------------")
-		s1 := rand.NewSource(time.Now().UnixNano())
-		r1 := rand.New(s1)
+
+		// Subscribe to messages from the GRPC server and quit when upload is complete.
+		r1 := rand.New(rand.NewSource(time.Now().UnixNano()))
 		SubscribeClient, err := subscriber.GetClient(int32(r1.Intn(100)))
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println("Unable to track uploads. Please check logs to verify files are uploaded.")
 		}
 		SubscribeClient.Start([]pb.SubscribeResponse_MessageType{
 			pb.SubscribeResponse_UPLOAD_STATUS, pb.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
 			Enable: true,
 			OnType: []pb.SubscribeResponse_MessageType{pb.SubscribeResponse_UPLOAD_STATUS},
 		})
-
 	},
-}
-
-func init() {
-
 }
