@@ -1,3 +1,6 @@
+**1.1.20**
+- Added Version method to GRPC server instead of CLI.
+
 **1.1.17**
 - Version command in agent
 - non-blocking manifest synchronization

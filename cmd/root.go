@@ -23,6 +23,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/manifest"
 	"github.com/pennsieve/pennsieve-agent/cmd/profile"
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
+	"github.com/pennsieve/pennsieve-agent/cmd/version"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	"github.com/pennsieve/pennsieve-agent/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
@@ -87,19 +88,11 @@ func init() {
 	rootCmd.AddCommand(agent.AgentCmd)
 	rootCmd.AddCommand(manifest.ManifestCmd)
 	rootCmd.AddCommand(dataset.DatasetCmd)
-	rootCmd.AddCommand(VersionCmd)
+	rootCmd.AddCommand(version.VersionCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "db", "",
 		"db file (default is $HOME/.pennsieve/config.ini)")
 
-}
-
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Shows the version of the Agent and CLI.",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Version:\t", Version)
-	},
 }
 
 // initConfig reads in db file and ENV variables if set.

@@ -17,6 +17,9 @@ import (
 
 var GRPCServer *grpc.Server
 
+var Version = "development"
+var LogLevel = "INFO"
+
 type server struct {
 	pb.UnimplementedAgentServer
 	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
@@ -90,9 +93,16 @@ func (s *server) Stop(ctx context.Context, request *pb.StopRequest) (*pb.StopRes
 	return &pb.StopResponse{Success: true}, nil
 }
 
+// Ping returns true and can be used to check if the agent is running
 func (s *server) Ping(ctx context.Context, request *pb.PingRequest) (*pb.PingResponse, error) {
 
 	return &pb.PingResponse{Success: true}, nil
+}
+
+// Version returns the version of the installed Pennsieve Agent and CLU
+func (s *server) Version(ctx context.Context, request *pb.VersionRequest) (*pb.VersionResponse, error) {
+
+	return &pb.VersionResponse{Version: Version, LogLevel: LogLevel}, nil
 }
 
 // HELPER FUNCTIONS
@@ -179,6 +189,8 @@ func SetupLogger() {
 	homedir, _ := os.UserHomeDir()
 	logFilePath := homedir + "/.pennsieve/agent.log"
 	_, err := os.Stat(logFilePath)
+
+	// TODO: Set log level after moving to logrus
 
 	logFileLocation, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
 	if err != nil {

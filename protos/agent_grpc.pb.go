@@ -36,6 +36,7 @@ type AgentClient interface {
 	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	// Server Endpoints
+	Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
 	Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubscribeResponse, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
@@ -155,6 +156,15 @@ func (c *agentClient) CancelUpload(ctx context.Context, in *CancelUploadRequest,
 	return out, nil
 }
 
+func (c *agentClient) Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error) {
+	out := new(VersionResponse)
+	err := c.cc.Invoke(ctx, "/protos.Agent/Version", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error) {
 	stream, err := c.cc.NewStream(ctx, &Agent_ServiceDesc.Streams[0], "/protos.Agent/Subscribe", opts...)
 	if err != nil {
@@ -268,6 +278,7 @@ type AgentServer interface {
 	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
 	CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error)
 	// Server Endpoints
+	Version(context.Context, *VersionRequest) (*VersionResponse, error)
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
 	Unsubscribe(context.Context, *SubscribeRequest) (*SubscribeResponse, error)
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
@@ -317,6 +328,9 @@ func (UnimplementedAgentServer) UploadManifest(context.Context, *UploadManifestR
 }
 func (UnimplementedAgentServer) CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelUpload not implemented")
+}
+func (UnimplementedAgentServer) Version(context.Context, *VersionRequest) (*VersionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
 }
 func (UnimplementedAgentServer) Subscribe(*SubscribeRequest, Agent_SubscribeServer) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
@@ -553,6 +567,24 @@ func _Agent_CancelUpload_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_Version_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Version(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protos.Agent/Version",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Version(ctx, req.(*VersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Agent_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -750,6 +782,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelUpload",
 			Handler:    _Agent_CancelUpload_Handler,
+		},
+		{
+			MethodName: "Version",
+			Handler:    _Agent_Version_Handler,
 		},
 		{
 			MethodName: "Unsubscribe",

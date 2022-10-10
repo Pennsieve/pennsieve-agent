@@ -20,6 +20,7 @@ service Agent {
 	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
+	rpc Version(VersionRequest) returns (VersionResponse) {}
 	rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
 	rpc Unsubscribe(SubscribeRequest) returns (SubscribeResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
@@ -118,6 +119,14 @@ message RemoveFromManifestRequest {
 	string remove_path = 3;
 }
 
+message VersionRequest {
+}
+
+message VersionResponse {
+	string version = 1;
+	string log_level = 2;
+}
+
 message PingRequest {
 }
 
@@ -126,7 +135,6 @@ message PingResponse {
 }
 
 message StopRequest {
-
 }
 
 message StopResponse {
