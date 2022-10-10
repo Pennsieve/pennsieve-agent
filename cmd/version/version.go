@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var Version = "development"
+
 var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Shows the version of the Agent and CLI.",
@@ -34,7 +36,9 @@ var VersionCmd = &cobra.Command{
 		}
 
 		fmt.Println("Pennsieve Agent")
-		fmt.Println(fmt.Sprintf("Version  :%20s\nLog Level:%20s\n", versionResponse.Version, versionResponse.LogLevel))
+		fmt.Println(fmt.Sprintf("Agent Version  :%20s\n"+
+			"CLI Version    :%20s\n"+
+			"Log Level      :%20s\n", versionResponse.Version, Version, versionResponse.LogLevel))
 
 	},
 }
