@@ -163,7 +163,7 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o pennsieve.exe -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
       - name: Set path for candle and light
         run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
         shell: bash
