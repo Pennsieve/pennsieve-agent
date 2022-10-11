@@ -17,8 +17,8 @@ var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Shows the version of the Agent and CLI.",
 	Run: func(cmd *cobra.Command, args []string) {
-		req := pb.VersionRequest{}
 
+		req := pb.VersionRequest{}
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -31,7 +31,7 @@ var VersionCmd = &cobra.Command{
 
 		versionResponse, err := client.Version(context.Background(), &req)
 		if err != nil {
-			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete getUser command: %v", err))
+			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Version command: %v", err))
 			return
 		}
 
