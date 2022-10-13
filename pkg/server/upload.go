@@ -184,6 +184,9 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 					AuthService: client.Authentication,
 				},
 			),
+			config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
+				o.ExpiryWindow = 5 * time.Minute
+			}),
 		)
 
 		if err != nil {
