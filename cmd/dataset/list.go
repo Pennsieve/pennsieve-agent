@@ -2,8 +2,7 @@ package dataset
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	"github.com/spf13/cobra"
@@ -20,10 +19,10 @@ var ListCmd = &cobra.Command{
 		offset, _ := cmd.Flags().GetInt("offset")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		db, _ := db.InitializeDB()
+		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		pennsieveClient, err := api.InitPennsieveClient(userSettingsStore, userInfoStore)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}

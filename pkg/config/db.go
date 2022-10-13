@@ -1,7 +1,7 @@
-// Package db contains method implementations related to the local database that can be shared between CMDs
+// Package config contains method implementations related to the local database that can be shared between CMDs
 // in the CLI and which are not implemented in the gRPC server.
 
-package db
+package config
 
 import (
 	"database/sql"
@@ -19,8 +19,8 @@ import (
 )
 
 // InitializeDB initialized local SQL DB and creates userinfo for current user.
-// This method returns a sql.db instance and:
-// 1. Ensures that this db has the correct tables
+// This method returns a sql.config instance and:
+// 1. Ensures that this config has the correct tables
 // 2. Ensures that the userSettings table has a single valid entry
 // 3. Ensures that the userInfo table has a valid entry
 func InitializeDB() (*sql.DB, error) {

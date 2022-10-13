@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/spf13/viper"
@@ -65,6 +65,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	activeUser, _ := s.User.UpdateActiveUser()
 
 	curClientSession, err := s.User.GetUserSettings()
+
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to get Client Session\n "+
@@ -213,19 +214,22 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 		- FileFailed
 		- FileRemoved
 
-		If successful, files with those statuses will be updated in the local db where
+		If successful, files with those statuses will be updated in the local config where
 		Initiate, Failed --> Synced
-		Removed --> (file removed from local db)
+		Removed --> (file removed from local config)
 	*/
 
 	manifest, err := s.Manifest.GetManifest(request.ManifestId)
+	fmt.Printf("NODIOIDOID %s\n", manifest.NodeId.String)
 	if err != nil {
 		return nil, err
 	}
 
 	// Verify uploaded files that are in Finalized state.
-	log.Println("Verifying files")
-	s.Manifest.VerifyFinalizedStatus(manifest)
+	if manifest.NodeId.Valid {
+		log.Println("Verifying files")
+		s.Manifest.VerifyFinalizedStatus(manifest)
+	}
 
 	// Sync local files with the server.
 	log.Println("Syncing files.")
@@ -277,18 +281,23 @@ type syncSummary struct {
 // syncProcessor Go routine that manages sync go sub-routines for crawling DB and syncing rows with service
 func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSummary, error) {
 
+	log.Println("IN SYNC PROCESSOR")
+
 	nrWorkers := viper.GetInt("agent.upload_workers")
-	syncWalker := make(store.RecordWalk, nrWorkers)
+	syncWalker := make(chan store.ManifestFile, nrWorkers)
 	syncResults := make(syncResult, nrWorkers)
 
 	totalNrRows, err := s.Manifest.GetNumberOfRowsForStatus(m.Id,
 		[]manifestFile.Status{manifestFile.Verified, manifestFile.Uploaded, manifestFile.Registered}, true)
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 
+	log.Println("ABOUT TO START PROCESS")
 	// Database crawler to fetch rows
 	go func() {
+		fmt.Printf("ABOUT TO START PROCESS")
 		defer close(syncWalker)
 
 		requestStatus := []manifestFile.Status{
@@ -300,6 +309,8 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 			manifestFile.Finalized,
 			manifestFile.Unknown,
 		}
+
+		log.Println("ABOUT TO START PROCESS")
 
 		s.Manifest.ManifestFilesToChannel(ctx, m.Id, requestStatus, syncWalker)
 
@@ -397,9 +408,11 @@ func (s server) getCreateManifestId(m *store.Manifest) error {
 // syncWorker fetches rows from crawler and syncs with the service by batch.
 // This function is called as a go-routine and typically runs multiple instances in parallel
 func (s *server) syncWorker(ctx context.Context, workerId int32,
-	syncWalker <-chan store.Record, result chan []manifestFile.FileStatusDTO, m *store.Manifest, totalNrRows int64) error {
+	syncWalker <-chan store.ManifestFile, result chan []manifestFile.FileStatusDTO, m *store.Manifest, totalNrRows int64) error {
 
 	const pageSize = 250
+
+	log.Println("In SYNC WORKER")
 
 	// Ensure that manifestID is set
 	if !m.NodeId.Valid {
@@ -426,14 +439,12 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 		// TODO: CHeck that we can safely remove this as s3-key is no longer used in service
 		s3Key := fmt.Sprintf("%s/%s", m.NodeId.String, item.UploadId)
 
-		var st manifestFile.Status
-
 		reqFile := manifestFile.FileDTO{
-			UploadID:   item.UploadId,
+			UploadID:   item.UploadId.String(),
 			S3Key:      s3Key,
 			TargetPath: item.TargetPath,
 			TargetName: item.TargetName,
-			Status:     st.ManifestFileStatusMap(item.Status),
+			Status:     item.Status,
 		}
 		requestFiles = append(requestFiles, reqFile)
 

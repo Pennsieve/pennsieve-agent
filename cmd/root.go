@@ -40,13 +40,13 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-		// Don't init viper if trying to setup config file.
+		// Initialize Viper before each command/subcommand
+		// Except when user runs the setup config wizard
 		if cmd.CommandPath() == "pennsieve config wizard" {
 			return nil
 		}
 
-		initViper()
-		return nil
+		return initViper()
 
 	},
 }
@@ -70,23 +70,23 @@ func init() {
 	rootCmd.AddCommand(dataset.DatasetCmd)
 	rootCmd.AddCommand(version.VersionCmd)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "db", "",
-		"db file (default is $HOME/.pennsieve/config.ini)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
+		"config file (default is $HOME/.pennsieve/config.ini)")
 
 }
 
-// initConfig reads in db file and ENV variables if set.
-func initViper() {
+// initConfig reads in config file and ENV variables if set.
+func initViper() error {
 	// initialize client after initializing Viper as it needs viper to get api key/secret
 	if cfgFile != "" {
-		// Use db file from the flag.
+		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search db in home directory with name ".pennsieve" (without extension).
+		// Search config in home directory with name ".pennsieve" (without extension).
 		viper.SetConfigType("ini")
 		viper.AddConfigPath(filepath.Join(home, ".pennsieve"))
 
@@ -105,4 +105,5 @@ func initViper() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
+	return nil
 }

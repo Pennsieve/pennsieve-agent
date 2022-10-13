@@ -109,7 +109,8 @@ func (s *ManifestService) GetNumberOfRowsForStatus(manifestId int32, statusArr [
 
 }
 
-func (s *ManifestService) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker store.RecordWalk) {
+func (s *ManifestService) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile) {
+	log.Println("IN MANIFEST SERVICE")
 	s.mfStore.ManifestFilesToChannel(ctx, manifestId, statusArr, walker)
 }
 

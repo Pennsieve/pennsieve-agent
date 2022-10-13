@@ -59,7 +59,7 @@ func (s *userSettingsStore) Get() (*UserSettings, error) {
 
 }
 
-// CreateNewUserSettings creates or replaces existing user-settings row in db.
+// CreateNewUserSettings creates or replaces existing user-settings row in config.
 func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings := &UserSettings{}
 	statement, _ := s.db.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")

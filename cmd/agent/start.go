@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	gp "github.com/pennsieve/pennsieve-agent/pkg/server"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -38,10 +38,10 @@ var startCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 
 		// Check if Pennsieve Server is running at the selected port
-		resp, _ := client.Ping(context.Background(), &pb.PingRequest{})
+		resp, _ := client.Ping(context.Background(), &v1.PingRequest{})
 		if resp != nil {
 			fmt.Printf("Pennsieve Agent is already running on port: %s\n", viper.GetString("agent.port"))
 			return

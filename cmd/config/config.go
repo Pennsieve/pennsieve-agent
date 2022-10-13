@@ -1,4 +1,4 @@
-// Package db /*
+// Package config /*
 package config
 
 import (

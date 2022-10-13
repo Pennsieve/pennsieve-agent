@@ -3,9 +3,9 @@ package manifest
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -28,7 +28,7 @@ var SyncCmd = &cobra.Command{
 		}
 		manifestId := int32(i)
 
-		req := pb.SyncManifestRequest{
+		req := v1.SyncManifestRequest{
 			ManifestId: manifestId,
 		}
 
@@ -40,7 +40,7 @@ var SyncCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 		_, err = client.SyncManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Sync Manifest command: %v", err))
@@ -49,7 +49,7 @@ var SyncCmd = &cobra.Command{
 
 		s1 := rand.NewSource(time.Now().UnixNano())
 		r1 := rand.New(s1)
-		SubscribeClient, err := subscriber.GetClient(int32(r1.Intn(100)))
+		SubscribeClient, err := subscriber.NewSubscriberClient(int32(r1.Intn(100)))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -59,9 +59,9 @@ var SyncCmd = &cobra.Command{
 			"\"pennsieve agent subscribe\" to track all events from the Pennsieve Agent.")
 
 		fmt.Println("\n------------")
-		SubscribeClient.Start([]pb.SubscribeResponse_MessageType{pb.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
+		SubscribeClient.Start([]v1.SubscribeResponse_MessageType{v1.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
 			Enable: true,
-			OnType: []pb.SubscribeResponse_MessageType{pb.SubscribeResponse_SYNC_STATUS},
+			OnType: []v1.SubscribeResponse_MessageType{v1.SubscribeResponse_SYNC_STATUS},
 		})
 
 	},

@@ -3,10 +3,9 @@ package dataset
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -24,7 +23,7 @@ var UseCmd = &cobra.Command{
 
 		datasetId := args[0]
 
-		req := pb.UseDatasetRequest{
+		req := v1.UseDatasetRequest{
 			DatasetId: datasetId,
 		}
 
@@ -39,7 +38,7 @@ var UseCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// Update active dataset using GRPC
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 		useDatasetResponse, err := client.UseDataset(ctx, &req)
 		if err != nil {
 			st := status.Convert(err)
@@ -48,10 +47,10 @@ var UseCmd = &cobra.Command{
 		}
 
 		// Get the dataset directly from service to render
-		db, _ := db.InitializeDB()
+		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		pennsieveClient, err := api.InitPennsieveClient(userSettingsStore, userInfoStore)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}

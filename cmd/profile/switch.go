@@ -19,8 +19,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -37,7 +37,7 @@ var SwitchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		selectedProfile := args[0]
 
-		req := pb.SwitchProfileRequest{
+		req := v1.SwitchProfileRequest{
 			Profile: selectedProfile,
 		}
 
@@ -49,7 +49,7 @@ var SwitchCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 		switchResponse, err := client.SwitchProfile(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete switchUser command: %v", err))
@@ -65,7 +65,7 @@ func init() {
 }
 
 // prettyPrint renders a table with current userinfo to terminal
-func prettyPrint(info pb.UserResponse, showFull bool) {
+func prettyPrint(info v1.UserResponse, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{

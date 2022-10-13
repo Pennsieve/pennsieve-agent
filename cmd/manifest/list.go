@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	"github.com/pennsieve/pennsieve-agent/protos"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -46,7 +45,7 @@ var ListCmd = &cobra.Command{
 			limit = int32(i)
 		}
 
-		req := pb.ListManifestFilesRequest{
+		req := v1.ListManifestFilesRequest{
 			ManifestId: manifestId,
 			Offset:     offset,
 			Limit:      limit,
@@ -60,7 +59,7 @@ var ListCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 		listFilesResponse, err := client.ListManifestFiles(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err,
@@ -79,7 +78,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(files *protos.ListManifestFilesResponse, manifestID string, showFull bool) {
+func PrettyPrint(files *v1.ListManifestFilesResponse, manifestID string, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetTitle(fmt.Sprintf("Files for upload manifest: %s", manifestID))

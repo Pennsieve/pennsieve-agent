@@ -10,12 +10,14 @@ import (
 	"log"
 )
 
+// UserService provides methods associated with user information and profiles
 type UserService struct {
 	uiStore store.UserInfoStore
 	usStore store.UserSettingsStore
 	client  *pennsieve.Client
 }
 
+// NewUserService returns a new instance of a UserService.
 func NewUserService(uis store.UserInfoStore, uss store.UserSettingsStore) *UserService {
 	return &UserService{
 		uiStore: uis,
@@ -23,6 +25,8 @@ func NewUserService(uis store.UserInfoStore, uss store.UserSettingsStore) *UserS
 	}
 }
 
+// SetPennsieveClient adds a Pennsieve Client to the Service.
+// This is not done in the NewUserService as that generates a cyclical dependency.
 func (s *UserService) SetPennsieveClient(client *pennsieve.Client) {
 	s.client = client
 }
@@ -59,7 +63,7 @@ func (s *UserService) GetActiveUser() (*store.UserInfo, error) {
 
 	if err != nil {
 
-		// If no entry is found in database, check default profile in db and setup DB
+		// If no entry is found in database, check default profile in config and setup DB
 		if errors.Is(err, &store.NoClientSessionError{}) {
 			fmt.Println("No record found in User Settings --> Checking Default Profile.")
 
@@ -221,7 +225,7 @@ func (s *UserService) UpdateActiveUser() (*store.UserInfo, error) {
 	userSettings, err := s.usStore.Get()
 
 	if err != nil {
-		// If no entry is found in database, check default profile in db and setup DB
+		// If no entry is found in database, check default profile in config and setup DB
 		if errors.Is(err, &store.NoClientSessionError{}) {
 			fmt.Println("No record found in User Settings --> Checking Default Profile.")
 
@@ -274,7 +278,7 @@ func (s *UserService) UpdateActiveUser() (*store.UserInfo, error) {
 
 		return nil, err
 	}
-	
+
 	s.client.APISession = pennsieve.APISession{
 		Token:        currentUserInfo.SessionToken,
 		IdToken:      currentUserInfo.IdToken,

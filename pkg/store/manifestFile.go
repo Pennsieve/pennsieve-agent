@@ -31,16 +31,6 @@ type ManifestFileParams struct {
 	ManifestId int32  `json:"manifest_id"`
 }
 
-type Record struct {
-	SourcePath string
-	TargetPath string
-	TargetName string
-	UploadId   string
-	Status     string
-}
-
-type RecordWalk chan Record
-
 type ManifestFileStore interface {
 	Get(manifestId int32, limit int32, offset int32) ([]ManifestFile, error)
 	GetByStatus(manifestId int32, statusArray []manifestFile.Status, limit int, offset int) ([]ManifestFile, error)
@@ -52,7 +42,7 @@ type ManifestFileStore interface {
 	RemoveFromManifest(manifestId int32, removePath string) error
 	ResetStatusForManifest(manifestId int32) error
 	GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error)
-	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker RecordWalk)
+	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- ManifestFile)
 }
 
 func NewManifestFileStore(db *sql.DB) *manifestFileStore {
@@ -150,39 +140,6 @@ func (s *manifestFileStore) GetByStatus(manifestId int32, statusArray []manifest
 
 }
 
-//// GetAll returns all rows in the Upload Record Table
-//func (s *manifestFileStore) GetAllFiles() (manifestId int64, []ManifestFile, error) {
-//	rows, err := s.db.Query("SELECT * FROM manifest_files")
-//	var allRecords []ManifestFile
-//	if err == nil {
-//		for rows.Next() {
-//			var status string
-//			var currentRecord ManifestFile
-//			err = rows.Scan(
-//				&currentRecord.Id,
-//				&currentRecord.ManifestId,
-//				&currentRecord.UploadId,
-//				&currentRecord.SourcePath,
-//				&currentRecord.TargetPath,
-//				&currentRecord.TargetName,
-//				&status,
-//				&currentRecord.CreatedAt,
-//				&currentRecord.UpdatedAt)
-//
-//			var st manifestFile.Status
-//			currentRecord.Status = st.ManifestFileStatusMap(status)
-//
-//			if err != nil {
-//				log.Println("ERROR: ", err)
-//			}
-//
-//			allRecords = append(allRecords, currentRecord)
-//		}
-//		return allRecords, err
-//	}
-//	return allRecords, err
-//}
-
 // Add adds multiple rows to the UploadRecords database.
 func (s *manifestFileStore) Add(records []ManifestFileParams) error {
 
@@ -234,7 +191,7 @@ func (s *manifestFileStore) BatchSetStatus(status manifestFile.Status, uploadIds
 	return nil
 }
 
-// SetStatus updates status in sqllite db for file
+// SetStatus updates status in sqllite config for file
 func (s *manifestFileStore) SetStatus(status manifestFile.Status, uploadId string) error {
 
 	statement, err := s.db.Prepare(
@@ -253,6 +210,7 @@ func (s *manifestFileStore) SetStatus(status manifestFile.Status, uploadId strin
 	return nil
 }
 
+// SyncResponseStatusUpdate updates files in a manifest to the provided status for each file.
 func (s *manifestFileStore) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
 
 	allStatus := []manifestFile.Status{
@@ -435,29 +393,9 @@ func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath stri
 	return nil
 }
 
-// ReplacePath allows users to replace the target path with another path.
-func (s *manifestFileStore) ReplacePath(manifestId int32, path string, replacePath string, fileIds []int32) {
-
-	//if replacePath[len(replacePath)-1:] != "\\" {
-	//	replacePath = replacePath + "\\"
-	//}
-	//
-	//pathLikeExpr := fmt.Sprintf("'%s%%'", removePath)
-	//initatedStatus := manifest.FileInitiated.String()
-	//
-	//
-	//queryStr := fmt.Sprintf("UPDATE manifest_files SET target_path = REPLACE(target_path, %s, %s) AND status ")
-	//
-	//queryStr := fmt.Sprintf("DELETE FROM manifest_files WHERE manifest_id = %d "+
-	//	"AND source_path LIKE %s and status = '%s';", manifestId, pathLikeExpr, initatedStatus)
-	//
-	//log.Println(queryStr)
-
-}
-
+// ResetStatusForManifest resets all files to status = LOCAL
 func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 
-	log.Println("IN RESET MANIFEST")
 	currentTime := time.Now()
 
 	initiatedStatusStr := manifestFile.Local.String()
@@ -475,13 +413,14 @@ func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 	return nil
 }
 
+// GetNumberOfRowsForStatus returns the number of rows in a manifest that do (not) have a specific status
 func (s *manifestFileStore) GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error) {
 
 	var statusStrArr []string
 	for _, st := range statusArr {
 		statusStrArr = append(statusStrArr, st.String())
 	}
-	statusStr := fmt.Sprintf("'%s'", strings.Join(statusStrArr, "'"))
+	statusStr := fmt.Sprintf("'%s'", strings.Join(statusStrArr, "','"))
 
 	invertedStr := ""
 	if invert {
@@ -505,7 +444,8 @@ func (s *manifestFileStore) GetNumberOfRowsForStatus(manifestId int32, statusArr
 	return totalNrRows, nil
 }
 
-func (s *manifestFileStore) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker RecordWalk) {
+// ManifestFilesToChannel streams files in a manifest with a specific status to a channel
+func (s *manifestFileStore) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- ManifestFile) {
 	// 1. Synchronize Walker
 
 	var statusList []string
@@ -513,7 +453,7 @@ func (s *manifestFileStore) ManifestFilesToChannel(ctx context.Context, manifest
 		statusList = append(statusList, fmt.Sprintf("'%s'", reqStatus.String()))
 	}
 	statusQueryString := fmt.Sprintf("(%s)", strings.Join(statusList, ","))
-	queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files WHERE manifest_id = ? "+
+	queryStr := fmt.Sprintf("SELECT * FROM manifest_files WHERE manifest_id = ? "+
 		"AND status IN %s ORDER BY id", statusQueryString)
 
 	rows, err := s.db.QueryContext(ctx, queryStr, manifestId)
@@ -529,12 +469,27 @@ func (s *manifestFileStore) ManifestFilesToChannel(ctx context.Context, manifest
 
 	// Iterate over rows for manifest and add row to channel to be picked up by worker.
 	for rows.Next() {
-		r := Record{}
-		err := rows.Scan(&r.SourcePath, &r.TargetPath, &r.UploadId, &r.TargetName, &r.Status)
+		var status string
+		currentRecord := ManifestFile{}
+		err = rows.Scan(
+			&currentRecord.Id,
+			&currentRecord.ManifestId,
+			&currentRecord.UploadId,
+			&currentRecord.SourcePath,
+			&currentRecord.TargetPath,
+			&currentRecord.TargetName,
+			&status,
+			&currentRecord.CreatedAt,
+			&currentRecord.UpdatedAt)
+
 		if err != nil {
 			log.Fatal(err)
 		}
-		walker <- r
+
+		var s manifestFile.Status
+		currentRecord.Status = s.ManifestFileStatusMap(status)
+
+		walker <- currentRecord
 	}
 
 	err = rows.Err()

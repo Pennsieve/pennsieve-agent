@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
+	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"log"
 )
 

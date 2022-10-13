@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
@@ -152,7 +152,7 @@ func (s *server) UploadManifest(ctx context.Context,
 func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
-	walker := make(store.RecordWalk, nrWorkers)
+	walker := make(chan store.ManifestFile, nrWorkers)
 	results := make(chan int, nrWorkers)
 
 	var uploadWg sync.WaitGroup
@@ -237,7 +237,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 }
 
 func (s *server) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan store.Record, results chan<- int, manifestNodeId string,
+	jobs <-chan store.ManifestFile, results chan<- int, manifestNodeId string,
 	uploader *manager.Uploader, cfg aws.Config, uploadBucket string) error {
 
 	for record := range jobs {
@@ -344,7 +344,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			log.Fatalln("Could not close file.")
 		}
 
-		err = s.Manifest.SetFileStatus(record.UploadId, manifestFile.Uploaded)
+		err = s.Manifest.SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
 		if err != nil {
 			log.Fatalln("Could not update status of file. Here is why: ", err)
 		}

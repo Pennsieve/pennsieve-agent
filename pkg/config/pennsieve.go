@@ -1,7 +1,7 @@
 // Package api Package contains method implementations that can be shared between CMDs
 // in the CLI and which are not implemented in the gRPC server.
 
-package api
+package config
 
 import (
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
@@ -24,7 +24,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 	apiV1Url := pennsieve.BaseURLV1
 	apiV2Url := pennsieve.BaseURLV2
 
-	// Update baseURL if db specifies a custom API-HOST (such as https://api.pennsieve.net)
+	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
 	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
 	if customAPIHost != "" {
 		apiV1Url = customAPIHost
