@@ -17,6 +17,7 @@ require (
 	github.com/pennsieve/pennsieve-go v1.1.7
 	github.com/pennsieve/pennsieve-go-api v1.3.1
 	github.com/pkg/errors v0.9.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.8.0

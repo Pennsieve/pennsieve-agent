@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -91,7 +91,7 @@ func (s *userInfoStore) CreateNewUserInfo(data UserInfoParams) (*UserInfo, error
 		user.UpdatedAt = updatedAt
 		return user, err
 	}
-	log.Println("Unable to create user_record", err.Error())
+	log.Error("Unable to create user_record", err.Error())
 	return user, err
 }
 
@@ -115,7 +115,7 @@ func (s *userInfoStore) GetUserInfo(id string, profile string) (*UserInfo, error
 		&user.OrganizationId, &user.OrganizationName, &user.UpdatedAt)
 
 	if err != nil {
-		log.Println(" NOT FOUND ")
+		log.Error(" NOT FOUND ")
 		return nil, err
 	}
 

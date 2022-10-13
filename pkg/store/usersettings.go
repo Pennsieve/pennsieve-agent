@@ -3,7 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 type UserSettings struct {
@@ -65,7 +65,7 @@ func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*Use
 	statement, _ := s.db.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
 	_, err := statement.Exec(data.UserId, data.Profile)
 	if err != nil {
-		log.Println("Unable to create user_record", err.Error())
+		log.Error("Unable to create user_record", err.Error())
 		return nil, err
 	}
 

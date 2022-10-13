@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
@@ -30,7 +30,7 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 
 	activeUser, err := s.User.SwitchUser(request.Profile)
 	if err != nil {
-		log.Println("Error:SwitchProfile: ", err)
+		log.Error("Error:SwitchProfile: ", err)
 		return nil, err
 	}
 

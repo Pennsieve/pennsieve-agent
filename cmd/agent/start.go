@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/api/v1"
 	gp "github.com/pennsieve/pennsieve-agent/pkg/server"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"os"
 	"os/exec"
 )
@@ -33,6 +33,7 @@ var startCmd = &cobra.Command{
 
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
+			log.Error("Error connecting to GRPC Server: ", err)
 			fmt.Println("Error connecting to GRPC Server: ", err)
 			return
 		}

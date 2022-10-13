@@ -5,8 +5,8 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 )
 
@@ -41,7 +41,7 @@ Search is fuzzy and returns datasets based on matches in:
 
 		response, err := pennsieveClient.Dataset.Find(nil, limit, query)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		PrettyPrintFind(response)

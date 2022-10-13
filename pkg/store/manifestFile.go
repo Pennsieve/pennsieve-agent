@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"strings"
 	"time"
 )
@@ -83,7 +83,7 @@ func (s *manifestFileStore) Get(manifestId int32, limit int32, offset int32) ([]
 		currentRecord.Status = s.ManifestFileStatusMap(status)
 
 		if err != nil {
-			log.Println("ERROR: ", err)
+			log.Error("ERROR: ", err)
 		}
 
 		allRecords = append(allRecords, currentRecord)
@@ -103,10 +103,10 @@ func (s *manifestFileStore) GetByStatus(manifestId int32, statusArray []manifest
 	queryStr := fmt.Sprintf("SELECT * FROM manifest_files WHERE manifest_id = ? "+
 		"AND status IN %s ORDER BY id LIMIT ? OFFSET ?", statusQueryString)
 
-	log.Println(queryStr)
+	log.Debug(queryStr)
 	rows, err := s.db.Query(queryStr, manifestId, limit, offset)
 	if err != nil {
-		log.Println("Error getting rows from Manifest Files:", err)
+		log.Error("Error getting rows from Manifest Files:", err)
 		return nil, err
 	}
 
@@ -129,13 +129,12 @@ func (s *manifestFileStore) GetByStatus(manifestId int32, statusArray []manifest
 		currentRecord.Status = s.ManifestFileStatusMap(st)
 
 		if err != nil {
-			log.Println("ERROR: ", err)
+			log.Error("ERROR: ", err)
 		}
 
 		allRecords = append(allRecords, currentRecord)
 	}
 
-	log.Println("NUMBER OF RECORDS: ", len(allRecords))
 	return allRecords, err
 
 }
@@ -169,7 +168,7 @@ func (s *manifestFileStore) Add(records []ManifestFileParams) error {
 	// format all vals at once
 	_, err = stmt.Exec(vals...)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	return nil
@@ -252,10 +251,10 @@ func (s *manifestFileStore) SyncResponseStatusUpdate(manifestId int32, statusLis
 				sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s' "+
 					"WHERE manifest_id = %d AND upload_id IN (%s);", key, manifestId, allUploadIds)
 
-				log.Printf("Updating Database with %d rows\n", len(status[i:j]))
+				log.Info("Updating Database with %d rows\n", len(status[i:j]))
 				_, err := s.db.Exec(sqlStatement)
 				if err != nil {
-					log.Println("Unable to update status in manifest files for manifest:", manifestId, "--", err)
+					log.Error("Unable to update status in manifest files for manifest:", manifestId, "--", err)
 					return err
 				}
 			}
@@ -303,12 +302,12 @@ func (s *manifestFileStore) SyncResponseStatusUpdate2(manifestId int32, failedFi
 	}
 	//defer stmt.Close()
 
-	log.Println(stmt)
+	log.Debug(stmt)
 
 	// format all vals at once
 	_, err = stmt.Exec()
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	stmt.Close()
@@ -328,9 +327,8 @@ func (s *manifestFileStore) SyncResponseStatusUpdate2(manifestId int32, failedFi
 	if err != nil {
 		log.Fatalln("ERROR: ", err)
 	}
-	//defer stmt.Close()
 
-	log.Println(stmt)
+	log.Debug(stmt)
 
 	// format all vals at once
 	_, err = stmt.Exec()
@@ -373,7 +371,7 @@ func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath stri
 	queryStr := fmt.Sprintf("DELETE FROM manifest_files WHERE manifest_id = %d "+
 		"AND source_path LIKE %s and status = '%s';", manifestId, pathLikeExpr, initatedStatus)
 
-	log.Println(queryStr)
+	log.Debug(queryStr)
 
 	_, err := s.db.Exec(queryStr)
 	if err != nil {
@@ -402,11 +400,11 @@ func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 	sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s', updated_at = %d WHERE manifest_id = %d",
 		initiatedStatusStr, currentTime.Unix(), manifestId)
 
-	log.Println(sqlStatement)
+	log.Debug(sqlStatement)
 	// format all vals at once
 	_, err := s.db.Exec(sqlStatement)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return err
 	}
 
@@ -438,7 +436,7 @@ func (s *manifestFileStore) GetNumberOfRowsForStatus(manifestId int32, statusArr
 	case err != nil:
 		return 0, errors.New("unable to get number of rows to be synchronized")
 	default:
-		log.Printf("About to synchronize %d files.", totalNrRows)
+		log.Info("About to synchronize %d files.", totalNrRows)
 	}
 
 	return totalNrRows, nil
@@ -463,7 +461,7 @@ func (s *manifestFileStore) ManifestFilesToChannel(ctx context.Context, manifest
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			log.Println("Unable to close rows in Upload.")
+			log.Error("Unable to close rows in Upload.")
 		}
 	}(rows)
 

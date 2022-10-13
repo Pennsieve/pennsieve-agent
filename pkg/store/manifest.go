@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -52,7 +52,7 @@ type manifestStore struct {
 // Get returns all rows in the Upload Record Table
 func (s *manifestStore) Get(id int32) (*Manifest, error) {
 
-	log.Println("Getting manifest with ID: ", id)
+	log.Debug("Getting manifest with ID: ", id)
 
 	var statusStr string
 	res := &Manifest{}
@@ -101,7 +101,7 @@ func (s *manifestStore) GetAll() ([]Manifest, error) {
 			currentRecord.Status = m.ManifestStatusMap(statusStr)
 
 			if err != nil {
-				log.Println("ERROR: ", err)
+				log.Error("ERROR: ", err)
 			}
 
 			allSessions = append(allSessions, currentRecord)
@@ -155,7 +155,7 @@ func (s *manifestStore) Remove(manifestId int32) error {
 	_, err = stmt.Exec(manifestId)
 
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	return err
@@ -167,13 +167,13 @@ func (s *manifestStore) SetManifestNodeId(manifestId int32, nodeId string) error
 	statement, err := s.db.Prepare(
 		"UPDATE manifests SET node_id = ? WHERE id = ?")
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return err
 	}
 
 	_, err = statement.Exec(nodeId, manifestId)
 	if err != nil {
-		log.Println("Unable to update Manifest Node Id in database: ", err)
+		log.Error("Unable to update Manifest Node Id in database: ", err)
 		return err
 	}
 

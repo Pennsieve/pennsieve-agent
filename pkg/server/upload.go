@@ -15,8 +15,8 @@ import (
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -89,8 +89,8 @@ func (s *server) UploadManifest(ctx context.Context,
 	defer func() {
 		if x := recover(); x != nil {
 			// recovering from a panic; x contains whatever was passed to panic()
-			log.Printf("Run time panic: %v", x)
-			log.Printf("Stacktrace: \n %s", string(debug.Stack()))
+			log.Error("Run time panic: %v", x)
+			log.Error("Stacktrace: \n %s", string(debug.Stack()))
 		}
 	}()
 
@@ -399,12 +399,12 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 	s.subscribers.Range(func(k, v interface{}) bool {
 		id, ok := k.(int32)
 		if !ok {
-			log.Printf("Failed to cast subscriber key: %T", k)
+			log.Error("Failed to cast subscriber key: %T", k)
 			return false
 		}
 		sub, ok := v.(sub)
 		if !ok {
-			log.Printf("Failed to cast subscriber value: %T", v)
+			log.Error("Failed to cast subscriber value: %T", v)
 			return false
 		}
 		// Send data over the gRPC stream to the client
@@ -419,11 +419,12 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 					Status:   status,
 				}},
 		}); err != nil {
-			log.Printf("Failed to send data to client: %v", err)
+
 			select {
 			case sub.finished <- true:
-				log.Printf("Unsubscribed client: %d", id)
+				log.Info("Unsubscribed client: %d", id)
 			default:
+				log.Warn("Failed to send data to client: %v", err)
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
 			// In case of error the client would re-subscribe so close the subscriber stream
@@ -447,12 +448,12 @@ func (s *server) sendCancelSubscribers(message string) {
 	s.subscribers.Range(func(k, v interface{}) bool {
 		id, ok := k.(int32)
 		if !ok {
-			log.Printf("Failed to cast subscriber key: %T", k)
+			log.Error("Failed to cast subscriber key: %T", k)
 			return false
 		}
 		sub, ok := v.(sub)
 		if !ok {
-			log.Printf("Failed to cast subscriber value: %T", v)
+			log.Error("Failed to cast subscriber value: %T", v)
 			return false
 		}
 		// Send data over the gRPC stream to the client
@@ -461,11 +462,11 @@ func (s *server) sendCancelSubscribers(message string) {
 			MessageData: &pb.SubscribeResponse_EventInfo{
 				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
-			log.Printf("Failed to send data to client: %v", err)
 			select {
 			case sub.finished <- true:
-				log.Printf("Unsubscribed client: %d", id)
+				log.Info("Unsubscribed client: %d", id)
 			default:
+				log.Warn("Failed to send data to client: %v", err)
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
 			// In case of error the client would re-subscribe so close the subscriber stream

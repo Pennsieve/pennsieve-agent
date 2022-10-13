@@ -11,9 +11,9 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/service"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"log"
 	"net"
 	"os"
 	"sync"
@@ -22,7 +22,6 @@ import (
 var GRPCServer *grpc.Server
 
 var Version = "development"
-var LogLevel = "INFO"
 
 type server struct {
 	pb.UnimplementedAgentServer
@@ -51,7 +50,7 @@ type sub struct {
 // Subscribe handles a subscribe request from a client
 func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_SubscribeServer) error {
 	// Handle subscribe request
-	log.Printf("Received subscribe request from ID: %d", request.Id)
+	log.Info("Received subscribe request from ID: ", request.Id)
 
 	fin := make(chan bool)
 	// Save the subscriber stream according to the given client ID
@@ -62,11 +61,11 @@ func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_Subscri
 	for {
 		select {
 		case <-fin:
-			log.Printf("Closing stream for client ID: %d", request.Id)
+			log.Info("Closing stream for client ID: %d", request.Id)
 			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			return nil
 		case <-ctx.Done():
-			log.Printf("Client ID %d has disconnected", request.Id)
+			log.Info("Client ID %d has disconnected", request.Id)
 			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			return nil
 		}
@@ -86,7 +85,7 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 	}
 	select {
 	case sub.finished <- true:
-		log.Printf("Unsubscribed client: %d", request.Id)
+		log.Info("Unsubscribed client: %d", request.Id)
 	default:
 		// Default case is to avoid blocking in case client has already unsubscribed
 	}
@@ -96,7 +95,7 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 
 func (s *server) Stop(ctx context.Context, request *pb.StopRequest) (*pb.StopResponse, error) {
 
-	log.Println("Stopping Agent Server.")
+	log.Info("Stopping Agent Server.")
 	go GRPCServer.Stop()
 
 	return &pb.StopResponse{Success: true}, nil
@@ -111,7 +110,7 @@ func (s *server) Ping(ctx context.Context, request *pb.PingRequest) (*pb.PingRes
 // Version returns the version of the installed Pennsieve Agent and CLU
 func (s *server) Version(ctx context.Context, request *pb.VersionRequest) (*pb.VersionResponse, error) {
 
-	return &pb.VersionResponse{Version: Version, LogLevel: LogLevel}, nil
+	return &pb.VersionResponse{Version: Version, LogLevel: log.GetLevel().String()}, nil
 }
 
 // HELPER FUNCTIONS
@@ -121,7 +120,7 @@ func (s *server) Version(ctx context.Context, request *pb.VersionRequest) (*pb.V
 func (s *server) messageSubscribers(message string) {
 
 	// Send message to log
-	log.Printf("SubscriberMessgae: %s", message)
+	log.Info("SubscriberMessage: ", message)
 
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
@@ -130,12 +129,12 @@ func (s *server) messageSubscribers(message string) {
 	s.subscribers.Range(func(k, v interface{}) bool {
 		id, ok := k.(int32)
 		if !ok {
-			log.Printf("Failed to cast subscriber key: %T", k)
+			log.Error("Failed to cast subscriber key: %T", k)
 			return false
 		}
 		sub, ok := v.(sub)
 		if !ok {
-			log.Printf("Failed to cast subscriber value: %T", v)
+			log.Error("Failed to cast subscriber value: %T", v)
 			return false
 		}
 		// Send data over the gRPC stream to the client
@@ -144,10 +143,10 @@ func (s *server) messageSubscribers(message string) {
 			MessageData: &pb.SubscribeResponse_EventInfo{
 				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
-			log.Printf("Failed to send data to client: %v", err)
+			log.Warn("Failed to send data to client: %v", err)
 			select {
 			case sub.finished <- true:
-				log.Printf("Unsubscribed client: %d", id)
+				log.Info("Unsubscribed client: %d", id)
 			default:
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
@@ -213,11 +212,18 @@ func StartAgent() error {
 }
 
 func SetupLogger() {
+
+	log.SetFormatter(&log.JSONFormatter{})
+	ll, err := log.ParseLevel(os.Getenv("PENNSIEVE_LOG_LEVEL"))
+	if err != nil {
+		log.SetLevel(log.InfoLevel)
+	} else {
+		log.SetLevel(ll)
+	}
+
 	homedir, _ := os.UserHomeDir()
 	logFilePath := homedir + "/.pennsieve/agent.log"
-	_, err := os.Stat(logFilePath)
-
-	// TODO: Set log level after moving to logrus
+	_, err = os.Stat(logFilePath)
 
 	logFileLocation, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
 	if err != nil {

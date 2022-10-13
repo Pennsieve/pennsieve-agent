@@ -3,9 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -86,6 +86,8 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 			if err != nil {
 				fmt.Println(err)
 			}
+
+			log.Info("New profile created in config file: ", profileName)
 		}
 	},
 }

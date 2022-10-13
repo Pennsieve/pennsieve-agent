@@ -11,11 +11,11 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -71,7 +71,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 			"Unable to get Client Session\n "+
 				"\t Please use: pennsieve-server config init to initialize local database.")
 
-		log.Println(err)
+		log.Warn(err)
 		return nil, err
 	}
 
@@ -81,14 +81,14 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 			"No active dataset was specified.\n "+
 				"\t Please use: pennsieve-server dataset use <dataset_id> to specify active dataset.")
 
-		log.Println(err)
+		log.Warn(err)
 		return nil, err
 	}
 
 	// Check dataset exist (should be redundant) and grab name
 	ds, err := s.client.Dataset.Get(nil, curClientSession.UseDatasetId)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	newSession := store.ManifestParams{
@@ -106,7 +106,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 			"Unable to create Upload Session.\n "+
 				"\t Please use: pennsieve-server config init to initialize local database.")
 
-		log.Println(err)
+		log.Warn(err)
 		return nil, err
 	}
 
@@ -119,7 +119,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 		return &response, nil
 	}
 
-	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.\n", nrRecords))
+	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.", nrRecords))
 
 	response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
@@ -131,7 +131,7 @@ func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestReq
 
 	nrRecords, _ := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
 
-	log.Printf("Finished Adding %d files.\n", nrRecords)
+	log.Info("Finished Adding %d files.", nrRecords)
 
 	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
@@ -165,7 +165,7 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 			"Unable to remove upload manifest\n "+
 				"\t Check if manifest exists..")
 
-		log.Println(err)
+		log.Error(err)
 		return nil, err
 	}
 
@@ -227,12 +227,12 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 
 	// Verify uploaded files that are in Finalized state.
 	if manifest.NodeId.Valid {
-		log.Println("Verifying files")
+		log.Debug("Verifying files")
 		s.Manifest.VerifyFinalizedStatus(manifest)
 	}
 
 	// Sync local files with the server.
-	log.Println("Syncing files.")
+	log.Debug("Syncing files.")
 
 	// Create Context and store cancel function in server object.
 	ctx, cancelFnc := context.WithCancel(context.Background())
@@ -263,7 +263,8 @@ func (s *server) ResetManifest(ctx context.Context, request *pb.ResetManifestReq
 
 	err := s.Manifest.ResetStatusForManifest(request.ManifestId)
 	if err != nil {
-		log.Fatalln("Cannot reset manifest: ", err)
+		log.Error("Cannot reset manifest: ", err)
+		return nil, err
 	}
 
 	response := pb.SimpleStatusResponse{Status: "Success"}
@@ -281,7 +282,7 @@ type syncSummary struct {
 // syncProcessor Go routine that manages sync go sub-routines for crawling DB and syncing rows with service
 func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSummary, error) {
 
-	log.Println("IN SYNC PROCESSOR")
+	log.Debug("IN SYNC PROCESSOR")
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	syncWalker := make(chan store.ManifestFile, nrWorkers)
@@ -290,14 +291,12 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 	totalNrRows, err := s.Manifest.GetNumberOfRowsForStatus(m.Id,
 		[]manifestFile.Status{manifestFile.Verified, manifestFile.Uploaded, manifestFile.Registered}, true)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return nil, err
 	}
 
-	log.Println("ABOUT TO START PROCESS")
 	// Database crawler to fetch rows
 	go func() {
-		fmt.Printf("ABOUT TO START PROCESS")
 		defer close(syncWalker)
 
 		requestStatus := []manifestFile.Status{
@@ -309,8 +308,6 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 			manifestFile.Finalized,
 			manifestFile.Unknown,
 		}
-
-		log.Println("ABOUT TO START PROCESS")
 
 		s.Manifest.ManifestFilesToChannel(ctx, m.Id, requestStatus, syncWalker)
 
@@ -324,7 +321,7 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 		// 1. Ensure we get a manifest id from the server
 		err := s.getCreateManifestId(m)
 		if err != nil {
-			log.Println("Error: ", err)
+			log.Error("Error: ", err)
 			return
 		}
 
@@ -334,23 +331,23 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 		for w := 1; w <= nrWorkers; w++ {
 			syncWaitGroup.Add(1)
 
-			log.Println("starting Sync Worker:", w)
+			log.Debug("starting Sync Worker:", w)
 			workerId := int32(w)
 			go func() {
 				defer func() {
 					syncWaitGroup.Done()
-					log.Println("stopping Sync Worker:", w)
+					log.Debug("stopping Sync Worker:", w)
 				}()
 				err := s.syncWorker(ctx, workerId, syncWalker, syncResults, m, totalNrRows)
 				if err != nil {
-					log.Println("Error in Upload Worker:", err)
+					log.Error("Error in Upload Worker:", err)
 				}
 			}()
 		}
 
 		syncWaitGroup.Wait()
 		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubscribeResponse_SyncResponse_COMPLETE)
-		log.Println("All sync workers complete --> closing syncResults channel")
+		log.Info("All sync workers complete --> closing syncResults channel")
 		close(syncResults)
 	}()
 
@@ -363,7 +360,7 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 	}
 
 	// Update file status for synchronized manifest.
-	log.Println("Updating local database with status results.")
+	log.Info("Updating local database with status results.")
 	s.Manifest.SyncResponseStatusUpdate(m.Id, allStatusUpdates)
 
 	return &syncSummary{nrFilesUpdated: len(allStatusUpdates)}, nil
@@ -380,7 +377,7 @@ func (s server) getCreateManifestId(m *store.Manifest) error {
 		return nil
 	}
 
-	log.Println("Getting new manifest ID for dataset: ", m.DatasetId)
+	log.Info("Getting new manifest ID for dataset: ", m.DatasetId)
 
 	requestBody := manifest.DTO{
 		DatasetId: m.DatasetId,
@@ -390,11 +387,11 @@ func (s server) getCreateManifestId(m *store.Manifest) error {
 
 	response, err := client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
-		log.Println("ERROR: Unable to get new manifest ID: ", err)
+		log.Error("ERROR: Unable to get new manifest ID: ", err)
 		return err
 	}
 
-	log.Println("New Manifest ID: ", response.ManifestNodeId)
+	log.Debug("New Manifest ID: ", response.ManifestNodeId)
 	if response.ManifestNodeId == "" {
 		return errors.New("Error: Unexpected Manifest Node ID returned by Pennsieve.")
 	}
@@ -412,7 +409,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 
 	const pageSize = 250
 
-	log.Println("In SYNC WORKER")
+	log.Debug("In SYNC WORKER")
 
 	// Ensure that manifestID is set
 	if !m.NodeId.Valid {
@@ -425,7 +422,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 		if !ok {
 			// Final batch of items
 			s.syncUpdateSubscribers(totalNrRows, int64(len(requestFiles)), workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
-			log.Println("Nr Items:", len(requestFiles))
+			log.Debug("Nr Items:", len(requestFiles))
 			response, err := s.syncItems(requestFiles, m.NodeId.String, m)
 			if err != nil {
 				requestFiles = nil
@@ -475,7 +472,7 @@ func (s *server) syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId s
 
 	response, err := s.client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return nil, err
 	}
 
@@ -494,12 +491,12 @@ func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int
 	s.subscribers.Range(func(k, v interface{}) bool {
 		id, ok := k.(int32)
 		if !ok {
-			log.Printf("Failed to cast subscriber key: %T", k)
+			log.Error("Failed to cast subscriber key: %T", k)
 			return false
 		}
 		sub, ok := v.(sub)
 		if !ok {
-			log.Printf("Failed to cast subscriber value: %T", v)
+			log.Error("Failed to cast subscriber value: %T", v)
 			return false
 		}
 		// Send data over the gRPC stream to the client
@@ -513,10 +510,10 @@ func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int
 					WorkerId: workerId,
 				}},
 		}); err != nil {
-			log.Printf("Failed to send data to client: %v", err)
+			log.Error("Failed to send data to client: %v", err)
 			select {
 			case sub.finished <- true:
-				log.Printf("Unsubscribed client: %d", id)
+				log.Info("Unsubscribed client: %d", id)
 			default:
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
@@ -550,7 +547,7 @@ func (s *server) addToManifest(localBasePath string, targetBasePath string, file
 			"Unable to add to Manifest.\n "+
 				"\t You cannot specify both 'basePath' and 'files'.")
 
-		log.Println(err)
+		log.Error(err)
 		return 0, err
 
 	}
@@ -567,7 +564,7 @@ func (s *server) addToManifest(localBasePath string, targetBasePath string, file
 		} else {
 			// Gather the files to upload by walking the path recursively
 			if err := filepath.WalkDir(localBasePath, walker.Walk); err != nil {
-				log.Println("Walk failed:", err)
+				log.Error("Walk failed:", err)
 				errs <- fmt.Errorf("walkError: Unable to read: %s", localBasePath)
 			}
 		}
@@ -621,7 +618,7 @@ func (s *server) addUploadRecords(paths []string, localBasePath string, targetBa
 	if len(records) > 0 {
 		err := s.Manifest.AddFiles(records)
 		if err != nil {
-			log.Println("Error with AddUploadRecords: ", err)
+			log.Error("Error with AddUploadRecords: ", err)
 			return err
 		}
 	}

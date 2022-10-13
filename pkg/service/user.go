@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"log"
 )
 
 // UserService provides methods associated with user information and profiles

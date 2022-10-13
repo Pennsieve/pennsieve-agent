@@ -6,8 +6,8 @@ package config
 import (
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"log"
 	"time"
 )
 
@@ -43,7 +43,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 	// Check Expiration Time for current session and refresh if necessary
 	info, err := uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	apiToken := viper.GetString(userSettings.Profile + ".api_token")
@@ -58,14 +58,14 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 	if time.Now().After(info.TokenExpire.Add(-5 * time.Minute)) {
 		// Need to get new session token
 
-		log.Println("Refreshing token", apiToken, apiSecret)
+		log.Info("Refreshing token", apiToken, apiSecret)
 
 		// We are using reAuthenticate instead of refresh pathway as eventually, the refresh-token
 		// also expires and there is no real reason why we don't just re-authenticate.`
 		session, err := client.Authentication.Authenticate(apiToken, apiSecret)
 
 		if err != nil {
-			log.Println("Error authenticating:", err)
+			log.Error("Error authenticating:", err)
 			return nil, err
 		}
 		client.APISession = *session

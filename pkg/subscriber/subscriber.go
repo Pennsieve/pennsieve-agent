@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/api/v1"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/vbauerster/mpb/v5/decor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"time"
 )
 
@@ -95,7 +95,7 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 	for {
 		if stream == nil {
 			if stream, err = c.subscribe(); err != nil {
-				log.Printf("Failed to subscribe: %v", err)
+				log.Warn("Failed to subscribe: %v", err)
 				c.sleep()
 				// Retry on failure
 				continue
@@ -103,7 +103,7 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 		}
 		response, err := stream.Recv()
 		if err != nil {
-			log.Printf("Failed to receive message: %v", err)
+			log.Warn("Failed to receive message: %v", err)
 			// Clearing the stream will force the client to resubscribe on next iteration
 			stream = nil
 			c.sleep()
@@ -191,7 +191,7 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 				}
 			}
 		default:
-			log.Println("Received an unknown message type: ", response.GetType())
+			log.Error("Received an unknown message type: ", response.GetType())
 		}
 	}
 }

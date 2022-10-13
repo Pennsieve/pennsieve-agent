@@ -2,8 +2,8 @@ package agent
 
 import (
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 	"math/rand"
 	"sync"
 	"time"

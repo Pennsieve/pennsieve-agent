@@ -11,8 +11,8 @@ import (
 	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,13 +41,13 @@ func InitializeDB() (*sql.DB, error) {
 
 			// If the table does not exist, run migrations.
 			if strings.ContainsAny(err.Error(), "no such table") {
-				fmt.Println("Setting up the local database.")
+				log.Info("Setting up the local database and running migrations.")
 				migrations.Run(db)
 			}
 
 			// Select the globally defined profile.
 			selectedProfile := viper.GetString("global.default_profile")
-			fmt.Println("Selected Profile: ", selectedProfile)
+			log.Info("Using default profile name: ", selectedProfile)
 
 			if selectedProfile == "" {
 				log.Fatalf("No default profile defined in %s. Please update configuration.\n\n",
@@ -83,20 +83,20 @@ func InitializeDB() (*sql.DB, error) {
 			// Check credentials of new profile
 			credentials, err := client.Authentication.Authenticate(apiToken, apiSecret)
 			if err != nil {
-				fmt.Println("Problem with authentication")
+				log.Error("Problem with authentication")
 				return nil, err
 			}
 
 			// Get the User for the new profile
 			existingUser, err := client.User.GetUser(nil, nil)
 			if err != nil {
-				fmt.Println("Problem with getting user", err)
+				log.Error("Problem with getting user", err)
 				return nil, err
 			}
 
 			org, err := client.Organization.Get(nil, client.OrganizationNodeId)
 			if err != nil {
-				fmt.Println("Error getting organization")
+				log.Error("Error getting organization")
 				return nil, err
 			}
 

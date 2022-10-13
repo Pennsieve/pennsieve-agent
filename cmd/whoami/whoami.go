@@ -23,11 +23,11 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"os"
 )
 

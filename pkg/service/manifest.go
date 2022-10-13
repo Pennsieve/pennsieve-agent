@@ -6,7 +6,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 type ManifestService struct {
@@ -28,15 +28,15 @@ func (s *ManifestService) SetPennsieveClient(client *pennsieve.Client) {
 
 // VerifyFinalizedStatus checks if files are in "Finalized" state on server and sets to "Verified"
 func (s *ManifestService) VerifyFinalizedStatus(manifest *store.Manifest) error {
-	log.Println("Verifying files")
+	log.Debug("Verifying files")
 
 	response, err := s.client.Manifest.GetFilesForStatus(nil, manifest.NodeId.String, manifestFile.Finalized, "", true)
 	if err != nil {
-		log.Println("Error getting files for status, here is why: ", err)
+		log.Error("Error getting files for status, here is why: ", err)
 		return err
 	}
 
-	log.Println("Number of responses: ", len(response.Files))
+	log.Debug("Number of responses: ", len(response.Files))
 	if len(response.Files) > 0 {
 		if len(response.Files) == 1 {
 			s.mfStore.SetStatus(manifestFile.Verified, response.Files[0])
@@ -47,10 +47,10 @@ func (s *ManifestService) VerifyFinalizedStatus(manifest *store.Manifest) error 
 
 	for {
 		if len(response.ContinuationToken) > 0 {
-			log.Println("Getting another set of files ")
+			log.Debug("Getting another set of files ")
 			response, err = s.client.Manifest.GetFilesForStatus(nil, manifest.NodeId.String, manifestFile.Finalized, response.ContinuationToken, true)
 			if err != nil {
-				log.Println("Error getting files for status, here is why: ", err)
+				log.Error("Error getting files for status, here is why: ", err)
 				return err
 			}
 			if len(response.Files) > 0 {
@@ -110,7 +110,6 @@ func (s *ManifestService) GetNumberOfRowsForStatus(manifestId int32, statusArr [
 }
 
 func (s *ManifestService) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile) {
-	log.Println("IN MANIFEST SERVICE")
 	s.mfStore.ManifestFilesToChannel(ctx, manifestId, statusArr, walker)
 }
 

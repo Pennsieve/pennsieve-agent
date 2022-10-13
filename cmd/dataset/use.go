@@ -6,12 +6,12 @@ import (
 	"github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"log"
 )
 
 var UseCmd = &cobra.Command{
@@ -57,7 +57,7 @@ var UseCmd = &cobra.Command{
 		response, err := pennsieveClient.Dataset.Get(ctx, useDatasetResponse.DatasetId)
 		if err != nil {
 			fmt.Println("Error fetching dataset from Pennsieve: ", useDatasetResponse.DatasetId)
-			log.Println("CMD:Dataset:Use: ", err)
+			log.Error("CMD:Dataset:Use: ", err)
 			return
 		}
 

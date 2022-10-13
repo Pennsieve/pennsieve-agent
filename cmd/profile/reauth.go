@@ -8,11 +8,11 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 )
 
 var ReauthCmd = &cobra.Command{
@@ -26,7 +26,8 @@ var ReauthCmd = &cobra.Command{
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			fmt.Println("Error connecting to GRPC Server: ", err)
+			fmt.Println("Error connecting to GRPC Server. See log for details.")
+			log.Error("Error connecting to GRPC Server: ", err)
 			return
 		}
 		defer conn.Close()
