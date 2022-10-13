@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/spf13/cobra"
 )
 
@@ -28,9 +27,6 @@ Use 'pennsieve agent stop' to stop a running Pennsieve agent.
 Use 'pennsieve agent start' to run the agent as a blocking process.
 `,
 
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		args = append(args, "daemon")

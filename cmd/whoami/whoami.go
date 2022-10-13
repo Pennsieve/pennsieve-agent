@@ -19,14 +19,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"log"
 	"os"
 )
 
@@ -35,9 +37,6 @@ var WhoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Displays information about the logged in user.",
 	Long:  `Displays information about the logged in user.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 
 		req := pb.GetUserRequest{}
@@ -58,8 +57,16 @@ var WhoamiCmd = &cobra.Command{
 			return
 		}
 
+		db, _ := db.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		userInfoStore := store.NewUserInfoStore(db)
+		pennsieveClient, err := api.InitPennsieveClient(userSettingsStore, userInfoStore)
+		if err != nil {
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
+
 		showFull, _ := cmd.Flags().GetBool("full")
-		PrettyPrint(userResponse, showFull)
+		PrettyPrint(userResponse, pennsieveClient.Authentication.BaseUrl, showFull)
 	},
 }
 
@@ -69,7 +76,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(info *pb.UserResponse, showFull bool) {
+func PrettyPrint(info *pb.UserResponse, host string, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{
@@ -83,7 +90,7 @@ func PrettyPrint(info *pb.UserResponse, showFull bool) {
 			{"PROFILE", info.Profile},
 			{"ENVIRONMENT", info.Environment},
 			{"SESSION-TOKEN", info.SessionToken},
-			{"HOST", api.PennsieveClient.Authentication.BaseUrl},
+			{"HOST", host},
 		})
 	}
 

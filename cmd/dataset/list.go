@@ -2,8 +2,9 @@ package dataset
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	"github.com/spf13/cobra"
 	"log"
@@ -15,15 +16,19 @@ var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all datasets.",
 	Long:  `List all datasets in a Pennsieve Workspace that are accessible to the user.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		offset, _ := cmd.Flags().GetInt("offset")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		client := api.PennsieveClient
-		response, err := client.Dataset.List(nil, limit, offset)
+		db, _ := db.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		userInfoStore := store.NewUserInfoStore(db)
+		pennsieveClient, err := api.InitPennsieveClient(userSettingsStore, userInfoStore)
+		if err != nil {
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
+
+		response, err := pennsieveClient.Dataset.List(nil, limit, offset)
 		if err != nil {
 			log.Println(err)
 		}

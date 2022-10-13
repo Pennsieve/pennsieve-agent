@@ -16,7 +16,6 @@ limitations under the License.
 package profile
 
 import (
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/spf13/cobra"
 )
 
@@ -26,9 +25,6 @@ var ProfileCmd = &cobra.Command{
 	Long: `Profiles are used to store user-settings. They are stored in the ~/.server/db.ini file.
 
 `,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ShowCmd.Run(cmd, args)
 	},

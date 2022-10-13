@@ -5,15 +5,12 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
@@ -34,7 +31,7 @@ type record struct {
 	status     string
 }
 
-type recordWalk chan record
+//type recordWalk chan record
 type syncResult chan []manifestFile.FileStatusDTO
 
 // ----------------------------------------------
@@ -79,8 +76,8 @@ func (s *server) UploadManifest(ctx context.Context,
 
 	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
 
-	var m *models.Manifest
-	m, err := m.Get(request.ManifestId)
+	var m *store.Manifest
+	m, err := s.Manifest.GetManifest(request.ManifestId)
 	if err != nil {
 		log.Fatalln("Cannot get Manifest based on ID.")
 		return nil, err
@@ -114,7 +111,7 @@ func (s *server) UploadManifest(ctx context.Context,
 				// Checking status of files on server and verify.
 				// This should return a list of files that have recently been finalized and then set the status of
 				// those files to "Verified" on the server.
-				api.VerifyFinalizedStatus(m)
+				s.Manifest.VerifyFinalizedStatus(m)
 
 			}
 		}
@@ -152,10 +149,10 @@ func (s *server) UploadManifest(ctx context.Context,
 	return &response, nil
 }
 
-func (s *server) uploadProcessor(ctx context.Context, m *models.Manifest) {
+func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
-	walker := make(recordWalk, nrWorkers)
+	walker := make(store.RecordWalk, nrWorkers)
 	results := make(chan int, nrWorkers)
 
 	var uploadWg sync.WaitGroup
@@ -165,34 +162,12 @@ func (s *server) uploadProcessor(ctx context.Context, m *models.Manifest) {
 
 		defer close(walker)
 
-		// Get all synced files from the local database for uploading.
-		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files "+
-			"WHERE manifest_id=%d AND status='%s';", m.Id, manifestFile.Registered.String())
+		requestStatus := []manifestFile.Status{
+			manifestFile.Registered,
+		}
 
-		rows, err := dbconfig.DB.Query(queryStr)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer func(rows *sql.Rows) {
-			err := rows.Close()
-			if err != nil {
-				log.Println("Unable to close rows in Upload.")
-			}
-		}(rows)
+		s.Manifest.ManifestFilesToChannel(ctx, m.Id, requestStatus, walker)
 
-		// Iterate over rows for manifest and add row to channel to be picked up by worker.
-		for rows.Next() {
-			r := record{}
-			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName, &r.status)
-			if err != nil {
-				log.Fatal(err)
-			}
-			walker <- r
-		}
-		err = rows.Err()
-		if err != nil {
-			log.Fatal(err)
-		}
 	}()
 
 	// Upload Handler
@@ -201,7 +176,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *models.Manifest) {
 		chunkSize := viper.GetInt64("agent.upload_chunk_size")
 		nrWorkers := viper.GetInt("agent.upload_workers")
 
-		client := api.PennsieveClient
+		client := s.client
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithRegion("us-east-1"),
 			config.WithCredentialsProvider(
@@ -262,14 +237,14 @@ func (s *server) uploadProcessor(ctx context.Context, m *models.Manifest) {
 }
 
 func (s *server) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan record, results chan<- int, manifestNodeId string,
+	jobs <-chan store.Record, results chan<- int, manifestNodeId string,
 	uploader *manager.Uploader, cfg aws.Config, uploadBucket string) error {
 
 	for record := range jobs {
 
-		file, err := os.Open(record.sourcePath)
+		file, err := os.Open(record.SourcePath)
 		if err != nil {
-			log.Println("Failed opening file", record.sourcePath, err)
+			log.Println("Failed opening file", record.SourcePath, err)
 			continue
 		}
 
@@ -283,7 +258,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			s:        s,
 		}
 
-		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.uploadId))
+		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(uploadBucket),
@@ -330,10 +305,10 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 						_, err = s3Session.ListParts(context.Background(), inputListParts)
 						iter += 1
 						if err != nil {
-							log.Println("Multi-part upload cancelled: ", record.sourcePath)
+							log.Println("Multi-part upload cancelled: ", record.SourcePath)
 							break
 						} else if iter == maxRetry {
-							log.Println("Maximum retries for cancelling multipart upload: ", record.sourcePath)
+							log.Println("Maximum retries for cancelling multipart upload: ", record.SourcePath)
 							break
 						} else {
 							time.Sleep(500 * time.Millisecond)
@@ -349,7 +324,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 				break
 			} else {
 				// Process error generically
-				log.Println("Failed to upload", record.sourcePath)
+				log.Println("Failed to upload", record.SourcePath)
 				log.Println("Error:", err.Error())
 
 				s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
@@ -369,8 +344,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			log.Fatalln("Could not close file.")
 		}
 
-		var m models.ManifestFile
-		err = m.SetStatus(dbconfig.DB, manifestFile.Uploaded, record.uploadId)
+		err = s.Manifest.SetFileStatus(record.UploadId, manifestFile.Uploaded)
 		if err != nil {
 			log.Fatalln("Could not update status of file. Here is why: ", err)
 		}

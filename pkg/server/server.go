@@ -6,7 +6,12 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/service"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"log"
@@ -24,6 +29,11 @@ type server struct {
 	pb.UnimplementedAgentServer
 	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
 	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+
+	client *pennsieve.Client
+
+	Manifest *service.ManifestService
+	User     *service.UserService
 }
 
 type uploadSession struct {
@@ -171,6 +181,24 @@ func StartAgent() error {
 	// Create new server
 	GRPCServer = grpc.NewServer()
 	server := &server{}
+
+	db, _ := db.InitializeDB()
+	manifestStore := store.NewManifestStore(db)
+	manifestFileStore := store.NewManifestFileStore(db)
+	server.Manifest = service.NewManifestService(manifestStore, manifestFileStore)
+
+	userInfoStore := store.NewUserInfoStore(db)
+	userSettingsStore := store.NewUserSettingsStore(db)
+	server.User = service.NewUserService(userInfoStore, userSettingsStore)
+
+	client, err := api.InitPennsieveClient(userSettingsStore, userInfoStore)
+	if err != nil {
+		return err
+	}
+
+	server.client = client
+	server.Manifest.SetPennsieveClient(client)
+	server.User.SetPennsieveClient(client)
 
 	// Register services
 	pb.RegisterAgentServer(GRPCServer, server)

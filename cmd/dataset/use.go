@@ -3,8 +3,9 @@ package dataset
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,10 +19,7 @@ var UseCmd = &cobra.Command{
 	Use:   "use <dataset>",
 	Short: "Set your current working dataset.",
 	Long:  `Set your current working dataset.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
-	Args: cobra.MinimumNArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
 		datasetId := args[0]
@@ -50,7 +48,13 @@ var UseCmd = &cobra.Command{
 		}
 
 		// Get the dataset directly from service to render
-		pennsieveClient := api.PennsieveClient
+		db, _ := db.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		userInfoStore := store.NewUserInfoStore(db)
+		pennsieveClient, err := api.InitPennsieveClient(userSettingsStore, userInfoStore)
+		if err != nil {
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
 		response, err := pennsieveClient.Dataset.Get(ctx, useDatasetResponse.DatasetId)
 		if err != nil {
 			fmt.Println("Error fetching dataset from Pennsieve: ", useDatasetResponse.DatasetId)

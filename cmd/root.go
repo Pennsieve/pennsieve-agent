@@ -25,12 +25,8 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/version"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	models2 "github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -42,28 +38,15 @@ var rootCmd = &cobra.Command{
 	Use:   "pennsieve",
 	Short: "A Command Line Interface for the Pennsieve Platform.",
 	Long:  ``,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-
-		/*
-			if Pennsieve Client APISession is set --> check if token is updated
-			Pennsieve credentials are set when the command uses the Pennsieve REST API.
-			If this is the case, we should check if the Pennsieve Go Library re-authenticated
-			due to an expired token and update the UserInfo object in the local database to
-			cache the updated session-token so next calls do not require re-authentication.
-		*/
-
-		if api.PennsieveClient != nil {
-			creds := api.PennsieveClient.APISession
-			if creds != (models2.APISession{}) && creds.IsRefreshed {
-				activeUser, err := api.GetActiveUser()
-				if err != nil {
-					log.Fatalln("Unable to get active user")
-				}
-				log.Println("Client credentials updated --> Update session token in UserInfo")
-				models.UpdateTokenForUser(activeUser, &api.PennsieveClient.APISession)
-			}
+		// Don't init viper if trying to setup config file.
+		if cmd.CommandPath() == "pennsieve config wizard" {
+			return nil
 		}
+
+		initViper()
+		return nil
 
 	},
 }
@@ -78,8 +61,6 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initViper)
-
 	rootCmd.AddCommand(whoami.WhoamiCmd)
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(profile.ProfileCmd)
@@ -96,7 +77,6 @@ func init() {
 
 // initConfig reads in db file and ENV variables if set.
 func initViper() {
-
 	// initialize client after initializing Viper as it needs viper to get api key/secret
 	if cfgFile != "" {
 		// Use db file from the flag.
@@ -106,18 +86,22 @@ func initViper() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search db in home directory with name ".pennsieve-server" (without extension).
+		// Search db in home directory with name ".pennsieve" (without extension).
 		viper.SetConfigType("ini")
 		viper.AddConfigPath(filepath.Join(home, ".pennsieve"))
 
-		fmt.Println(viper.ConfigFileUsed())
-
-		// Set viper defaults
-		viper.SetDefault("agent.port", "9000")
-		viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
-		viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
-		viper.SetDefault("global.default_profile", "user")
 	}
+
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Println("No Pennsieve configuration file exists.")
+		fmt.Println("\nPlease use `pennsieve config wizard` to setup your Pennsieve profile.")
+		os.Exit(1)
+	}
+
+	viper.SetDefault("agent.port", "9000")
+	viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
+	viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
+	viper.SetDefault("global.default_profile", "user")
 
 	viper.AutomaticEnv() // read in environment variables that match
 

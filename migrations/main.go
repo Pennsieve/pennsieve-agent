@@ -3,16 +3,15 @@ package migrations
 import (
 	"database/sql"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"log"
 )
 
-func Run() {
+func Run(db *sql.DB) {
 	// Iterate over migration steps
-	migrate(db.DB, UserInfo)
-	migrate(db.DB, UserSettings)
-	migrate(db.DB, Manifests)
-	migrate(db.DB, ManifestFiles)
+	migrate(db, UserInfo)
+	migrate(db, UserSettings)
+	migrate(db, Manifests)
+	migrate(db, ManifestFiles)
 	// Other migrations can be added here.
 
 	fmt.Println("Database initialized...")

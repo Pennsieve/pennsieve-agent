@@ -5,12 +5,9 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	dbconfig "github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
@@ -33,8 +30,8 @@ type fileWalk chan string
 
 // ListManifests returns a list of manifests that are currently defined in the local database.
 func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsRequest) (*pb.ListManifestsResponse, error) {
-	var uploadSession models.Manifest
-	manifests, err := uploadSession.GetAll()
+
+	manifests, err := s.Manifest.GetAll()
 
 	var r []*pb.ListManifestsResponse_Manifest
 	for _, m := range manifests {
@@ -65,10 +62,9 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
-	activeUser, _ := api.UpdateActiveUser()
+	activeUser, _ := s.User.UpdateActiveUser()
 
-	var clientSession models.UserSettings
-	curClientSession, err := clientSession.Get()
+	curClientSession, err := s.User.GetUserSettings()
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to get Client Session\n "+
@@ -89,12 +85,12 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	}
 
 	// Check dataset exist (should be redundant) and grab name
-	ds, err := api.PennsieveClient.Dataset.Get(nil, curClientSession.UseDatasetId)
+	ds, err := s.client.Dataset.Get(nil, curClientSession.UseDatasetId)
 	if err != nil {
 		log.Println(err)
 	}
 
-	newSession := models.ManifestParams{
+	newSession := store.ManifestParams{
 		UserId:           activeUser.Id,
 		UserName:         activeUser.Name,
 		OrganizationId:   activeUser.OrganizationId,
@@ -103,8 +99,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 		DatasetName:      ds.Content.Name,
 	}
 
-	var manifest models.Manifest
-	createdManifest, err := manifest.Add(newSession)
+	createdManifest, err := s.Manifest.Add(newSession)
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to create Upload Session.\n "+
@@ -116,7 +111,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 2. Walk over folder and populate DB with file-paths.
 	// --------------------------------------------------
-	nrRecords, err := addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
+	nrRecords, err := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
 	if err != nil {
 		s.messageSubscribers(fmt.Sprintf("Error with accessing files on: %s", request.BasePath))
 		response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: fmt.Sprintf("Creating manifest failed.")}
@@ -133,7 +128,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 // AddToManifest adds files to existing upload manifest.
 func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	nrRecords, _ := addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
+	nrRecords, _ := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
 
 	log.Printf("Finished Adding %d files.\n", nrRecords)
 
@@ -144,8 +139,7 @@ func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestReq
 // RemoveFromManifest removes one or more files from the index for an existing manifest.
 func (s *server) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	var ft models.ManifestFile
-	err := ft.RemoveFromManifest(request.ManifestId, request.RemovePath)
+	err := s.Manifest.RemoveFromManifest(request.ManifestId, request.RemovePath)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +157,7 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 
 	//	3. Delete manifest from local database
 
-	var uploadSession models.Manifest
-	err := uploadSession.Remove(request.ManifestId)
+	err := s.Manifest.RemoveManifest(request.ManifestId)
 
 	if err != nil {
 		err := status.Error(codes.NotFound,
@@ -182,8 +175,8 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 
 // ListManifestFiles lists files from an existing upload manifest.
 func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListManifestFilesResponse, error) {
-	var uploadRecords models.ManifestFile
-	result, err := uploadRecords.Get(request.ManifestId, request.Limit, request.Offset)
+
+	result, err := s.Manifest.GetFiles(request.ManifestId, request.Limit, request.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -225,15 +218,14 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 		Removed --> (file removed from local db)
 	*/
 
-	var m *models.Manifest
-	manifest, err := m.Get(request.ManifestId)
+	manifest, err := s.Manifest.GetManifest(request.ManifestId)
 	if err != nil {
 		return nil, err
 	}
 
 	// Verify uploaded files that are in Finalized state.
 	log.Println("Verifying files")
-	api.VerifyFinalizedStatus(manifest)
+	s.Manifest.VerifyFinalizedStatus(manifest)
 
 	// Sync local files with the server.
 	log.Println("Syncing files.")
@@ -265,8 +257,7 @@ func (s *server) RelocateManifestFiles(ctx context.Context, request *pb.Relocate
 // ResetManifest allows users to reset the status for all files in a manifest
 func (s *server) ResetManifest(ctx context.Context, request *pb.ResetManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	var m models.ManifestFile
-	err := m.ResetStatusForManifest(request.ManifestId)
+	err := s.Manifest.ResetStatusForManifest(request.ManifestId)
 	if err != nil {
 		log.Fatalln("Cannot reset manifest: ", err)
 	}
@@ -284,31 +275,22 @@ type syncSummary struct {
 }
 
 // syncProcessor Go routine that manages sync go sub-routines for crawling DB and syncing rows with service
-func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSummary, error) {
+func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSummary, error) {
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
-	syncWalker := make(recordWalk, nrWorkers)
+	syncWalker := make(store.RecordWalk, nrWorkers)
 	syncResults := make(syncResult, nrWorkers)
 
-	// Get Total items to sync
-	queryStr := fmt.Sprintf("SELECT  count(*) FROM manifest_files WHERE manifest_id=? AND status NOT IN ('Uploaded','Verified', 'Registered')")
-
-	var totalNrRows int64
-	err := dbconfig.DB.QueryRow(queryStr, m.Id).Scan(&totalNrRows)
-	switch {
-	case err == sql.ErrNoRows:
-		return nil, errors.New("unable to get number of rows to be synchronized")
-	case err != nil:
-		return nil, errors.New("unable to get number of rows to be synchronized")
-	default:
-		log.Printf("About to synchronize %d files.", totalNrRows)
+	totalNrRows, err := s.Manifest.GetNumberOfRowsForStatus(m.Id,
+		[]manifestFile.Status{manifestFile.Verified, manifestFile.Uploaded, manifestFile.Registered}, true)
+	if err != nil {
+		return nil, err
 	}
 
 	// Database crawler to fetch rows
 	go func() {
 		defer close(syncWalker)
 
-		// 1. Synchronize Walker
 		requestStatus := []manifestFile.Status{
 			manifestFile.Local,
 			manifestFile.Changed,
@@ -319,39 +301,7 @@ func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSu
 			manifestFile.Unknown,
 		}
 
-		var statusList []string
-		for _, reqStatus := range requestStatus {
-			statusList = append(statusList, fmt.Sprintf("'%s'", reqStatus.String()))
-		}
-		statusQueryString := fmt.Sprintf("(%s)", strings.Join(statusList, ","))
-		queryStr := fmt.Sprintf("SELECT source_path, target_path, upload_id, target_name, status FROM manifest_files WHERE manifest_id = ? "+
-			"AND status IN %s ORDER BY id", statusQueryString)
-
-		rows, err := dbconfig.DB.QueryContext(ctx, queryStr, m.Id)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer func(rows *sql.Rows) {
-			err := rows.Close()
-			if err != nil {
-				log.Println("Unable to close rows in Upload.")
-			}
-		}(rows)
-
-		// Iterate over rows for manifest and add row to channel to be picked up by worker.
-		for rows.Next() {
-			r := record{}
-			err := rows.Scan(&r.sourcePath, &r.targetPath, &r.uploadId, &r.targetName, &r.status)
-			if err != nil {
-				log.Fatal(err)
-			}
-			syncWalker <- r
-		}
-
-		err = rows.Err()
-		if err != nil {
-			log.Fatal(err)
-		}
+		s.Manifest.ManifestFilesToChannel(ctx, m.Id, requestStatus, syncWalker)
 
 	}()
 
@@ -361,7 +311,7 @@ func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSu
 		var syncWaitGroup sync.WaitGroup
 
 		// 1. Ensure we get a manifest id from the server
-		err := getCreateManifestId(m)
+		err := s.getCreateManifestId(m)
 		if err != nil {
 			log.Println("Error: ", err)
 			return
@@ -403,8 +353,7 @@ func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSu
 
 	// Update file status for synchronized manifest.
 	log.Println("Updating local database with status results.")
-	var f models.ManifestFile
-	f.SyncResponseStatusUpdate(m.Id, allStatusUpdates)
+	s.Manifest.SyncResponseStatusUpdate(m.Id, allStatusUpdates)
 
 	return &syncSummary{nrFilesUpdated: len(allStatusUpdates)}, nil
 
@@ -413,7 +362,7 @@ func (s *server) syncProcessor(ctx context.Context, m *models.Manifest) (*syncSu
 // getCreateManifestId takes a manifest and ensures the manifest has a node-id.
 // The method checks if the manifest has a node-id, and if not, registers the manifest
 // with Pennsieve model service and sets the returned node-id in the manifest object.
-func getCreateManifestId(m *models.Manifest) error {
+func (s server) getCreateManifestId(m *store.Manifest) error {
 
 	// Return if the node id is already set.
 	if m.NodeId.Valid {
@@ -426,7 +375,7 @@ func getCreateManifestId(m *models.Manifest) error {
 		DatasetId: m.DatasetId,
 	}
 
-	client := api.PennsieveClient
+	client := s.client
 
 	response, err := client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
@@ -440,7 +389,7 @@ func getCreateManifestId(m *models.Manifest) error {
 	}
 
 	// Update NodeId in manifest and database
-	m.SetManifestNodeId(response.ManifestNodeId)
+	s.Manifest.SetManifestNodeId(m, response.ManifestNodeId)
 
 	return nil
 }
@@ -448,7 +397,7 @@ func getCreateManifestId(m *models.Manifest) error {
 // syncWorker fetches rows from crawler and syncs with the service by batch.
 // This function is called as a go-routine and typically runs multiple instances in parallel
 func (s *server) syncWorker(ctx context.Context, workerId int32,
-	syncWalker <-chan record, result chan []manifestFile.FileStatusDTO, m *models.Manifest, totalNrRows int64) error {
+	syncWalker <-chan store.Record, result chan []manifestFile.FileStatusDTO, m *store.Manifest, totalNrRows int64) error {
 
 	const pageSize = 250
 
@@ -464,7 +413,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 			// Final batch of items
 			s.syncUpdateSubscribers(totalNrRows, int64(len(requestFiles)), workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
 			log.Println("Nr Items:", len(requestFiles))
-			response, err := syncItems(requestFiles, m.NodeId.String, m)
+			response, err := s.syncItems(requestFiles, m.NodeId.String, m)
 			if err != nil {
 				requestFiles = nil
 				continue
@@ -475,22 +424,22 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 		}
 
 		// TODO: CHeck that we can safely remove this as s3-key is no longer used in service
-		s3Key := fmt.Sprintf("%s/%s", m.NodeId.String, item.uploadId)
+		s3Key := fmt.Sprintf("%s/%s", m.NodeId.String, item.UploadId)
 
 		var st manifestFile.Status
 
 		reqFile := manifestFile.FileDTO{
-			UploadID:   item.uploadId,
+			UploadID:   item.UploadId,
 			S3Key:      s3Key,
-			TargetPath: item.targetPath,
-			TargetName: item.targetName,
-			Status:     st.ManifestFileStatusMap(item.status),
+			TargetPath: item.TargetPath,
+			TargetName: item.TargetName,
+			Status:     st.ManifestFileStatusMap(item.Status),
 		}
 		requestFiles = append(requestFiles, reqFile)
 
 		if len(requestFiles) == pageSize {
 			s.syncUpdateSubscribers(totalNrRows, pageSize, workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
-			response, err := syncItems(requestFiles, m.NodeId.String, m)
+			response, err := s.syncItems(requestFiles, m.NodeId.String, m)
 			if err != nil {
 				requestFiles = nil
 				continue
@@ -504,7 +453,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 	return nil
 }
 
-func syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *models.Manifest) (*manifest.PostResponse, error) {
+func (s *server) syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *store.Manifest) (*manifest.PostResponse, error) {
 
 	requestBody := manifest.DTO{
 		DatasetId: m.DatasetId,
@@ -513,8 +462,7 @@ func syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *mo
 		Status:    m.Status,
 	}
 
-	client := api.PennsieveClient
-	response, err := client.Manifest.Create(context.Background(), requestBody)
+	response, err := s.client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -584,7 +532,7 @@ func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
 }
 
 // addToManifest walks over provided path and adds records to DB
-func addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (int, error) {
+func (s *server) addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (int, error) {
 
 	if len(files) > 0 && len(localBasePath) > 0 {
 		err := status.Error(codes.NotFound,
@@ -626,7 +574,7 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 		item, ok := <-walker
 		if !ok {
 			// Final batch of items
-			err := addUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			err := s.addUploadRecords(items, localBasePath, targetBasePath, manifestId)
 			if err != nil {
 				return 0, err
 			}
@@ -638,7 +586,7 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 		i++
 		if i == batchSize {
 			// Standard batch of items
-			err := addUploadRecords(items, localBasePath, targetBasePath, manifestId)
+			err := s.addUploadRecords(items, localBasePath, targetBasePath, manifestId)
 			if err != nil {
 				return 0, err
 			}
@@ -655,13 +603,12 @@ func addToManifest(localBasePath string, targetBasePath string, files []string, 
 }
 
 // addUploadRecords adds records to the local SQLite DB.
-func addUploadRecords(paths []string, localBasePath string, targetBasePath string, manifestId int32) error {
+func (s *server) addUploadRecords(paths []string, localBasePath string, targetBasePath string, manifestId int32) error {
 
 	records := recordsFromPaths(paths, localBasePath, targetBasePath, manifestId)
 
 	if len(records) > 0 {
-		var record models.ManifestFile
-		err := record.Add(records)
+		err := s.Manifest.AddFiles(records)
 		if err != nil {
 			log.Println("Error with AddUploadRecords: ", err)
 			return err
@@ -672,13 +619,13 @@ func addUploadRecords(paths []string, localBasePath string, targetBasePath strin
 }
 
 // recordsFromPaths creates a set of records to be stored in the dynamodb from a list of paths.
-func recordsFromPaths(paths []string, localBasePath string, targetBasePath string, manifestId int32) []models.ManifestFileParams {
-	var records []models.ManifestFileParams
+func recordsFromPaths(paths []string, localBasePath string, targetBasePath string, manifestId int32) []store.ManifestFileParams {
+	var records []store.ManifestFileParams
 	for _, row := range paths {
 		if len(localBasePath) > 0 && pathIsDirectory(localBasePath) {
 			// localBasePath was provided, and it is a folder/directory
 			fileName, targetPath := fileTargetPath(row, localBasePath, targetBasePath)
-			newRecord := models.ManifestFileParams{
+			newRecord := store.ManifestFileParams{
 				SourcePath: row,
 				TargetPath: targetPath,
 				TargetName: fileName,
@@ -689,7 +636,7 @@ func recordsFromPaths(paths []string, localBasePath string, targetBasePath strin
 			// localBasePath was not provided, or it is the path to a file
 			fileName := filepath.Base(row)
 			targetPath := targetBasePath
-			newRecord := models.ManifestFileParams{
+			newRecord := store.ManifestFileParams{
 				SourcePath: row,
 				TargetPath: targetPath,
 				TargetName: fileName,

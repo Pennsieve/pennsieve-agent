@@ -1,8 +1,8 @@
-package models
+package store
 
 import (
+	"database/sql"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"log"
 	"time"
@@ -50,12 +50,29 @@ type UserInfoParams struct {
 	OrganizationName string
 }
 
-func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
+type UserInfoStore interface {
+	CreateNewUserInfo(data UserInfoParams) (*UserInfo, error)
+	GetUserInfo(id string, profile string) (*UserInfo, error)
+	GetAll() ([]UserInfo, error)
+	UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error)
+}
+
+func NewUserInfoStore(db *sql.DB) *userInfoStore {
+	return &userInfoStore{
+		db: db,
+	}
+}
+
+type userInfoStore struct {
+	db *sql.DB
+}
+
+func (s *userInfoStore) CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
 
 	user := &UserInfo{}
 
 	var updatedAt = time.Now().UTC()
-	statement, _ := db.DB.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
+	statement, _ := s.db.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
 		"token_expire, id_token, environment, organization_id, organization_name, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.RefreshToken, data.Profile,
 		data.tokenExpire, data.IdToken, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
@@ -78,9 +95,9 @@ func CreateNewUserInfo(data UserInfoParams) (*UserInfo, error) {
 	return user, err
 }
 
-func GetUserInfo(id string, profile string) (*UserInfo, error) {
+func (s *userInfoStore) GetUserInfo(id string, profile string) (*UserInfo, error) {
 	user := &UserInfo{}
-	err := db.DB.QueryRow(
+	err := s.db.QueryRow(
 		"SELECT "+
 			"inner_id, "+
 			"id, "+
@@ -105,8 +122,8 @@ func GetUserInfo(id string, profile string) (*UserInfo, error) {
 	return user, err
 }
 
-func (user *UserInfo) GetAll() ([]UserInfo, error) {
-	rows, err := db.DB.Query("SELECT * FROM user_record")
+func (s *userInfoStore) GetAll() ([]UserInfo, error) {
+	rows, err := s.db.Query("SELECT * FROM user_record")
 	var allUsers []UserInfo
 	if err == nil {
 		for rows.Next() {
@@ -123,9 +140,9 @@ func (user *UserInfo) GetAll() ([]UserInfo, error) {
 	return allUsers, err
 }
 
-func UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
+func (s *userInfoStore) UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
 
-	statement, err := db.DB.Prepare(
+	statement, err := s.db.Prepare(
 		"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ? WHERE id = ?")
 	if err != nil {
 		fmt.Println(err)
