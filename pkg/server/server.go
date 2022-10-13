@@ -6,7 +6,7 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/service"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
@@ -25,7 +25,7 @@ var Version = "development"
 var LogLevel = "INFO"
 
 type server struct {
-	v1.UnimplementedAgentServer
+	pb.UnimplementedAgentServer
 	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
 	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
 
@@ -41,7 +41,7 @@ type uploadSession struct {
 }
 
 type sub struct {
-	stream   v1.Agent_SubscribeServer // stream is the server side of the RPC stream
+	stream   pb.Agent_SubscribeServer // stream is the server side of the RPC stream
 	finished chan<- bool              // finished is used to signal closure of a client subscribing goroutine
 }
 
@@ -49,7 +49,7 @@ type sub struct {
 // --------------------------------------------
 
 // Subscribe handles a subscribe request from a client
-func (s *server) Subscribe(request *v1.SubscribeRequest, stream v1.Agent_SubscribeServer) error {
+func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_SubscribeServer) error {
 	// Handle subscribe request
 	log.Printf("Received subscribe request from ID: %d", request.Id)
 
@@ -75,7 +75,7 @@ func (s *server) Subscribe(request *v1.SubscribeRequest, stream v1.Agent_Subscri
 
 // Unsubscribe handles a unsubscribe request from a client
 // Note: this function is not called but it here as an example of an unary RPC for unsubscribing clients
-func (s *server) Unsubscribe(ctx context.Context, request *v1.SubscribeRequest) (*v1.SubscribeResponse, error) {
+func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) (*pb.SubscribeResponse, error) {
 	v, ok := s.subscribers.Load(request.Id)
 	if !ok {
 		return nil, fmt.Errorf("failed to load subscriber key: %d", request.Id)
@@ -91,27 +91,27 @@ func (s *server) Unsubscribe(ctx context.Context, request *v1.SubscribeRequest) 
 		// Default case is to avoid blocking in case client has already unsubscribed
 	}
 	s.subscribers.Delete(request.Id)
-	return &v1.SubscribeResponse{}, nil
+	return &pb.SubscribeResponse{}, nil
 }
 
-func (s *server) Stop(ctx context.Context, request *v1.StopRequest) (*v1.StopResponse, error) {
+func (s *server) Stop(ctx context.Context, request *pb.StopRequest) (*pb.StopResponse, error) {
 
 	log.Println("Stopping Agent Server.")
 	go GRPCServer.Stop()
 
-	return &v1.StopResponse{Success: true}, nil
+	return &pb.StopResponse{Success: true}, nil
 }
 
 // Ping returns true and can be used to check if the agent is running
-func (s *server) Ping(ctx context.Context, request *v1.PingRequest) (*v1.PingResponse, error) {
+func (s *server) Ping(ctx context.Context, request *pb.PingRequest) (*pb.PingResponse, error) {
 
-	return &v1.PingResponse{Success: true}, nil
+	return &pb.PingResponse{Success: true}, nil
 }
 
 // Version returns the version of the installed Pennsieve Agent and CLU
-func (s *server) Version(ctx context.Context, request *v1.VersionRequest) (*v1.VersionResponse, error) {
+func (s *server) Version(ctx context.Context, request *pb.VersionRequest) (*pb.VersionResponse, error) {
 
-	return &v1.VersionResponse{Version: Version, LogLevel: LogLevel}, nil
+	return &pb.VersionResponse{Version: Version, LogLevel: LogLevel}, nil
 }
 
 // HELPER FUNCTIONS
@@ -139,10 +139,10 @@ func (s *server) messageSubscribers(message string) {
 			return false
 		}
 		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&v1.SubscribeResponse{
-			Type: v1.SubscribeResponse_EVENT,
-			MessageData: &v1.SubscribeResponse_EventInfo{
-				EventInfo: &v1.SubscribeResponse_EventResponse{Details: message}},
+		if err := sub.stream.Send(&pb.SubscribeResponse{
+			Type: pb.SubscribeResponse_EVENT,
+			MessageData: &pb.SubscribeResponse_EventInfo{
+				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			log.Printf("Failed to send data to client: %v", err)
 			select {
@@ -200,7 +200,7 @@ func StartAgent() error {
 	server.User.SetPennsieveClient(client)
 
 	// Register services
-	v1.RegisterAgentServer(GRPCServer, server)
+	pb.RegisterAgentServer(GRPCServer, server)
 
 	fmt.Printf("GRPC server listening on: %s", lis.Addr())
 

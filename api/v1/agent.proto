@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-option go_package = "github.com/pennsieve/pennsieve-agent/protos";
-package protos;
+option go_package = "github.com/pennsieve/pennsieve-agent/api/v1";
+package v1;
 
 service Agent {
 	// Manifest Endpoints
