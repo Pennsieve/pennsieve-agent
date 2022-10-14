@@ -1,3 +1,7 @@
+**1.2.0**
+- Improved: Wrapping services in Interfaces and restructuring packages
+- Fixed: time-out of AWS session due to race-condition
+
 **1.1.20**
 - Added Version method to GRPC server instead of CLI.
 
