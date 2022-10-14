@@ -98,10 +98,14 @@ func initViper() error {
 		os.Exit(1)
 	}
 
+	home, _ := os.UserHomeDir()
+	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
+
 	viper.SetDefault("agent.port", "9000")
 	viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
 	viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 	viper.SetDefault("global.default_profile", "user")
+	viper.SetDefault("agent.db_path", dbPath)
 
 	viper.AutomaticEnv() // read in environment variables that match
 

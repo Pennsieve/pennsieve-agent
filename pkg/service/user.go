@@ -145,7 +145,7 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 	}
 
 	// Get the User for the new profile
-	existingUser, err := s.client.User.GetUser(nil, nil)
+	existingUser, err := s.client.User.GetUser(nil)
 	if err != nil {
 		fmt.Println("Problem with getting user", err)
 		return nil, err

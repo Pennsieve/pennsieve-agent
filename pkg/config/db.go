@@ -13,8 +13,6 @@ import (
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -25,10 +23,11 @@ import (
 // 3. Ensures that the userInfo table has a valid entry
 func InitializeDB() (*sql.DB, error) {
 	// Initialize connection to the database
-	var err error
-	home, err := os.UserHomeDir()
-	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
+	dbPath := viper.GetString("agent.db_path")
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	if err != nil {
+		log.Error("Unable to open database")
+	}
 
 	userSettingsStore := store.NewUserSettingsStore(db)
 	userInfoStore := store.NewUserInfoStore(db)
@@ -88,7 +87,7 @@ func InitializeDB() (*sql.DB, error) {
 			}
 
 			// Get the User for the new profile
-			existingUser, err := client.User.GetUser(nil, nil)
+			existingUser, err := client.User.GetUser(nil)
 			if err != nil {
 				log.Error("Problem with getting user", err)
 				return nil, err

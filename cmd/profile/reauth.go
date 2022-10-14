@@ -48,7 +48,7 @@ var ReauthCmd = &cobra.Command{
 		}
 
 		showFull, _ := cmd.Flags().GetBool("full")
-		whoami.PrettyPrint(userResponse, pennsieveClient.Authentication.BaseUrl, showFull)
+		whoami.PrettyPrint(userResponse, pennsieveClient.BaseUrl, showFull)
 	},
 }
 

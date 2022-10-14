@@ -65,7 +65,7 @@ var WhoamiCmd = &cobra.Command{
 		}
 
 		showFull, _ := cmd.Flags().GetBool("full")
-		PrettyPrint(userResponse, pennsieveClient.Authentication.BaseUrl, showFull)
+		PrettyPrint(userResponse, pennsieveClient.BaseUrl, showFull)
 	},
 }
 
