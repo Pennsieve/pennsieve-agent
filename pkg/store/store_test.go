@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/pennsieve/pennsieve-agent/migrations"
 	"os"
 	"path/filepath"
