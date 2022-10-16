@@ -42,7 +42,7 @@ var rootCmd = &cobra.Command{
 
 		// Initialize Viper before each command/subcommand
 		// Except when user runs the setup config wizard
-		if cmd.CommandPath() == "pennsieve config wizard" {
+		if cmd.CommandPath() == "pennsieve config wizard" || cmd.CommandPath() == "pennsieve config init" {
 			return nil
 		}
 

@@ -251,7 +251,7 @@ func (s *manifestFileStore) SyncResponseStatusUpdate(manifestId int32, statusLis
 				sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s' "+
 					"WHERE manifest_id = %d AND upload_id IN (%s);", key, manifestId, allUploadIds)
 
-				log.Info("Updating Database with %d rows\n", len(status[i:j]))
+				log.Info(fmt.Sprintf("Updating Database with %d rows\n", len(status[i:j])))
 				_, err := s.db.Exec(sqlStatement)
 				if err != nil {
 					log.Error("Unable to update status in manifest files for manifest:", manifestId, "--", err)
@@ -436,7 +436,7 @@ func (s *manifestFileStore) GetNumberOfRowsForStatus(manifestId int32, statusArr
 	case err != nil:
 		return 0, errors.New("unable to get number of rows to be synchronized")
 	default:
-		log.Info("About to synchronize %d files.", totalNrRows)
+		log.Info(fmt.Sprintf("About to synchronize %d files.", totalNrRows))
 	}
 
 	return totalNrRows, nil

@@ -23,6 +23,7 @@ var stopCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetString("port")
 		if len(port) == 0 {
 			port = viper.GetString("agent.port")
+			fmt.Printf("Stopping port: %s\n", port)
 		}
 
 		req := v1.StopRequest{}
