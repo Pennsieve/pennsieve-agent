@@ -1,4 +1,7 @@
 ![Release](https://github.com/Pennsieve/pennsieve-agent/actions/workflows/go.yml/badge.svg?branch=main)
+![Version](https://img.shields.io/github/v/release/Pennsieve/pennsieve-agent?include_prereleases)
+
+
 
 # pennsieve-agent
 Second iteration of the Pennsieve Agent
