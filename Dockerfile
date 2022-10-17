@@ -6,7 +6,7 @@ ARG PENNSIEVE_PATH
 ARG API_KEY
 ARG API_SECRET
 
-WORKDIR $PENNSIEVE_PATH
+WORKDIR /opt/pennsieve
 
 #copy all files from the repo
 COPY . .
