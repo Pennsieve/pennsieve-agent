@@ -1,3 +1,6 @@
+![Release](https://github.com/Pennsieve/pennsieve-agent/actions/workflows/publish-release.yml/badge.svg)
+
+
 # pennsieve-agent
 Second iteration of the Pennsieve Agent
 
