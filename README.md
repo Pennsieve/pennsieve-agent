@@ -42,13 +42,6 @@ for Python, use:
 make compile-python
 ```
 
-
-## Testing
-We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
-
-The goal is to keep testing simple and effective. There is no need to make testing itself complex. 
-
-
 ## Pennsieve Configuration File
 The CLI depends on a configuration file in the ~/.pennsieve folder. You can initialize this file 
 with the ```pennsieve-agent config wizard``` command. 
@@ -59,3 +52,21 @@ If you are using a profile for a non-standard environment, you can manually add 
 api_host = XXXX (eg. https://api.pennsieve.net)
 upload_bucket = XXXXX (eg. pennsieve-dev-uploads-v2-use1)
 ```
+
+### Specifying Agent Parameters
+The Pennsieve Agent is configured with a set of default parameters. You can update these parameters by specifying these in the configuration file. Specifically, you can update:
+
+```shell
+[agent]
+upload_chunck_size:     The size of each chunk that is uploaded to the platform as part of a multipart upload process
+port                    The port on which the agent is available
+upload_workers          The number of files that are uploaded simultaneously.
+```
+
+## Logging
+We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.
+
+## Testing
+We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
+
+The goal is to keep testing simple and effective. There is no need to make testing itself complex. 
