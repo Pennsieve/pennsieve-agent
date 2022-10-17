@@ -12,10 +12,10 @@ WORKDIR /opt/pennsieve
 COPY . .
 
 #check what is copied
-#RUN ls -la $PENNSIEVE_PATH/*
+RUN ls -la /opt/pennsieve/$PENNSIEVE_PATH/*
 
-#RUN go build -v -o /opt/pennsieve/$PENNSIEVE_PATH .
-RUN echo "${PENNSIEVE_PATH}"
+RUN go build -v -o /opt/pennsieve/$PENNSIEVE_PATH .
+#RUN echo "${PENNSIEVE_PATH}"
 #RUN go run /opt/pennsieve/$PENNSIEVE_PATH/main.go config init ${{ env.PENNSIEVE_PATH }} --api_token=${{ env.PENNSIEVE_API_KEY}} --api_secret=${{ env.PENNSIEVE_API_SECRET }} -f
 #RUN go run /opt/pennsieve/$PENNSIEVE_PATH/main.go agent start
 
