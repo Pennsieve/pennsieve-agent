@@ -105,7 +105,7 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 		}
 		response, err := stream.Recv()
 		if err != nil {
-			log.Warn("Failed to receive message: %v", err)
+			log.Warn(fmt.Sprintf("Failed to receive message: %v", err))
 			// Clearing the stream will force the client to resubscribe on next iteration
 			stream = nil
 			c.sleep()
