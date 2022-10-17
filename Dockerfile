@@ -15,7 +15,8 @@ COPY . .
 #RUN ls -la $PENNSIEVE_PATH/*
 
 RUN go build -v -o /opt/pennsieve/$PENNSIEVE_PATH .
-RUN go run /opt/pennsieve/$PENNSIEVE_PATH/main.go config init $PENNSIEVE_PATH --api_token=$API_KEY --api_secret=$API_SECRET
+RUN echo $PENNSIEVE_PATH
+RUN go run /opt/pennsieve/$PENNSIEVE_PATH/main.go config init $PENNSIEVE_PATH --api_token=$API_KEY --api_secret=$API_SECRET -f
 RUN go run /opt/pennsieve/$PENNSIEVE_PATH/main.go agent start
 
 #Running: sudo docker build . --build-arg 'PENNSIEVE_PATH=.' --build-arg 'API_KEY=key' --build-arg 'API_SECRET=secret'
