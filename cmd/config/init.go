@@ -72,9 +72,9 @@ need to specify the config.ini file location with every command by passing in th
 		viper.Set("agent.port", "9000")
 		viper.Set("agent.upload_workers", "10")    // Number of concurrent files during upload
 		viper.Set("agent.upload_chunk_size", "32") // Upload chunk-size in MB
+		viper.Set("global.default_profile", profileName)
 		viper.Set(fmt.Sprintf("%s.api_token", profileName), apiToken)
 		viper.Set(fmt.Sprintf("%s.api_secret", profileName), apiSecret)
-		viper.Set("global.default_profile", profileName)
 
 		// Write new configuration file.
 		err = viper.WriteConfig()
