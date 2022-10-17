@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.19.1
-// source: protos/agent.proto
+// source: api/v1/agent.proto
 
-package protos
+package v1
 
 import (
 	context "context"
@@ -59,7 +59,7 @@ func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
 
 func (c *agentClient) CreateManifest(ctx context.Context, in *CreateManifestRequest, opts ...grpc.CallOption) (*CreateManifestResponse, error) {
 	out := new(CreateManifestResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/CreateManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/CreateManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (c *agentClient) CreateManifest(ctx context.Context, in *CreateManifestRequ
 
 func (c *agentClient) AddToManifest(ctx context.Context, in *AddToManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/AddToManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/AddToManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (c *agentClient) AddToManifest(ctx context.Context, in *AddToManifestReques
 
 func (c *agentClient) RemoveFromManifest(ctx context.Context, in *RemoveFromManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/RemoveFromManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/RemoveFromManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (c *agentClient) RemoveFromManifest(ctx context.Context, in *RemoveFromMani
 
 func (c *agentClient) DeleteManifest(ctx context.Context, in *DeleteManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/DeleteManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/DeleteManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (c *agentClient) DeleteManifest(ctx context.Context, in *DeleteManifestRequ
 
 func (c *agentClient) ListManifests(ctx context.Context, in *ListManifestsRequest, opts ...grpc.CallOption) (*ListManifestsResponse, error) {
 	out := new(ListManifestsResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/ListManifests", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/ListManifests", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *agentClient) ListManifests(ctx context.Context, in *ListManifestsReques
 
 func (c *agentClient) ListManifestFiles(ctx context.Context, in *ListManifestFilesRequest, opts ...grpc.CallOption) (*ListManifestFilesResponse, error) {
 	out := new(ListManifestFilesResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/ListManifestFiles", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/ListManifestFiles", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (c *agentClient) ListManifestFiles(ctx context.Context, in *ListManifestFil
 
 func (c *agentClient) RelocateManifestFiles(ctx context.Context, in *RelocateManifestFilesRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/RelocateManifestFiles", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/RelocateManifestFiles", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (c *agentClient) RelocateManifestFiles(ctx context.Context, in *RelocateMan
 
 func (c *agentClient) SyncManifest(ctx context.Context, in *SyncManifestRequest, opts ...grpc.CallOption) (*SyncManifestResponse, error) {
 	out := new(SyncManifestResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/SyncManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/SyncManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (c *agentClient) SyncManifest(ctx context.Context, in *SyncManifestRequest,
 
 func (c *agentClient) ResetManifest(ctx context.Context, in *ResetManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/ResetManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/ResetManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (c *agentClient) ResetManifest(ctx context.Context, in *ResetManifestReques
 
 func (c *agentClient) UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/UploadManifest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/UploadManifest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *agentClient) UploadManifest(ctx context.Context, in *UploadManifestRequ
 
 func (c *agentClient) CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/CancelUpload", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/CancelUpload", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (c *agentClient) CancelUpload(ctx context.Context, in *CancelUploadRequest,
 
 func (c *agentClient) Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error) {
 	out := new(VersionResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/Version", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Version", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (c *agentClient) Version(ctx context.Context, in *VersionRequest, opts ...g
 }
 
 func (c *agentClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Agent_ServiceDesc.Streams[0], "/protos.Agent/Subscribe", opts...)
+	stream, err := c.cc.NewStream(ctx, &Agent_ServiceDesc.Streams[0], "/v1.Agent/Subscribe", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (x *agentSubscribeClient) Recv() (*SubscribeResponse, error) {
 
 func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*SubscribeResponse, error) {
 	out := new(SubscribeResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/Unsubscribe", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Unsubscribe", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (c *agentClient) Unsubscribe(ctx context.Context, in *SubscribeRequest, opt
 
 func (c *agentClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error) {
 	out := new(StopResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/Stop", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Stop", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (c *agentClient) Stop(ctx context.Context, in *StopRequest, opts ...grpc.Ca
 
 func (c *agentClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
 	out := new(PingResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/Ping", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Ping", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (c *agentClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.Ca
 
 func (c *agentClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*UserResponse, error) {
 	out := new(UserResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/GetUser", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/GetUser", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (c *agentClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...g
 
 func (c *agentClient) SwitchProfile(ctx context.Context, in *SwitchProfileRequest, opts ...grpc.CallOption) (*UserResponse, error) {
 	out := new(UserResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/SwitchProfile", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/SwitchProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func (c *agentClient) SwitchProfile(ctx context.Context, in *SwitchProfileReques
 
 func (c *agentClient) ReAuthenticate(ctx context.Context, in *ReAuthenticateRequest, opts ...grpc.CallOption) (*UserResponse, error) {
 	out := new(UserResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/ReAuthenticate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/ReAuthenticate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (c *agentClient) ReAuthenticate(ctx context.Context, in *ReAuthenticateRequ
 
 func (c *agentClient) UseDataset(ctx context.Context, in *UseDatasetRequest, opts ...grpc.CallOption) (*UseDatasetResponse, error) {
 	out := new(UseDatasetResponse)
-	err := c.cc.Invoke(ctx, "/protos.Agent/UseDataset", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/UseDataset", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func _Agent_CreateManifest_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/CreateManifest",
+		FullMethod: "/v1.Agent/CreateManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).CreateManifest(ctx, req.(*CreateManifestRequest))
@@ -397,7 +397,7 @@ func _Agent_AddToManifest_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/AddToManifest",
+		FullMethod: "/v1.Agent/AddToManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).AddToManifest(ctx, req.(*AddToManifestRequest))
@@ -415,7 +415,7 @@ func _Agent_RemoveFromManifest_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/RemoveFromManifest",
+		FullMethod: "/v1.Agent/RemoveFromManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).RemoveFromManifest(ctx, req.(*RemoveFromManifestRequest))
@@ -433,7 +433,7 @@ func _Agent_DeleteManifest_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/DeleteManifest",
+		FullMethod: "/v1.Agent/DeleteManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).DeleteManifest(ctx, req.(*DeleteManifestRequest))
@@ -451,7 +451,7 @@ func _Agent_ListManifests_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/ListManifests",
+		FullMethod: "/v1.Agent/ListManifests",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).ListManifests(ctx, req.(*ListManifestsRequest))
@@ -469,7 +469,7 @@ func _Agent_ListManifestFiles_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/ListManifestFiles",
+		FullMethod: "/v1.Agent/ListManifestFiles",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).ListManifestFiles(ctx, req.(*ListManifestFilesRequest))
@@ -487,7 +487,7 @@ func _Agent_RelocateManifestFiles_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/RelocateManifestFiles",
+		FullMethod: "/v1.Agent/RelocateManifestFiles",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).RelocateManifestFiles(ctx, req.(*RelocateManifestFilesRequest))
@@ -505,7 +505,7 @@ func _Agent_SyncManifest_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/SyncManifest",
+		FullMethod: "/v1.Agent/SyncManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).SyncManifest(ctx, req.(*SyncManifestRequest))
@@ -523,7 +523,7 @@ func _Agent_ResetManifest_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/ResetManifest",
+		FullMethod: "/v1.Agent/ResetManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).ResetManifest(ctx, req.(*ResetManifestRequest))
@@ -541,7 +541,7 @@ func _Agent_UploadManifest_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/UploadManifest",
+		FullMethod: "/v1.Agent/UploadManifest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).UploadManifest(ctx, req.(*UploadManifestRequest))
@@ -559,7 +559,7 @@ func _Agent_CancelUpload_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/CancelUpload",
+		FullMethod: "/v1.Agent/CancelUpload",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).CancelUpload(ctx, req.(*CancelUploadRequest))
@@ -577,7 +577,7 @@ func _Agent_Version_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/Version",
+		FullMethod: "/v1.Agent/Version",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Version(ctx, req.(*VersionRequest))
@@ -616,7 +616,7 @@ func _Agent_Unsubscribe_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/Unsubscribe",
+		FullMethod: "/v1.Agent/Unsubscribe",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Unsubscribe(ctx, req.(*SubscribeRequest))
@@ -634,7 +634,7 @@ func _Agent_Stop_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/Stop",
+		FullMethod: "/v1.Agent/Stop",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Stop(ctx, req.(*StopRequest))
@@ -652,7 +652,7 @@ func _Agent_Ping_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/Ping",
+		FullMethod: "/v1.Agent/Ping",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Ping(ctx, req.(*PingRequest))
@@ -670,7 +670,7 @@ func _Agent_GetUser_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/GetUser",
+		FullMethod: "/v1.Agent/GetUser",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).GetUser(ctx, req.(*GetUserRequest))
@@ -688,7 +688,7 @@ func _Agent_SwitchProfile_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/SwitchProfile",
+		FullMethod: "/v1.Agent/SwitchProfile",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).SwitchProfile(ctx, req.(*SwitchProfileRequest))
@@ -706,7 +706,7 @@ func _Agent_ReAuthenticate_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/ReAuthenticate",
+		FullMethod: "/v1.Agent/ReAuthenticate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).ReAuthenticate(ctx, req.(*ReAuthenticateRequest))
@@ -724,7 +724,7 @@ func _Agent_UseDataset_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protos.Agent/UseDataset",
+		FullMethod: "/v1.Agent/UseDataset",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).UseDataset(ctx, req.(*UseDatasetRequest))
@@ -736,7 +736,7 @@ func _Agent_UseDataset_Handler(srv interface{}, ctx context.Context, dec func(in
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Agent_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "protos.Agent",
+	ServiceName: "v1.Agent",
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -823,5 +823,5 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "protos/agent.proto",
+	Metadata: "api/v1/agent.proto",
 }

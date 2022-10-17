@@ -16,7 +16,6 @@ limitations under the License.
 package upload
 
 import (
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
 	"github.com/spf13/cobra"
 )
 
@@ -29,9 +28,6 @@ var UploadCmd = &cobra.Command{
 	Use:   "upload [flags] [PATH] [...PATH]",
 	Short: "Upload files to the Pennsieve platform.",
 	Long:  `Upload files to the Pennsieve platform.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 }
 
 func init() {

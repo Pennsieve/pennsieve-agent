@@ -18,9 +18,9 @@ package upload
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -45,7 +45,7 @@ var ManifestCmd = &cobra.Command{
 		}
 
 		manifestId := int32(i)
-		req := pb.UploadManifestRequest{ManifestId: manifestId}
+		req := v1.UploadManifestRequest{ManifestId: manifestId}
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -54,7 +54,7 @@ var ManifestCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 		_, err = client.UploadManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintln("Error uploading manifest: ", err))
@@ -68,14 +68,14 @@ var ManifestCmd = &cobra.Command{
 
 		// Subscribe to messages from the GRPC server and quit when upload is complete.
 		r1 := rand.New(rand.NewSource(time.Now().UnixNano()))
-		SubscribeClient, err := subscriber.GetClient(int32(r1.Intn(100)))
+		SubscribeClient, err := subscriber.NewSubscriberClient(int32(r1.Intn(100)))
 		if err != nil {
 			fmt.Println("Unable to track uploads. Please check logs to verify files are uploaded.")
 		}
-		SubscribeClient.Start([]pb.SubscribeResponse_MessageType{
-			pb.SubscribeResponse_UPLOAD_STATUS, pb.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
+		SubscribeClient.Start([]v1.SubscribeResponse_MessageType{
+			v1.SubscribeResponse_UPLOAD_STATUS, v1.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
 			Enable: true,
-			OnType: []pb.SubscribeResponse_MessageType{pb.SubscribeResponse_UPLOAD_STATUS},
+			OnType: []v1.SubscribeResponse_MessageType{v1.SubscribeResponse_UPLOAD_STATUS},
 		})
 	},
 }

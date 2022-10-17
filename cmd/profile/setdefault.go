@@ -24,7 +24,7 @@ import (
 var SetDefaultCmd = &cobra.Command{
 	Use:   "set-default",
 	Short: "Update the default profile",
-	Long:  `Stores a default profile in the Pennsieve db.ini file`,
+	Long:  `Stores a default profile in the Pennsieve config.ini file`,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		profile := args[0]

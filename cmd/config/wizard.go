@@ -3,9 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -20,6 +20,7 @@ API credentials.
 
 NOTE: This method will remove any existing configuration file if it exists and previously defined API-Keys and secrets 
 will not be recoverable. Use the 'pennsieve profile create' function to add profiles to an existing configuration file.
+
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -77,6 +78,13 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 		fmt.Scanln(&response)
 
 		if response == "y" {
+			viper.GetInt("agent.upload_workers")
+			viper.GetInt("agent.upload_workers")
+			viper.GetInt("agent.upload_workers")
+
+			viper.Set("agent.port", "9000")
+			viper.Set("agent.upload_workers", "10")    // Number of concurrent files during upload
+			viper.Set("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 			viper.Set(fmt.Sprintf("%s.api_token", profileName), apiToken)
 			viper.Set(fmt.Sprintf("%s.api_secret", profileName), apiSecret)
 			viper.Set("global.default_profile", profileName)
@@ -86,6 +94,8 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 			if err != nil {
 				fmt.Println(err)
 			}
+
+			log.Info("New profile created in config file: ", profileName)
 		}
 	},
 }

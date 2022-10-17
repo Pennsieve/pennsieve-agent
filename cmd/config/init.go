@@ -2,62 +2,105 @@ package config
 
 import (
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/migrations"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	dbConfig "github.com/pennsieve/pennsieve-agent/pkg/db"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
-//InitDB is used in every (except config) CMD to initialize configuration and DB.
-func InitDB() {
+var InitCmd = &cobra.Command{
+	Use:   "init <config file path>",
+	Short: "Create a new Pennsieve Profile at a specified location.",
+	Long: `Create a new Pennsieve configuration file and add profile with API Key/secret.
 
-	// Read configuration variables from config.ini file.
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("No Pennsieve configuration file exists.")
-		fmt.Println("\nPlease use `pennsieve-agent config wizard` to setup your Pennsieve profile.")
-		os.Exit(1)
-	}
+NOTE: This method ignores the globally defined "config" parameter. You set the file path for 
+the new configuration file as the first argument for the method.
 
-	// Initialize SQLITE database
-	_, err := dbConfig.InitializeDB()
+NOTE: When invoking the Pennsieve CLI, when you want to use a different config.ini file than the default file, you
+need to specify the config.ini file location with every command by passing in the "config" parameter. `,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
 
-	// Get current user-settings. This is either 0, or 1 entry.
-	var clientSession models.UserSettings
-	_, err = clientSession.Get()
-	if err != nil {
-		fmt.Println("Setup database")
-		migrations.Run()
+		configFile := args[0]
+		forceCreate, _ := cmd.Flags().GetBool("force")
+		profileName, _ := cmd.Flags().GetString("profile")
+		apiToken, _ := cmd.Flags().GetString("api_token")
+		apiSecret, _ := cmd.Flags().GetString("api_secret")
 
-		selectedProfile := viper.GetString("global.default_profile")
-		fmt.Println("Selected Profile: ", selectedProfile)
+		if len(configFile) == 0 {
 
-		if selectedProfile == "" {
-			log.Fatalf("No default profile defined in %s. Please update configuration.\n\n",
-				viper.ConfigFileUsed())
 		}
 
-		// Create new user settings
-		params := models.UserSettingsParams{
-			UserId:  "",
-			Profile: selectedProfile,
+		if strings.HasPrefix(configFile, "~/") {
+			dirname, _ := os.UserHomeDir()
+			configFile = filepath.Join(dirname, configFile[2:])
 		}
-		_, err = models.CreateNewUserSettings(params)
+
+		// Check if file already exists and confirm user wants to replace.
+		_, err := os.Stat(configFile)
+		if err == nil {
+			if !forceCreate {
+				fmt.Println("Existing configuration file found at:", configFile)
+				fmt.Printf("\nWould you like to overwrite your existing configuration? (y/n): ")
+
+				response := ""
+				fmt.Scanln(&response)
+
+				if response != "y" {
+					fmt.Println("Cancelling action.")
+					return
+				}
+
+				os.Remove(configFile)
+			} else {
+				os.Remove(configFile)
+			}
+		} else {
+			fmt.Println(err)
+		}
+
+		viper.SetConfigFile(configFile)
+		viper.AddConfigPath(configFile)
+
+		configPath := filepath.Dir(configFile)
+
+		// Ensure folder is created
+		os.MkdirAll(configPath, os.ModePerm)
+
+		viper.SetConfigType("ini")
+		viper.Set("agent.port", "9000")
+		viper.Set("agent.upload_workers", "10")    // Number of concurrent files during upload
+		viper.Set("agent.upload_chunk_size", "32") // Upload chunk-size in MB
+		viper.Set(fmt.Sprintf("%s.api_token", profileName), apiToken)
+		viper.Set(fmt.Sprintf("%s.api_secret", profileName), apiSecret)
+		viper.Set("global.default_profile", profileName)
+
+		// Write new configuration file.
+		err = viper.WriteConfig()
 		if err != nil {
-			log.Fatalln("Error Creating new UserSettings")
+			fmt.Println(err)
 		}
 
-	}
+		fmt.Println("New configuration file created: ", viper.ConfigFileUsed())
 
-	err = api.InitializeAPI()
-	if err != nil {
-		log.Fatalln("Unable to initialize API: ", err)
-	}
+	},
+}
 
-	_, err = api.UpdateActiveUser()
-	if err != nil {
-		log.Fatalln("Unable to get active user: ", err)
-	}
+func init() {
+
+	InitCmd.MarkFlagRequired("config")
+
+	InitCmd.Flags().String("profile",
+		"user", "Profile name to be associated with provided api key/secret")
+
+	InitCmd.Flags().String("api_token",
+		"", "Target base path in dataset.")
+
+	InitCmd.Flags().String("api_secret",
+		"", "Target base path in dataset.")
+
+	InitCmd.Flags().BoolP("force", "f",
+		false, "Force creation of config file.")
+
 }

@@ -2,8 +2,8 @@ package agent
 
 import (
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -21,7 +21,7 @@ var subscribeCmd = &cobra.Command{
 		wg.Add(1)
 		s1 := rand.NewSource(time.Now().UnixNano())
 		r1 := rand.New(s1)
-		client, err := subscriber.GetClient(int32(r1.Intn(100)))
+		client, err := subscriber.NewSubscriberClient(int32(r1.Intn(100)))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -30,6 +30,7 @@ var subscribeCmd = &cobra.Command{
 			Enable: false,
 			OnType: nil,
 		})
+
 		time.Sleep(time.Second * 2)
 
 		// The wait group purpose is to avoid exiting, the clients do not exit

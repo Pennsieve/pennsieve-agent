@@ -3,30 +3,27 @@ package dataset
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"log"
 )
 
 var UseCmd = &cobra.Command{
 	Use:   "use <dataset>",
 	Short: "Set your current working dataset.",
 	Long:  `Set your current working dataset.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
-	Args: cobra.MinimumNArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
 		datasetId := args[0]
 
-		req := pb.UseDatasetRequest{
+		req := v1.UseDatasetRequest{
 			DatasetId: datasetId,
 		}
 
@@ -41,7 +38,7 @@ var UseCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// Update active dataset using GRPC
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 		useDatasetResponse, err := client.UseDataset(ctx, &req)
 		if err != nil {
 			st := status.Convert(err)
@@ -50,11 +47,17 @@ var UseCmd = &cobra.Command{
 		}
 
 		// Get the dataset directly from service to render
-		pennsieveClient := api.PennsieveClient
+		db, _ := config.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		userInfoStore := store.NewUserInfoStore(db)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		if err != nil {
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
 		response, err := pennsieveClient.Dataset.Get(ctx, useDatasetResponse.DatasetId)
 		if err != nil {
 			fmt.Println("Error fetching dataset from Pennsieve: ", useDatasetResponse.DatasetId)
-			log.Println("CMD:Dataset:Use: ", err)
+			log.Error("CMD:Dataset:Use: ", err)
 			return
 		}
 

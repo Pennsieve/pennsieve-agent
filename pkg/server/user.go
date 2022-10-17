@@ -2,15 +2,13 @@ package server
 
 import (
 	"context"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
-	"log"
+	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	log "github.com/sirupsen/logrus"
 )
 
 func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
 
-	activeUser, err := api.UpdateActiveUser()
+	activeUser, err := s.User.UpdateActiveUser()
 	if err != nil {
 		return nil, err
 	}
@@ -30,9 +28,9 @@ func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.U
 
 func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileRequest) (*pb.UserResponse, error) {
 
-	activeUser, err := api.SwitchUser(request.Profile)
+	activeUser, err := s.User.SwitchUser(request.Profile)
 	if err != nil {
-		log.Println("Error:SwitchProfile: ", err)
+		log.Error("Error:SwitchProfile: ", err)
 		return nil, err
 	}
 
@@ -51,13 +49,13 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 
 func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
 
-	apiSession, _ := api.ReAuthenticate()
-	activeUser, err := api.UpdateActiveUser()
+	apiSession, _ := s.User.ReAuthenticate()
+	activeUser, err := s.User.UpdateActiveUser()
 	if err != nil {
 		return nil, err
 	}
 
-	updatedUser, _ := models.UpdateTokenForUser(activeUser, &apiSession)
+	updatedUser, _ := s.User.UpdateTokenForUser(activeUser, &apiSession)
 
 	resp := pb.UserResponse{
 		Id:               updatedUser.Id,

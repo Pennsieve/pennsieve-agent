@@ -2,20 +2,18 @@ package migrations
 
 import (
 	"database/sql"
-	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
-func Run() {
+func Run(db *sql.DB) {
 	// Iterate over migration steps
-	migrate(db.DB, UserInfo)
-	migrate(db.DB, UserSettings)
-	migrate(db.DB, Manifests)
-	migrate(db.DB, ManifestFiles)
+	migrate(db, UserInfo)
+	migrate(db, UserSettings)
+	migrate(db, Manifests)
+	migrate(db, ManifestFiles)
 	// Other migrations can be added here.
 
-	fmt.Println("Database initialized...")
+	log.Info("Database initialized...")
 
 }
 func migrate(dbDriver *sql.DB, query string) {
@@ -23,9 +21,9 @@ func migrate(dbDriver *sql.DB, query string) {
 	if err == nil {
 		_, creationError := statement.Exec()
 		if creationError != nil {
-			log.Println(creationError.Error())
+			log.Error(creationError.Error())
 		}
 	} else {
-		log.Println(err.Error())
+		log.Error(err.Error())
 	}
 }

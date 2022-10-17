@@ -1,11 +1,10 @@
-package models
+package store
 
 import (
 	"database/sql"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -32,14 +31,32 @@ type ManifestParams struct {
 	DatasetName      string `json:"dataset_name"`
 }
 
-// Get returns all rows in the Upload Record Table
-func (*Manifest) Get(id int32) (*Manifest, error) {
+type ManifestStore interface {
+	Get(id int32) (*Manifest, error)
+	GetAll() ([]Manifest, error)
+	Add(s ManifestParams) (*Manifest, error)
+	Remove(manifestId int32) error
+	SetManifestNodeId(manifestId int32, nodeId string) error
+}
 
-	log.Println("Getting manifest with ID: ", id)
+func NewManifestStore(db *sql.DB) *manifestStore {
+	return &manifestStore{
+		db: db,
+	}
+}
+
+type manifestStore struct {
+	db *sql.DB
+}
+
+// Get returns all rows in the Upload Record Table
+func (s *manifestStore) Get(id int32) (*Manifest, error) {
+
+	log.Debug("Getting manifest with ID: ", id)
 
 	var statusStr string
 	res := &Manifest{}
-	err := db.DB.QueryRow(fmt.Sprintf(
+	err := s.db.QueryRow(fmt.Sprintf(
 		"SELECT * FROM manifests WHERE id=%d", id)).Scan(
 		&res.Id,
 		&res.NodeId,
@@ -60,8 +77,8 @@ func (*Manifest) Get(id int32) (*Manifest, error) {
 }
 
 // GetAll returns all rows in the Upload Record Table
-func (*Manifest) GetAll() ([]Manifest, error) {
-	rows, err := db.DB.Query("SELECT * FROM manifests;")
+func (s *manifestStore) GetAll() ([]Manifest, error) {
+	rows, err := s.db.Query("SELECT * FROM manifests;")
 	var allSessions []Manifest
 	if err == nil {
 		for rows.Next() {
@@ -84,7 +101,7 @@ func (*Manifest) GetAll() ([]Manifest, error) {
 			currentRecord.Status = m.ManifestStatusMap(statusStr)
 
 			if err != nil {
-				log.Println("ERROR: ", err)
+				log.Error("ERROR: ", err)
 			}
 
 			allSessions = append(allSessions, currentRecord)
@@ -95,7 +112,7 @@ func (*Manifest) GetAll() ([]Manifest, error) {
 }
 
 // Add adds multiple rows to the UploadRecords database.
-func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
+func (s *manifestStore) Add(params ManifestParams) (*Manifest, error) {
 
 	sqlStatement := "INSERT INTO manifests(user_id, user_name, organization_id,  " +
 		"organization_name, dataset_id, dataset_name, " +
@@ -103,8 +120,8 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 
 	currentTime := time.Now()
 	var id int32
-	err := db.DB.QueryRow(sqlStatement, s.UserId, s.UserName, s.OrganizationId, s.OrganizationName, s.DatasetId,
-		s.DatasetName, manifest.Initiated.String(), currentTime, currentTime).Scan(&id)
+	err := s.db.QueryRow(sqlStatement, params.UserId, params.UserName, params.OrganizationId, params.OrganizationName, params.DatasetId,
+		params.DatasetName, manifest.Initiated.String(), currentTime, currentTime).Scan(&id)
 	if err != nil {
 		panic(err)
 	}
@@ -112,12 +129,12 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 	createdManifest := Manifest{
 		Id:               id,
 		NodeId:           sql.NullString{},
-		UserId:           s.UserId,
-		UserName:         s.UserName,
-		OrganizationId:   s.OrganizationId,
-		OrganizationName: s.OrganizationName,
-		DatasetId:        s.DatasetId,
-		DatasetName:      s.DatasetName,
+		UserId:           params.UserId,
+		UserName:         params.UserName,
+		OrganizationId:   params.OrganizationId,
+		OrganizationName: params.OrganizationName,
+		DatasetId:        params.DatasetId,
+		DatasetName:      params.DatasetName,
 		Status:           manifest.Initiated,
 		CreatedAt:        currentTime,
 		UpdatedAt:        currentTime,
@@ -127,9 +144,9 @@ func (m *Manifest) Add(s ManifestParams) (*Manifest, error) {
 }
 
 // Remove removes a manifest from the local DB.
-func (*Manifest) Remove(manifestId int32) error {
+func (s *manifestStore) Remove(manifestId int32) error {
 	sqlDelete := "DELETE FROM manifests WHERE id = ?"
-	stmt, err := db.DB.Prepare(sqlDelete)
+	stmt, err := s.db.Prepare(sqlDelete)
 	if err != nil {
 		log.Fatalln("ERROR: ", err)
 	}
@@ -138,34 +155,27 @@ func (*Manifest) Remove(manifestId int32) error {
 	_, err = stmt.Exec(manifestId)
 
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	return err
 }
 
 // SetManifestNodeId updates the manifest Node ID in the Manifest object and Database
-func (m *Manifest) SetManifestNodeId(nodeId string) error {
+func (s *manifestStore) SetManifestNodeId(manifestId int32, nodeId string) error {
 
-	m.NodeId = sql.NullString{
-		String: nodeId,
-		Valid:  true,
-	}
-
-	statement, err := db.DB.Prepare(
+	statement, err := s.db.Prepare(
 		"UPDATE manifests SET node_id = ? WHERE id = ?")
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return err
 	}
 
-	_, err = statement.Exec(nodeId, m.Id)
+	_, err = statement.Exec(nodeId, manifestId)
 	if err != nil {
-		log.Println("Unable to update Manifest Node Id in database: ", err)
+		log.Error("Unable to update Manifest Node Id in database: ", err)
 		return err
 	}
 
 	return nil
 }
-
-//func (*Manifest) SetStatus(manifestId int32, status)

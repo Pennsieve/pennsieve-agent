@@ -1,4 +1,4 @@
-// Package db /*
+// Package config /*
 package config
 
 import (
@@ -36,4 +36,5 @@ particular user. Do not share your config.ini file as API-Keys and secrets are p
 
 func init() {
 	ConfigCmd.AddCommand(WizardCmd)
+	ConfigCmd.AddCommand(InitCmd)
 }

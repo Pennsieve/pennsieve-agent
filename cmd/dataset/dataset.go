@@ -3,12 +3,11 @@ package dataset
 import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
-	"github.com/pennsieve/pennsieve-agent/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"unicode"
 )
@@ -20,24 +19,28 @@ var DatasetCmd = &cobra.Command{
 	Long: `Shows the dataset that is currently active. 
 
 Any manifests that are created will be uploaded to the active dataset.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		showFull, _ := cmd.Flags().GetBool("full")
 
-		var userSettings models.UserSettings
-		s, _ := userSettings.Get()
+		db, _ := config.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		s, _ := userSettingsStore.Get()
+
+		userInfoStore := store.NewUserInfoStore(db)
+
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		if err != nil {
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
 
 		if len(s.UseDatasetId) == 0 {
 			fmt.Println("\nError: No dataset specified; use 'pennsieve dataset use <node-id>' to set active dataset.")
 			return
 		}
 
-		client := api.PennsieveClient
-		response, err := client.Dataset.Get(nil, s.UseDatasetId)
+		response, err := pennsieveClient.Dataset.Get(nil, s.UseDatasetId)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			log.Fatalln("Unknown dataset: ", s.UseDatasetId)
 		}
 

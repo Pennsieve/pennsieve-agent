@@ -3,13 +3,13 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	gp "github.com/pennsieve/pennsieve-agent/pkg/server"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"os"
 	"os/exec"
 )
@@ -20,6 +20,8 @@ var startCmd = &cobra.Command{
 	Short: "Starts the Pennsieve Agent (blocking)",
 
 	Run: func(cmd *cobra.Command, args []string) {
+
+		fmt.Printf("Starting agent with config file: %s\n", viper.ConfigFileUsed())
 
 		// Allow parent to set daemon flag
 		if len(args) > 0 && args[0] == "daemon" {
@@ -33,15 +35,16 @@ var startCmd = &cobra.Command{
 
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
+			log.Error("Error connecting to GRPC Server: ", err)
 			fmt.Println("Error connecting to GRPC Server: ", err)
 			return
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 
 		// Check if Pennsieve Server is running at the selected port
-		resp, _ := client.Ping(context.Background(), &pb.PingRequest{})
+		resp, _ := client.Ping(context.Background(), &v1.PingRequest{})
 		if resp != nil {
 			fmt.Printf("Pennsieve Agent is already running on port: %s\n", viper.GetString("agent.port"))
 			return

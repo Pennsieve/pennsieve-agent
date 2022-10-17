@@ -2,11 +2,11 @@ package dataset
 
 import (
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
+	"github.com/pennsieve/pennsieve-agent/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 )
 
@@ -24,17 +24,24 @@ Search is fuzzy and returns datasets based on matches in:
 - description
 `,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
+		//config.InitDB()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		client := api.PennsieveClient
-		response, err := client.Dataset.Find(nil, limit, query)
+		db, _ := config.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		userInfoStore := store.NewUserInfoStore(db)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
-			log.Println(err)
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
+
+		response, err := pennsieveClient.Dataset.Find(nil, limit, query)
+		if err != nil {
+			log.Error(err)
 		}
 
 		PrettyPrintFind(response)

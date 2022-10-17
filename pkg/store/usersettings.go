@@ -1,9 +1,9 @@
-package models
+package store
 
 import (
+	"database/sql"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/db"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 type UserSettings struct {
@@ -18,9 +18,26 @@ type UserSettingsParams struct {
 	Profile string
 }
 
+type UserSettingsStore interface {
+	Get() (*UserSettings, error)
+	CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error)
+	UpdateActiveDataset(datasetId string) error
+	Delete() error
+}
+
+func NewUserSettingsStore(db *sql.DB) *userSettingsStore {
+	return &userSettingsStore{
+		db: db,
+	}
+}
+
+type userSettingsStore struct {
+	db *sql.DB
+}
+
 // Get returns the UserSettings object or nil if no user-settings are defined.
-func (*UserSettings) Get() (*UserSettings, error) {
-	rows, err := db.DB.Query("SELECT * FROM user_settings")
+func (s *userSettingsStore) Get() (*UserSettings, error) {
+	rows, err := s.db.Query("SELECT * FROM user_settings")
 	if err != nil {
 		return nil, err
 	}
@@ -39,15 +56,16 @@ func (*UserSettings) Get() (*UserSettings, error) {
 	} else {
 		return nil, &NoClientSessionError{}
 	}
+
 }
 
-// CreateNewUserSettings creates or replaces existing user-settings row in db.
-func CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
+// CreateNewUserSettings creates or replaces existing user-settings row in config.
+func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings := &UserSettings{}
-	statement, _ := db.DB.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
+	statement, _ := s.db.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
 	_, err := statement.Exec(data.UserId, data.Profile)
 	if err != nil {
-		log.Println("Unable to create user_record", err.Error())
+		log.Error("Unable to create user_record", err.Error())
 		return nil, err
 	}
 
@@ -57,8 +75,8 @@ func CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	return userSettings, err
 }
 
-func (*UserSettings) UpdateActiveDataset(datasetId string) error {
-	statement, err := db.DB.Prepare(
+func (s *userSettingsStore) UpdateActiveDataset(datasetId string) error {
+	statement, err := s.db.Prepare(
 		"UPDATE user_settings SET use_dataset_id = ?")
 	if err != nil {
 		return err
@@ -72,6 +90,11 @@ func (*UserSettings) UpdateActiveDataset(datasetId string) error {
 
 	return nil
 
+}
+
+func (s *userSettingsStore) Delete() error {
+	_, err := s.db.Exec("DELETE FROM user_settings;")
+	return err
 }
 
 type NoClientSessionError struct{}

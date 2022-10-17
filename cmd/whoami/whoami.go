@@ -19,10 +19,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/cmd/config"
+	"github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/api"
-	pb "github.com/pennsieve/pennsieve-agent/protos"
+	"github.com/pennsieve/pennsieve-agent/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -35,12 +36,9 @@ var WhoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Displays information about the logged in user.",
 	Long:  `Displays information about the logged in user.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := pb.GetUserRequest{}
+		req := v1.GetUserRequest{}
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -50,7 +48,7 @@ var WhoamiCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := pb.NewAgentClient(conn)
+		client := v1.NewAgentClient(conn)
 
 		userResponse, err := client.GetUser(context.Background(), &req)
 		if err != nil {
@@ -58,8 +56,16 @@ var WhoamiCmd = &cobra.Command{
 			return
 		}
 
+		db, _ := config.InitializeDB()
+		userSettingsStore := store.NewUserSettingsStore(db)
+		userInfoStore := store.NewUserInfoStore(db)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		if err != nil {
+			log.Fatalln("Cannot connect to Pennsieve.")
+		}
+
 		showFull, _ := cmd.Flags().GetBool("full")
-		PrettyPrint(userResponse, showFull)
+		PrettyPrint(userResponse, pennsieveClient.BaseUrl, showFull)
 	},
 }
 
@@ -69,7 +75,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(info *pb.UserResponse, showFull bool) {
+func PrettyPrint(info *v1.UserResponse, host string, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{
@@ -83,7 +89,7 @@ func PrettyPrint(info *pb.UserResponse, showFull bool) {
 			{"PROFILE", info.Profile},
 			{"ENVIRONMENT", info.Environment},
 			{"SESSION-TOKEN", info.SessionToken},
-			{"HOST", api.PennsieveClient.Authentication.BaseUrl},
+			{"HOST", host},
 		})
 	}
 
