@@ -61,11 +61,11 @@ func (s *server) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_Subscri
 	for {
 		select {
 		case <-fin:
-			log.Info("Closing stream for client ID: %d", request.Id)
+			log.Info(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			return nil
 		case <-ctx.Done():
-			log.Info("Client ID %d has disconnected", request.Id)
+			log.Info(fmt.Sprintf("Client ID %d has disconnected", request.Id))
 			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
 			return nil
 		}
@@ -85,7 +85,7 @@ func (s *server) Unsubscribe(ctx context.Context, request *pb.SubscribeRequest) 
 	}
 	select {
 	case sub.finished <- true:
-		log.Info("Unsubscribed client: %d", request.Id)
+		log.Info(fmt.Sprintf("Unsubscribed client: %d", request.Id))
 	default:
 		// Default case is to avoid blocking in case client has already unsubscribed
 	}
@@ -129,12 +129,12 @@ func (s *server) messageSubscribers(message string) {
 	s.subscribers.Range(func(k, v interface{}) bool {
 		id, ok := k.(int32)
 		if !ok {
-			log.Error("Failed to cast subscriber key: %T", k)
+			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
 		sub, ok := v.(sub)
 		if !ok {
-			log.Error("Failed to cast subscriber value: %T", v)
+			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
 		// Send data over the gRPC stream to the client
@@ -143,10 +143,10 @@ func (s *server) messageSubscribers(message string) {
 			MessageData: &pb.SubscribeResponse_EventInfo{
 				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
-			log.Warn("Failed to send data to client: %v", err)
+			log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
 			select {
 			case sub.finished <- true:
-				log.Info("Unsubscribed client: %d", id)
+				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}

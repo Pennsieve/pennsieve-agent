@@ -16,14 +16,14 @@ func (s *server) UseDataset(ctx context.Context, request *pb.UseDatasetRequest) 
 	client := s.client
 	_, err := client.Dataset.Get(nil, datasetId)
 	if err != nil {
-		log.Warn("UseDataset: Unknown dataset: %s", datasetId)
+		log.Warn(fmt.Sprintf("UseDataset: Unknown dataset: %s", datasetId))
 		return nil, errors.New(fmt.Sprintf("Unknown Dataset: %s", datasetId))
 	}
 
 	// 2. Update UserSettings to contain dataset ID
 	err = s.User.UpdateActiveDataset(datasetId)
 	if err != nil {
-		log.Error("Unable to update UserSettings: %v", err)
+		log.Error(fmt.Sprintf("Unable to update UserSettings: %v", err))
 		return nil, errors.New("Unable to update local user settings:\n Please re-install the Pennsieve Agent.")
 	}
 

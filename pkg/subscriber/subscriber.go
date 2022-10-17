@@ -95,7 +95,9 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 	for {
 		if stream == nil {
 			if stream, err = c.subscribe(); err != nil {
-				log.Warn("Failed to subscribe: %v", err)
+				log.WithFields(log.Fields{
+					"error": err.Error(),
+				}).Warn("Failed to subscribe.")
 				c.sleep()
 				// Retry on failure
 				continue

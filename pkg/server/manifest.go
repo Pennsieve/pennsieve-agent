@@ -131,7 +131,7 @@ func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestReq
 
 	nrRecords, _ := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
 
-	log.Info("Finished Adding %d files.", nrRecords)
+	log.Info(fmt.Sprintf("Finished Adding %d files.", nrRecords))
 
 	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
 	return &response, nil
@@ -491,12 +491,12 @@ func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int
 	s.subscribers.Range(func(k, v interface{}) bool {
 		id, ok := k.(int32)
 		if !ok {
-			log.Error("Failed to cast subscriber key: %T", k)
+			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
 		sub, ok := v.(sub)
 		if !ok {
-			log.Error("Failed to cast subscriber value: %T", v)
+			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
 		// Send data over the gRPC stream to the client
@@ -510,10 +510,10 @@ func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int
 					WorkerId: workerId,
 				}},
 		}); err != nil {
-			log.Error("Failed to send data to client: %v", err)
+			log.Error(fmt.Sprintf("Failed to send data to client: %v", err))
 			select {
 			case sub.finished <- true:
-				log.Info("Unsubscribed client: %d", id)
+				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
