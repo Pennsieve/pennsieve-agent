@@ -18,11 +18,11 @@ jobs:
         os: [ubuntu-latest] 
 
     container: 
-      image: ${{ env.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
+      image: ${{ secrets.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
       
     services:
       pennsieve-agent:
-        image: ${{ env.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
+        image: ${{ secrets.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
         ports: 
           - 9000:9000
     steps:
@@ -43,7 +43,7 @@ jobs:
         AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
         wget https://github.com/Pennsieve/pennsieve-agent/releases/download/${AGENT_VERSION}/pennsieve-agent_${AGENT_VERSION}_amd64.deb
         sudo apt install ./pennsieve-agent_${AGENT_VERSION}_amd64.deb 
-        pennsieve config init ~/.pennsieve/config.ini --api_token ${{ env.API_KEY }} --api_secret ${{ env.API_SECRET }} -f
+        pennsieve config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
         pennsieve agent 
         pennsieve version
     
