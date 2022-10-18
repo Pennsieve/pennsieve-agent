@@ -43,9 +43,10 @@ jobs:
         go install -v -n -a
         echo "Installed"
         ln -s -f /home/runner/go/bin/pennsieve-agent pennsieve
-        ./pennsieve
-        
+        echo "$(ls -al /home/runner/go/bin/)"        
         echo "$(ls -Ral)"
+        sudo /home/runner/go/bin/pennsieve-agent
+        
         echo "BIN"
         echo "$(ls -al /home/runner/go/bin/)"
         /home/runner/go/bin/pennsieve-agent
