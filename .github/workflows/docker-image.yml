@@ -42,6 +42,9 @@ jobs:
         echo "$(ls -Ral)" 
         go install -v -n -a
         sudo ln -s -f /home/runner/go/bin/pennsieve-agent pennsieve
+        echo "$(ls -Ral)" 
+        /home/runner/go/bin/pennsieve-agent
+        echo "runs"
         pennsieve
         pennsieve config init ~/.pennsieve/config.ini --api_token $API_KEY --api_secret $API_SECRET -f
         echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
