@@ -23,7 +23,9 @@ jobs:
       credentials:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-          
+      ports: 
+        - 9000:9000
+        
     steps:
     - name: Install Pennsieve Agent
       run: |
@@ -42,6 +44,10 @@ jobs:
         echo "version..."
         pennsieve-agent version
         echo "Done"
+        
+    services:
+      pennsieve:
+      
     
   build:
     runs-on: ubuntu-latest
