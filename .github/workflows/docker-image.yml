@@ -39,13 +39,14 @@ jobs:
         wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
-        go install 
+        echo "$(ls -Ral)" 
+        go install -v -n -a
         pennsieve
         pennsieve config init ~/.pennsieve/config.ini --api_token $API_KEY --api_secret $API_SECRET -f
         echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
         echo "starting..."
         # ln -s -f pennsieve-agent pennsieve
-        pennsieve agent start
+        pennsieve agent start &
         
     - name: Test Pennsieve Agent
       run: |
