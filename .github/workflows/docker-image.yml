@@ -8,6 +8,8 @@ on:
 
 jobs:
   container-job:
+    env:
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
     runs-on: ubuntu-latest
     
     strategy:
@@ -16,11 +18,10 @@ jobs:
         go-version: ["1.18"]
         python-version: ["3.10"]
         os: [ubuntu-latest] 
-
     container: pennsieve-agent
     services:
       pennieve-service:
-        image: ${{ secrets.DOCKER_HUB_USERNAME }} /pennsieve-agent
+        image: $DOCKER_HUB_USERNAME/pennsieve-agent
         ports: 
           - 9000:9000
     steps:
