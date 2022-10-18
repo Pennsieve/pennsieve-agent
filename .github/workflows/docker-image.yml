@@ -33,8 +33,8 @@ jobs:
         wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
-        go install
-        pennsieve config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
+        go install 
+        pennsieve-agent config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
         echo "api_host=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
         pennsieve-agent agent 
         pennsieve-agent version
