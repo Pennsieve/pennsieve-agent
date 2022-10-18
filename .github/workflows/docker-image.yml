@@ -17,12 +17,10 @@ jobs:
         python-version: ["3.10"]
         os: [ubuntu-latest] 
 
-    container: 
-      image: ${{ secrets.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
-      
+    container: pennsieve-agent
     services:
-      pennsieve-agent:
-        image: pennsieve-agent
+      pennieve-service:
+        image: ${{ secrets.DOCKER_HUB_USERNAME }} /pennsieve-agent
         ports: 
           - 9000:9000
     steps:
