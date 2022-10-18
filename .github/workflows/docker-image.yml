@@ -27,8 +27,8 @@ jobs:
     steps:
     - name: Install Pennsieve Agent
       run: |
-        sudo apt-get update
-        sudo apt-get install jq
+        apt-get update
+        apt-get install jq
         AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
         wget https://github.com/Pennsieve/pennsieve-agent/releases/download/${AGENT_VERSION}/pennsieve-agent_${AGENT_VERSION}_amd64.deb
         sudo apt install ./pennsieve-agent_${AGENT_VERSION}_amd64.deb 
