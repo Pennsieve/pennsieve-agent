@@ -36,8 +36,8 @@ jobs:
         go install
         pennsieve config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
         echo "api_host=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
-        pennsieve agent 
-        pennsieve version
+        pennsieve-agent agent 
+        pennsieve-agent version
     
   build:
     runs-on: ubuntu-latest
