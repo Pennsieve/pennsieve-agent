@@ -27,11 +27,9 @@ jobs:
         API_HOST : ${{ secrets.API_HOST }}
         API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
         API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
-
-    services:
-      # Label used to access the service container
-      pennsieve:
-        image: athril/pennsieve-agent:latest      
+      ports: 
+        - 9000:9000
+  
       
     steps:
     - name: Install Pennsieve Agent
@@ -53,7 +51,7 @@ jobs:
 
 
   version-test:
-    runs-on: ubuntu-latest
+    runs-on: pennsieve
     steps:
     - name: Install Pennsieve Agent
       run: |
