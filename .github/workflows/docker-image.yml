@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest] 
 
     container: 
-      image: ${{ secrets.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
+      image: pennsieve-agent
       
     services:
       pennsieve-agent:
