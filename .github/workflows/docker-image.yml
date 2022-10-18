@@ -19,10 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     
     container: 
-      image: gcr.io/athril/pennsieve-agent:latest
+      image: ghcr.io/athril/pennsieve-agent:latest
       env:
         DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_T }}
+      credentials:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_T }}
       ports: 
           - 9000:9000
           
