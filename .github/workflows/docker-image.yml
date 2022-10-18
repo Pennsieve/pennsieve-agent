@@ -50,7 +50,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: test login
     - uses: addnab/docker-run-action@v3
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
