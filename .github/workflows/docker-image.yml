@@ -19,15 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     
     container: 
-      image: ghcr.io/athril/pennsieve-agent:latest
-      env:
-        DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-        DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_T }}
+      image: athril/pennsieve-agent:latest
       credentials:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_T }}
-      ports: 
-          - 9000:9000
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
           
     steps:
     - uses: docker/login-action@v2
