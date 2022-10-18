@@ -40,7 +40,7 @@ jobs:
         pennsieve-agent config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
         echo "api_host=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
         echo "starting..."
-        sudo ln -s -f pennsieve-agent pennsieve
+        ln -s -f pennsieve-agent pennsieve
         pennsieve-agent agent start
         echo "Running..."
 
