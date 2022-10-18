@@ -28,12 +28,12 @@ jobs:
     - name: Install Pennsieve Agent
       run: |
         apt-get update
-        apt-get install jq
+        apt-get install jq -y
         AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
         wget https://github.com/Pennsieve/pennsieve-agent/releases/download/${AGENT_VERSION}/pennsieve-agent_${AGENT_VERSION}_amd64.deb
         sudo apt install ./pennsieve-agent_${AGENT_VERSION}_amd64.deb 
         pennsieve config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
-        echo "host_api=${{ secrets.api_host }}" >> ~/.pennsieve/config.ini
+        echo "host_api=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
         pennsieve agent 
         pennsieve version
     
