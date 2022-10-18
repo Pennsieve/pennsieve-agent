@@ -45,22 +45,13 @@ jobs:
         go run main.go config init ~/.pennsieve/config.ini --api_token $API_KEY --api_secret $API_SECRET -f
         echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
         echo "starting..."
-        go run main.go agent start &
+        go run main.go agent
+        echo "Done"
         
     - name: Test Pennsieve Agent
       run: |
-        sudo apt-get update
-        sudo apt-get install jq zip curl wget -y
-        AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
-        wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
-        unzip ${AGENT_VERSION}.zip 
-        cd pennsieve-agent-${AGENT_VERSION}
-        echo "$(ls -Ral)" 
-        go install -v -n -a
-        sudo ln -s -f /home/runner/go/bin/pennsieve-agent pennsieve
-        pennsieve
-        pennsieve config init ~/.pennsieve/config.ini --api_token $API_KEY --api_secret $API_SECRET -f
-        echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
-        echo "version"
-        pennsieve-agent version
-        pennsieve-agent stop
+        echo "Querying..."
+        go run main.go version
+        echo "Stopping..."
+        go run main.go agent stop
+        echo "Stopped"
