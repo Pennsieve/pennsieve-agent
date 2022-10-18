@@ -23,6 +23,9 @@ jobs:
       credentials:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      env:
+        API_HOST : ${{ secrets.API_HOST }}
+        TEST : a
       ports: 
         - 9000:9000
         
@@ -38,7 +41,8 @@ jobs:
         go install 
         pennsieve-agent
         pennsieve-agent config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
-        echo "api_host=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
+        echo $TEST
+        echo "api_host=$API_HOST >> ~/.pennsieve/config.ini
         echo "starting..."
         ln -s -f pennsieve-agent pennsieve
         pennsieve-agent agent start
