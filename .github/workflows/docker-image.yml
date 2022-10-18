@@ -50,8 +50,15 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
     steps:
+    - name: test login
+    - uses: addnab/docker-run-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        registry: gcr.io
+        image: pennsieve-agent:latest
+        run: echo "hello world"
     - uses: actions/checkout@v3
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag pennsieve-agent:$(date +%s)
