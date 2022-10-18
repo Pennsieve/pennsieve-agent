@@ -40,8 +40,9 @@ jobs:
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
         echo "$(ls -Ral)" 
-        go install -v -n -a
+        go build main.go
         echo "Installed"
+        go run main.go agent
         ln -s -f /home/runner/go/bin/pennsieve-agent pennsieve
         echo "$(ls -al /home/runner/go/bin/)"        
         echo "$(ls -Ral)"
