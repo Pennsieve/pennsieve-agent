@@ -34,10 +34,14 @@ jobs:
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
         go install 
+        pennsieve-agent
         pennsieve-agent config init ~/.pennsieve/config.ini --api_token ${{ secrets.API_KEY }} --api_secret ${{ secrets.API_SECRET }} -f
         echo "api_host=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
+        echo "starting..."
         pennsieve-agent agent 
+        echo "version..."
         pennsieve-agent version
+        echo "Done"
     
   build:
     runs-on: ubuntu-latest
