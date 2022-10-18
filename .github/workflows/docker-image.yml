@@ -22,16 +22,19 @@ jobs:
         os: [ubuntu-latest] 
     container: 
       image: gcr.io/athril/pennsieve-agent:latest
-      credentials: 
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    
     services:
-      pennieve-service:
-        image: $DOCKER_HUB_USERNAME/pennsieve-agent
+      pennieve:
         ports: 
           - 9000:9000
     steps:
     - uses: actions/checkout@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        registry: gcr.io
+        image: pennsieve-agent:latest
+        run: echo "Checked out!"
     - name: Set up GO {{matrix.go-version}}
       uses: actions/setup-go@v3
       with:
