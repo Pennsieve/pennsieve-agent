@@ -88,5 +88,5 @@ jobs:
         echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
         echo "Version?"
         ln -s -f pennsieve-agent pennsieve
-        pennsieve-agent agent version
+        pennsieve-agent version
         echo "DONE"
