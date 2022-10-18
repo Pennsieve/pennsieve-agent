@@ -33,8 +33,8 @@ jobs:
     steps:
     - name: Install Pennsieve Agent
       run: |
-        apt-get update
-        apt-get install jq zip curl wget -y
+        sudo apt-get update
+        sudo apt-get install jq zip curl wget -y
         AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
         wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
         unzip ${AGENT_VERSION}.zip 
