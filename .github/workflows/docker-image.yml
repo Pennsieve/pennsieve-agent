@@ -18,11 +18,11 @@ jobs:
         os: [ubuntu-latest] 
 
     container: 
-      image: ${{ secrets.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
+      image: ${{ env.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
       
     services:
       pennsieve-agent:
-        image: ${{ secrets.DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
+        image: ${{ env..DOCKER_HUB_USERNAME }}/pennsieve-agent:latest
         ports: 
           - 9000:9000
     steps:
