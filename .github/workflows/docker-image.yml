@@ -10,6 +10,8 @@ jobs:
   container-job:
     env:
       DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+      DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_T }}
+
     runs-on: ubuntu-latest
     
     strategy:
@@ -18,7 +20,11 @@ jobs:
         go-version: ["1.18"]
         python-version: ["3.10"]
         os: [ubuntu-latest] 
-    container: pennsieve-agent
+    container: 
+      image: gcr.io/athril/pennsieve-agent:latest
+      credentials: 
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     services:
       pennieve-service:
         image: $DOCKER_HUB_USERNAME/pennsieve-agent
