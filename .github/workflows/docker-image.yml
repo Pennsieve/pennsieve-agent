@@ -50,6 +50,7 @@ jobs:
 
         
   tester-job:
+    needs: container-job
     strategy:
       fail-fast: false
       matrix:
