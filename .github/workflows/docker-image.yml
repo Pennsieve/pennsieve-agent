@@ -41,9 +41,8 @@ jobs:
         echo "api_host=${{ secrets.API_HOST }}" >> ~/.pennsieve/config.ini
         echo "starting..."
         pennsieve-agent agent 
-        echo "version..."
-        pennsieve-agent version
-        echo "Done"
+        echo "Running..."
+
         
     
   build:
