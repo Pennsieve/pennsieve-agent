@@ -45,7 +45,7 @@ jobs:
         echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
         echo "starting..."
         ln -s -f pennsieve-agent pennsieve
-        pennsieve-agent agent start
+        pennsieve-agent agent
         echo "Started..."
 
         
