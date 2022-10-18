@@ -45,9 +45,6 @@ jobs:
         pennsieve-agent version
         echo "Done"
         
-    services:
-      pennsieve:
-      
     
   build:
     runs-on: ubuntu-latest
