@@ -15,17 +15,8 @@ jobs:
         python-version: ["3.10"]
         os: [ubuntu-latest] 
     runs-on: ubuntu-latest
-    # Docker Hub image that `container-job` executes in
-    container: 
-      image: athril/pennsieve-agent:latest
-      credentials:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-      env:
-        API_HOST : ${{ secrets.API_HOST }}
-        API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
-        API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}    
-    
+
+        
     services:
       pennsieve:
         image: athril/pennsieve-agent:latest
