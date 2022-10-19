@@ -28,13 +28,14 @@ need to specify the config.ini file location with every command by passing in th
 		apiToken, _ := cmd.Flags().GetString("api_token")
 		apiSecret, _ := cmd.Flags().GetString("api_secret")
 
-		if len(configFile) == 0 {
-
-		}
-
 		if strings.HasPrefix(configFile, "~/") {
 			dirname, _ := os.UserHomeDir()
 			configFile = filepath.Join(dirname, configFile[2:])
+		}
+
+		if strings.ToLower(profileName) == "pennsieve" {
+			fmt.Println("Cannot use 'pennsieve' as a profile name as this is a reserved variable.")
+			return
 		}
 
 		// Check if file already exists and confirm user wants to replace.

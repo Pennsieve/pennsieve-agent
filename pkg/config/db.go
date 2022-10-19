@@ -62,6 +62,10 @@ func InitializeDB() (*sql.DB, error) {
 			// Profile exists, verify login and refresh token if necessary
 			apiToken := viper.GetString(selectedProfile + ".api_token")
 			apiSecret := viper.GetString(selectedProfile + ".api_secret")
+
+			viper.Set("pennsieve.api_token", apiToken)
+			viper.Set("pennsieve.api_token", apiToken)
+
 			environment := viper.GetString(selectedProfile + ".env")
 			customUploadBucket := viper.GetString(selectedProfile + ".upload_bucket")
 

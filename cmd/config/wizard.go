@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var WizardCmd = &cobra.Command{
@@ -56,8 +57,17 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 
 		var profileName string
 		fmt.Println("\nCreate new profile:")
-		fmt.Printf("   Profile name [user]: ")
-		fmt.Scanln(&profileName)
+		for {
+			profileName = ""
+			fmt.Printf("   Profile name [user]: ")
+			fmt.Scanln(&profileName)
+
+			if strings.ToLower(profileName) == "pennsieve" {
+				fmt.Println("Cannot use 'pennsieve' as a profile name as this is a reserved variable name.")
+				continue
+			}
+			break
+		}
 
 		if len(profileName) == 0 {
 			profileName = "user"

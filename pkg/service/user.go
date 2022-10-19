@@ -287,8 +287,10 @@ func (s *UserService) UpdateActiveUser() (*store.UserInfo, error) {
 		IsRefreshed:  false,
 	}
 
-	apiToken := viper.GetString(userSettings.Profile + ".api_token")
-	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
+	apiToken := viper.GetString("pennsieve.api_token")
+	apiSecret := viper.GetString("pennsieve.api_secret")
+	//apiToken := viper.GetString(userSettings.Profile + ".api_token")
+	//apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
 
 	s.client.APICredentials = pennsieve.APICredentials{
 		ApiKey:    apiToken,
