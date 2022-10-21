@@ -180,7 +180,10 @@ func StartAgent() error {
 	GRPCServer = grpc.NewServer()
 	server := &server{}
 
-	db, _ := config.InitializeDB()
+	db, err := config.InitializeDB()
+	if err != nil {
+		fmt.Println("Error initializing DB --", err)
+	}
 	manifestStore := store.NewManifestStore(db)
 	manifestFileStore := store.NewManifestFileStore(db)
 	server.Manifest = service.NewManifestService(manifestStore, manifestFileStore)
@@ -222,6 +225,10 @@ func SetupLogger() {
 	}
 
 	homedir, _ := os.UserHomeDir()
+
+	// Ensure folder is created
+	os.MkdirAll(homedir+"/.pennsieve", os.ModePerm)
+
 	logFilePath := homedir + "/.pennsieve/agent.log"
 	_, err = os.Stat(logFilePath)
 

@@ -97,7 +97,7 @@ func initViper() error {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 
-	viper.SetDefault("pennsieve.api_key", "")
+	viper.SetDefault("pennsieve.api_token", "")
 	viper.SetDefault("pennsieve.api_secret", "")
 	viper.SetDefault("pennsieve.api_host", pennsieve.BaseURLV1)
 

@@ -37,6 +37,7 @@ type userSettingsStore struct {
 
 // Get returns the UserSettings object or nil if no user-settings are defined.
 func (s *userSettingsStore) Get() (*UserSettings, error) {
+
 	rows, err := s.db.Query("SELECT * FROM user_settings")
 	if err != nil {
 		return nil, err
