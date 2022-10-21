@@ -113,7 +113,7 @@ func initViper() error {
 	// Read in Config.ini file if it exists
 	// If it does not exist, check that required ENV Vars are set instead.
 	if err := viper.ReadInConfig(); err != nil {
-		if len(viper.GetString("pennsieve.api_key")) == 0 ||
+		if len(viper.GetString("pennsieve.api_token")) == 0 ||
 			len(viper.GetString("pennsieve.api_secret")) == 0 {
 			fmt.Println("No Pennsieve configuration file exists.")
 			fmt.Println("\nPlease use `pennsieve config wizard` to setup your Pennsieve profile, or")
