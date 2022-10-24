@@ -1,3 +1,6 @@
+**1.2.2**
+- Refactored Agent to allow users to start agent without config file using ENV Variables
+
 **1.2.0**
 - Improved: Wrapping services in Interfaces and restructuring packages
 - Fixed: time-out of AWS session due to race-condition
