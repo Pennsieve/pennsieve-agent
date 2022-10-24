@@ -7,3 +7,13 @@ compile:
 compile_python:
 	@echo "Compiling GRPC definitions for Python"
 	python -m grpc_tools.protoc --python_out=build/gen/ -I. --grpc_python_out=build/gen api/v1/agent.proto
+
+release:
+	@ echo ""
+	@build=$$(git tag | sort -n -r | head -n 1 |  awk -F_ '{print $$1}'); \
+	build=$$((build+1)); \
+	commit=$$(git log -1 --pretty=format:%h); \
+	version=$${build}_$${commit}; \
+	echo Version: $$version;
+	@echo "\nChangelog"
+	@git log --format="%h %s" $$(git tag | sort -n -r | head -n 1 | awk -F_ '{print $$2}').. | sed -e 's/^/-\ /g'

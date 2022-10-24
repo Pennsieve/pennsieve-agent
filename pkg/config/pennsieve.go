@@ -21,22 +21,35 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		log.Fatalln("Could not get User Settings.")
 	}
 
-	apiV1Url := pennsieve.BaseURLV1
-	apiV2Url := pennsieve.BaseURLV2
+	// useProfile is true when config.ini file exists and using credentials associated with profile.
+	// It is false when we are using environment variables.
+	useProfile := false
 
-	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
-	customAPIHost := viper.GetString(userSettings.Profile + ".api_host")
-	if customAPIHost != "" {
-		apiV1Url = customAPIHost
-		apiV2Url = "https://api2.pennsieve.net"
+	// Set viper profile
+	if viper.IsSet(userSettings.Profile + ".api_token") {
+		viper.Set("pennsieve.api_token", viper.Get(userSettings.Profile+".api_token"))
+		viper.Set("pennsieve.api_secret", viper.Get(userSettings.Profile+".api_secret"))
+		useProfile = true
 	}
 
-	client := pennsieve.NewClient(apiV1Url, apiV2Url)
+	// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
+	if viper.IsSet(userSettings.Profile + ".api_host") {
+		viper.Set("pennsieve.api_host", viper.GetString(userSettings.Profile+".api_host"))
+		viper.Set("pennsieve.api_host2", "https://api2.pennsieve.net")
+	} else {
+		viper.Set("pennsieve.api_host2", pennsieve.BaseURLV2)
+	}
+
+	client := pennsieve.NewClient(
+		viper.GetString("pennsieve.api_host"),
+		viper.GetString("pennsieve.api_host2"))
 
 	// Set the upload bucket to a custom specified bucket if specified in the config file.
-	customUploadBucket := viper.GetString(userSettings.Profile + ".upload_bucket")
-	if customUploadBucket != "" {
-		client.UploadBucket = customUploadBucket
+	if viper.IsSet(userSettings.Profile + ".upload_bucket") {
+		viper.Set("pennsieve.uploadBucket", viper.GetString(userSettings.Profile+".upload_bucket"))
+	}
+	if viper.IsSet("pennsieve.upload_bucket") {
+		client.UploadBucket = viper.GetString("pennsieve.uploadBucket")
 	}
 
 	// Check if existing session token is expired.
@@ -46,23 +59,21 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		log.Error(err)
 	}
 
-	apiToken := viper.GetString(userSettings.Profile + ".api_token")
-	apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
+	currentApiToken := viper.GetString("pennsieve.api_token")
+	currentApiSecret := viper.GetString("pennsieve.api_secret")
 
 	client.APICredentials = pennsieve.APICredentials{
-		ApiKey:    apiToken,
-		ApiSecret: apiSecret,
+		ApiKey:    currentApiToken,
+		ApiSecret: currentApiSecret,
 	}
 
 	// GET CREDENTIALS ASSOCIATED WITH CLIENT
 	if time.Now().After(info.TokenExpire.Add(-5 * time.Minute)) {
 		// Need to get new session token
 
-		log.Info("Refreshing token", apiToken, apiSecret)
+		log.Info("Refreshing Pennsieve session token")
 
-		// We are using reAuthenticate instead of refresh pathway as eventually, the refresh-token
-		// also expires and there is no real reason why we don't just re-authenticate.`
-		session, err := client.Authentication.Authenticate(apiToken, apiSecret)
+		session, err := client.Authentication.Authenticate(currentApiToken, currentApiSecret)
 
 		if err != nil {
 			log.Error("Error authenticating:", err)
@@ -70,7 +81,11 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		}
 		client.APISession = *session
 
-		uiStore.UpdateTokenForUser(info, session)
+		// Only store sessiontoken in the DB if we are using a profile.
+		if useProfile {
+			uiStore.UpdateTokenForUser(info, session)
+		}
+
 	} else {
 		// Existing info has active token that can be used.
 

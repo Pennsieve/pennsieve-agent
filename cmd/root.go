@@ -25,10 +25,12 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/upload"
 	"github.com/pennsieve/pennsieve-agent/cmd/version"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var cfgFile string
@@ -92,22 +94,33 @@ func initViper() error {
 
 	}
 
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("No Pennsieve configuration file exists.")
-		fmt.Println("\nPlease use `pennsieve config wizard` to setup your Pennsieve profile.")
-		os.Exit(1)
-	}
-
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
+
+	viper.SetDefault("pennsieve.api_token", "")
+	viper.SetDefault("pennsieve.api_secret", "")
+	viper.SetDefault("pennsieve.api_host", pennsieve.BaseURLV1)
 
 	viper.SetDefault("agent.port", "9000")
 	viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
 	viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
-	viper.SetDefault("global.default_profile", "user")
+	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 
+	viper.SetEnvKeyReplacer(strings.NewReplacer(`.`, `_`))
 	viper.AutomaticEnv() // read in environment variables that match
+
+	// Read in Config.ini file if it exists
+	// If it does not exist, check that required ENV Vars are set instead.
+	if err := viper.ReadInConfig(); err != nil {
+		if len(viper.GetString("pennsieve.api_token")) == 0 ||
+			len(viper.GetString("pennsieve.api_secret")) == 0 {
+			fmt.Println("No Pennsieve configuration file exists.")
+			fmt.Println("\nPlease use `pennsieve config wizard` to setup your Pennsieve profile, or")
+			fmt.Println("\nset the PENNSIEVE_API_KEY and PENNSIEVE_API_SECRET environment variables.")
+			os.Exit(1)
+		}
+	}
 
 	return nil
 }

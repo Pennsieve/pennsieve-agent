@@ -20,7 +20,7 @@ var VersionCmd = &cobra.Command{
 
 		req := v1.VersionRequest{}
 		port := viper.GetString("agent.port")
-		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial("127.0.0.1:"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			fmt.Println("Error connecting to GRPC Server: ", err)
 			return
