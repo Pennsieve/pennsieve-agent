@@ -18,39 +18,8 @@ jobs:
 
     runs-on: ubuntu-latest
     
-    container: 
-      image: athril/pennsieve-agent:latest
-      credentials:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-      env:
-        API_HOST : ${{ secrets.API_HOST }}
-        API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
-        API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
-      ports: 
-        - 9000:9000
-        
-    steps:
-    - name: Install Pennsieve Agent
-      run: |
-        apt-get update
-        apt-get install jq zip -y
-        AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
-        wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
-        unzip ${AGENT_VERSION}.zip 
-        cd pennsieve-agent-${AGENT_VERSION}
-        go install 
-        pennsieve-agent
-        pennsieve-agent config init ~/.pennsieve/config.ini --api_token $API_KEY --api_secret $API_SECRET -f
-        echo "api_host=$API_HOST" >> ~/.pennsieve/config.ini
-        echo "starting..."
-        ln -s -f pennsieve-agent pennsieve
-        pennsieve-agent agent start &
-        echo "Started..."
-
-        
+         
   tester-job:
-    needs: container-job
     strategy:
       fail-fast: false
       matrix:
