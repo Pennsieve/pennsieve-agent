@@ -18,18 +18,21 @@ jobs:
 
     runs-on: ubuntu-latest
     
-    container: 
-      image: athril/pennsieve-agent:latest
-      credentials:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-      env:
-        API_HOST : ${{ secrets.API_HOST }}
-        API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
-        API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
-      ports: 
+
+    services:
+      # Label used to access the service container
+      pennsieve:
+        image: athril/pennsieve-agent:latest
+        credentials:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        env:
+          API_HOST : ${{ secrets.API_HOST }}
+          API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
+          API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+        ports:
         - 9000:9000
-        
+                
     steps:
     - name: Test Pennsieve Agent
       run: |
