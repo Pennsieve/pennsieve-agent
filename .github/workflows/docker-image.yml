@@ -51,4 +51,8 @@ jobs:
         echo "Version?"
         ls 
         go run main.go version
+        go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
+        go run manifest create CHANGELOG.md
+        go run manifest upload
         echo "DONE"
+        
