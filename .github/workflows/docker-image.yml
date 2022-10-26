@@ -45,5 +45,6 @@ jobs:
         go build
         go install 
         echo "Version?"
-        ./pennsieve-agent version
+        ls 
+        go run main.go version
         echo "DONE"
