@@ -3,9 +3,7 @@ MAINTAINER Patryk Orzechowski, Joost Wagenaar
 
 #setup env variables
 ENV PENNSIEVE API_HOST host
-#Currently inactive, use token
-#ENV PENNSIEVE_API_KEY key
-ENV PENNSIEVE_API_TOKEN key
+ENV PENNSIEVE_API_KEY key
 ENV PENNSIEVE_API_SECRET secret
 ENV PENNSIEVE_PATH .
 
