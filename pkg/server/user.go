@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
+	"errors"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	log "github.com/sirupsen/logrus"
 )
 
 func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
 
-	activeUser, err := s.User.UpdateActiveUser()
+	activeUser, err := s.User.GetActiveUser()
 	if err != nil {
 		return nil, err
 	}
@@ -27,6 +28,13 @@ func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.U
 }
 
 func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileRequest) (*pb.UserResponse, error) {
+
+	s.stopSyncTimers()
+
+	useConfig := s.client.GetAPIParams().UseConfigFile
+	if !useConfig {
+		return nil, errors.New("SWITCH is not available when agent is running without config file")
+	}
 
 	activeUser, err := s.User.SwitchUser(request.Profile)
 	if err != nil {
@@ -50,7 +58,8 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
 
 	apiSession, _ := s.User.ReAuthenticate()
-	activeUser, err := s.User.UpdateActiveUser()
+	activeUser, err := s.User.GetActiveUser()
+	//activeUser, err := s.User.UpdateActiveUser()
 	if err != nil {
 		return nil, err
 	}

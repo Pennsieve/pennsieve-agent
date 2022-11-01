@@ -62,14 +62,17 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
-	activeUser, _ := s.User.UpdateActiveUser()
+	activeUser, err := s.User.GetActiveUser()
+	if err != nil {
+		log.Error("Cannot get active user: ", err)
+	}
 
 	curClientSession, err := s.User.GetUserSettings()
 
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to get Client Session\n "+
-				"\t Please use: pennsieve-server config init to initialize local database.")
+				"\t Please use: pennsieve config init to initialize local database.")
 
 		log.Warn(err)
 		return nil, err
@@ -79,7 +82,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	if curClientSession.UseDatasetId == "" {
 		err := status.Error(codes.NotFound,
 			"No active dataset was specified.\n "+
-				"\t Please use: pennsieve-server dataset use <dataset_id> to specify active dataset.")
+				"\t Please use: pennsieve dataset use <dataset_id> to specify active dataset.")
 
 		log.Warn(err)
 		return nil, err
@@ -104,7 +107,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to create Upload Session.\n "+
-				"\t Please use: pennsieve-server config init to initialize local database.")
+				"\t Please use: pennsieve config init to initialize local database.")
 
 		log.Warn(err)
 		return nil, err
@@ -220,7 +223,6 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 	*/
 
 	manifest, err := s.Manifest.GetManifest(request.ManifestId)
-	fmt.Printf("NODIOIDOID %s\n", manifest.NodeId.String)
 	if err != nil {
 		return nil, err
 	}
