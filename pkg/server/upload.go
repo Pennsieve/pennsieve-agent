@@ -111,6 +111,7 @@ func (s *server) UploadManifest(ctx context.Context,
 				// Checking status of files on server and verify.
 				// This should return a list of files that have recently been finalized and then set the status of
 				// those files to "Verified" on the server.
+				log.Println("Verifying status for manifest: ", m.Id)
 				s.Manifest.VerifyFinalizedStatus(m)
 
 			}
@@ -138,11 +139,17 @@ func (s *server) UploadManifest(ctx context.Context,
 		s.uploadProcessor(ctx, m)
 
 		// Wait X minutes before cancelling sync thread.
-		// TODO: improve by registering sync thread so we never have more than 1 sync thread per manifest.
-		syncTimer := time.NewTimer(syncTickerDelay)
-		<-syncTimer.C
-		tickerDone <- true
-
+		if _, isPresent := s.syncCancelFncs.Load(m.Id); !isPresent {
+			syncTimer := time.NewTimer(syncTickerDelay)
+			cancel := make(chan struct{})
+			s.syncCancelFncs.Store(m.Id, cancel)
+			select {
+			case <-syncTimer.C:
+				tickerDone <- true
+			case <-cancel:
+				tickerDone <- true
+			}
+		}
 	}()
 
 	response := pb.SimpleStatusResponse{Status: "Upload initiated."}
@@ -223,7 +230,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.UploadBucket)
+				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.GetAPIParams().UploadBucket)
 				if err != nil {
 					log.Println("Error in Upload Worker:", err)
 				}

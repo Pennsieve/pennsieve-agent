@@ -1,8 +1,6 @@
 ![Release](https://github.com/Pennsieve/pennsieve-agent/actions/workflows/go.yml/badge.svg?branch=main)
 ![Version](https://img.shields.io/github/v/release/Pennsieve/pennsieve-agent?include_prereleases)
 
-
-
 # pennsieve-agent
 Second iteration of the Pennsieve Agent
 
@@ -13,6 +11,22 @@ Second iteration of the Pennsieve Agent
 2. Local SQLite database for userInfo storage and session caching
 3. Integration with the Pennsieve-Go Library
 4. gRPC server for handling large tasks such as uploading data
+
+
+## Installing the Pennsieve Agent
+
+### Using the Installlers (recommended)
+
+Download the latest installer for your operating system: https://github.com/Pennsieve/pennsieve-agent/releases
+
+### From Source
+
+1. Clone the Pennsieve Agent repository
+2. Install Golang on the machine
+3. Run `go build` or `go install` in the pennsieve-agent folder
+4. Symlink "pennsieve" to the output (the linux executable is called 'pennsieve-agent' instead of 'pennsieve')
+
+
 
 
 ## Releasing a new version

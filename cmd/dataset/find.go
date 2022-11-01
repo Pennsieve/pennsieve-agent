@@ -23,9 +23,6 @@ Search is fuzzy and returns datasets based on matches in:
 - tags
 - description
 `,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		//config.InitDB()
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 
