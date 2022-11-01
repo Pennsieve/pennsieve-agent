@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"time"
 )
 
 // UserService provides methods associated with user information and profiles
@@ -15,6 +16,21 @@ type UserService struct {
 	uiStore store.UserInfoStore
 	usStore store.UserSettingsStore
 	client  *pennsieve.Client
+}
+
+type UserDTO struct {
+	Id               string    `json:"id"`
+	Name             string    `json:"name"`
+	SessionToken     string    `json:"session_token"`
+	RefreshToken     string    `json:"refresh_token"`
+	TokenExpire      time.Time `json:"token_expire"`
+	IdToken          string    `json:"id_token"`
+	Profile          string    `json:"profile"`
+	Environment      string    `json:"environment"`
+	ApiHost          string    `json:"api_host"`
+	Api2Host         string    `json:"api2_host"`
+	OrganizationId   string    `json:"organization_id"`
+	OrganizationName string    `json:"organization_name"`
 }
 
 // NewUserService returns a new instance of a UserService.
@@ -57,10 +73,11 @@ func (s *UserService) GetActiveUserId() (string, error) {
 // the active user is not set.
 //
 // Use the UpdateActiveUser method to handle those situations.
-func (s *UserService) GetActiveUser() (*store.UserInfo, error) {
+func (s *UserService) GetActiveUser() (*UserDTO, error) {
 	// Get current user-settings. This is either 0, or 1 entry.
 	userSettings, err := s.usStore.Get()
 
+	var currentUserInfo *store.UserInfo
 	if err != nil {
 
 		// If no entry is found in database, check default profile in config and setup DB
@@ -86,26 +103,39 @@ func (s *UserService) GetActiveUser() (*store.UserInfo, error) {
 				return nil, err
 			}
 
-			currentUser, err := s.SwitchUser(selectedProfile)
+			currentUserInfo, err = s.SwitchUser(selectedProfile)
 			if err != nil {
 				fmt.Println("Error switching user.")
 				return nil, err
 			}
 
-			return currentUser, nil
 		} else {
 			return nil, err
 		}
 
+	} else {
+		currentUserInfo, err = s.uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// If entries found in database, continue with active profile
-	currentUserInfo, err := s.uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
-	if err != nil {
-		return nil, err
+	userDTO := UserDTO{
+		Id:               currentUserInfo.Id,
+		Name:             currentUserInfo.Name,
+		SessionToken:     currentUserInfo.SessionToken,
+		RefreshToken:     currentUserInfo.RefreshToken,
+		TokenExpire:      currentUserInfo.TokenExpire,
+		IdToken:          currentUserInfo.IdToken,
+		Profile:          currentUserInfo.Profile,
+		Environment:      currentUserInfo.Environment,
+		ApiHost:          s.client.GetAPIParams().ApiHost,
+		Api2Host:         s.client.GetAPIParams().ApiHost2,
+		OrganizationId:   currentUserInfo.OrganizationId,
+		OrganizationName: currentUserInfo.OrganizationName,
 	}
 
-	return currentUserInfo, nil
+	return &userDTO, nil
 }
 
 // SwitchUser switches between profiles and returns active userInfo.
@@ -217,8 +247,10 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 	return newUserInfo, nil
 }
 
+// ReAuthenticate authenticates user, update server client and return new session.
 func (s *UserService) ReAuthenticate() (pennsieve.APISession, error) {
 	apiSession, err := s.client.Authentication.ReAuthenticate()
+
 	newSession := pennsieve.APISession{
 		Token:        apiSession.Token,
 		IdToken:      apiSession.IdToken,
@@ -230,7 +262,18 @@ func (s *UserService) ReAuthenticate() (pennsieve.APISession, error) {
 	return newSession, err
 }
 
-func (s *UserService) UpdateTokenForUser(user *store.UserInfo, credentials *pennsieve.APISession) (*store.UserInfo, error) {
-	userInfo, err := s.uiStore.UpdateTokenForUser(user, credentials)
-	return userInfo, err
+// UpdateTokenForUser updates the local database with new credentials and returns UserDTO
+func (s *UserService) UpdateTokenForUser(user *UserDTO, credentials *pennsieve.APISession) (*UserDTO, error) {
+
+	err := s.uiStore.UpdateTokenForUser(user.Id, credentials)
+	if err != nil {
+		return nil, err
+	}
+
+	user.SessionToken = credentials.Token
+	user.RefreshToken = credentials.RefreshToken
+	user.TokenExpire = credentials.Expiration
+	user.IdToken = credentials.IdToken
+
+	return user, err
 }

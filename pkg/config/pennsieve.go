@@ -155,10 +155,15 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			}
 			client.APISession = *session
 
-			_, err = uiStore.UpdateTokenForUser(info, session)
+			err = uiStore.UpdateTokenForUser(info.Id, session)
 			if err != nil {
 				return nil, err
 			}
+
+			info.SessionToken = session.Token
+			info.RefreshToken = session.RefreshToken
+			info.TokenExpire = session.Expiration
+			info.IdToken = session.IdToken
 
 		} else {
 			// Existing info has active token that can be used.

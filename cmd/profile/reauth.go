@@ -42,13 +42,13 @@ var ReauthCmd = &cobra.Command{
 		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		_, err = config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}
 
 		showFull, _ := cmd.Flags().GetBool("full")
-		whoami.PrettyPrint(userResponse, pennsieveClient.GetAPIParams().ApiHost, showFull)
+		whoami.PrettyPrint(userResponse, showFull)
 	},
 }
 
