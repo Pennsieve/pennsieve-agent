@@ -212,6 +212,8 @@ message UserResponse {
 	string environment = 9;
 	string organization_id = 10;
 	string organization_name = 11;
+	string api_host = 12;
+	string api2_host = 13;
 }
 //
 message SwitchProfileRequest {

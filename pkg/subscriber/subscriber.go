@@ -64,7 +64,7 @@ func (c *subscriberClient) subscribe() (v1.Agent_SubscribeClient, error) {
 
 // unsubscribe deactivates listener for messages from the gRPC server
 func (c *subscriberClient) unsubscribe() error {
-	fmt.Printf("Unsubscribing client ID %d", c.id)
+	fmt.Printf("Unsubscribing client ID %d\n", c.id)
 	_, err := c.client.Unsubscribe(context.Background(), &v1.SubscribeRequest{Id: c.id})
 	return err
 }
@@ -151,10 +151,8 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 			if contains(types, v1.SubscribeResponse_SYNC_STATUS) {
 				info := response.GetSyncStatus()
 
-				switch info.Status {
-				case v1.SubscribeResponse_SyncResponse_INIT:
+				if syncBar == nil {
 					nrSyncedFiles = 0
-
 					syncBar = pw.AddBar(info.Total,
 						mpb.BarFillerClearOnComplete(),
 						mpb.PrependDecorators(
@@ -168,6 +166,10 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 					} else {
 						syncBar.SetCurrent(int64(nrSyncedFiles))
 					}
+				}
+
+				switch info.Status {
+				case v1.SubscribeResponse_SyncResponse_INIT:
 
 				case v1.SubscribeResponse_SyncResponse_IN_PROGRESS:
 					nrSyncedFiles += int(info.NrSynced)

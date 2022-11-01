@@ -54,7 +54,7 @@ type UserInfoStore interface {
 	CreateNewUserInfo(data UserInfoParams) (*UserInfo, error)
 	GetUserInfo(id string, profile string) (*UserInfo, error)
 	GetAll() ([]UserInfo, error)
-	UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error)
+	UpdateTokenForUser(userId string, credentials *pennsieve.APISession) error
 }
 
 func NewUserInfoStore(db *sql.DB) *userInfoStore {
@@ -140,25 +140,20 @@ func (s *userInfoStore) GetAll() ([]UserInfo, error) {
 	return allUsers, err
 }
 
-func (s *userInfoStore) UpdateTokenForUser(user *UserInfo, credentials *pennsieve.APISession) (*UserInfo, error) {
+func (s *userInfoStore) UpdateTokenForUser(userId string, credentials *pennsieve.APISession) error {
 
 	statement, err := s.db.Prepare(
 		"UPDATE user_record SET session_token = ?, refresh_token = ?, token_expire = ?, id_token = ? WHERE id = ?")
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return err
 	}
 
-	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken, user.Id)
+	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken, userId)
 	if err != nil {
 		fmt.Sprintln("Unable to update Sessiontoken in database")
-		return nil, err
+		return err
 	}
 
-	user.SessionToken = credentials.Token
-	user.RefreshToken = credentials.RefreshToken
-	user.TokenExpire = credentials.Expiration
-	user.IdToken = credentials.IdToken
-
-	return user, nil
+	return nil
 }

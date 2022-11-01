@@ -1,3 +1,10 @@
+**1.2.4**
+- Added apihost information to the active user GRPC endpoint response
+
+**1.2.3**
+- Updated Agent to better handle configuration file parameters and ENV variables
+- Fix 'dataset find' command
+
 **1.2.2**
 - Refactored Agent to allow users to start agent without config file using ENV Variables
 

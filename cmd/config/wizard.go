@@ -88,9 +88,13 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 		fmt.Scanln(&response)
 
 		if response == "y" {
-			viper.GetInt("agent.upload_workers")
-			viper.GetInt("agent.upload_workers")
-			viper.GetInt("agent.upload_workers")
+			viper.SetConfigType("ini")
+			viper.AddConfigPath(filepath.Join(home, ".pennsieve"))
+			viper.SetConfigFile(configFile)
+
+			viper.SetDefault("agent.port", "9000")
+			viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
+			viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 
 			viper.Set("agent.port", "9000")
 			viper.Set("agent.upload_workers", "10")    // Number of concurrent files during upload

@@ -8,6 +8,7 @@ import (
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"time"
 )
 
 // UserService provides methods associated with user information and profiles
@@ -15,6 +16,21 @@ type UserService struct {
 	uiStore store.UserInfoStore
 	usStore store.UserSettingsStore
 	client  *pennsieve.Client
+}
+
+type UserDTO struct {
+	Id               string    `json:"id"`
+	Name             string    `json:"name"`
+	SessionToken     string    `json:"session_token"`
+	RefreshToken     string    `json:"refresh_token"`
+	TokenExpire      time.Time `json:"token_expire"`
+	IdToken          string    `json:"id_token"`
+	Profile          string    `json:"profile"`
+	Environment      string    `json:"environment"`
+	ApiHost          string    `json:"api_host"`
+	Api2Host         string    `json:"api2_host"`
+	OrganizationId   string    `json:"organization_id"`
+	OrganizationName string    `json:"organization_name"`
 }
 
 // NewUserService returns a new instance of a UserService.
@@ -57,10 +73,11 @@ func (s *UserService) GetActiveUserId() (string, error) {
 // the active user is not set.
 //
 // Use the UpdateActiveUser method to handle those situations.
-func (s *UserService) GetActiveUser() (*store.UserInfo, error) {
+func (s *UserService) GetActiveUser() (*UserDTO, error) {
 	// Get current user-settings. This is either 0, or 1 entry.
 	userSettings, err := s.usStore.Get()
 
+	var currentUserInfo *store.UserInfo
 	if err != nil {
 
 		// If no entry is found in database, check default profile in config and setup DB
@@ -86,28 +103,39 @@ func (s *UserService) GetActiveUser() (*store.UserInfo, error) {
 				return nil, err
 			}
 
-			fmt.Printf("about to switch")
-
-			currentUser, err := s.SwitchUser(selectedProfile)
+			currentUserInfo, err = s.SwitchUser(selectedProfile)
 			if err != nil {
 				fmt.Println("Error switching user.")
 				return nil, err
 			}
 
-			return currentUser, nil
 		} else {
 			return nil, err
 		}
 
+	} else {
+		currentUserInfo, err = s.uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// If entries found in database, continue with active profile
-	currentUserInfo, err := s.uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
-	if err != nil {
-		return nil, err
+	userDTO := UserDTO{
+		Id:               currentUserInfo.Id,
+		Name:             currentUserInfo.Name,
+		SessionToken:     currentUserInfo.SessionToken,
+		RefreshToken:     currentUserInfo.RefreshToken,
+		TokenExpire:      currentUserInfo.TokenExpire,
+		IdToken:          currentUserInfo.IdToken,
+		Profile:          currentUserInfo.Profile,
+		Environment:      currentUserInfo.Environment,
+		ApiHost:          s.client.GetAPIParams().ApiHost,
+		Api2Host:         s.client.GetAPIParams().ApiHost2,
+		OrganizationId:   currentUserInfo.OrganizationId,
+		OrganizationName: currentUserInfo.OrganizationName,
 	}
 
-	return currentUserInfo, nil
+	return &userDTO, nil
 }
 
 // SwitchUser switches between profiles and returns active userInfo.
@@ -125,17 +153,31 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 	environment := viper.GetString(profile + ".env")
 	customUploadBucket := viper.GetString(profile + ".upload_bucket")
 
+	newParams := pennsieve.APIParams{
+		ApiKey:        apiToken,
+		ApiSecret:     apiSecret,
+		Port:          viper.GetString("agent.port"),
+		UseConfigFile: true,
+		Profile:       profile,
+	}
+
 	if customUploadBucket != "" {
-		s.client.UploadBucket = customUploadBucket
+		newParams.UploadBucket = customUploadBucket
+	} else {
+		newParams.UploadBucket = pennsieve.DefaultUploadBucket
 	}
 
 	// Directly update baseURL, so we can authenticate against new profile before setting up new Client
 	customAPIHost := viper.GetString(profile + ".api_host")
 	if customAPIHost != "" {
-		s.client.SetBasePathForServices(customAPIHost, "https://api2.pennsieve.net")
+		newParams.ApiHost = customAPIHost
+		newParams.ApiHost2 = "https://api2.pennsieve.net"
 	} else {
-		s.client.SetBasePathForServices(pennsieve.BaseURLV1, pennsieve.BaseURLV2)
+		newParams.ApiHost = pennsieve.BaseURLV1
+		newParams.ApiHost2 = pennsieve.BaseURLV2
 	}
+
+	s.client.Updateparams(newParams)
 
 	// Check credentials of new profile
 	credentials, err := s.client.Authentication.Authenticate(apiToken, apiSecret)
@@ -158,11 +200,11 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 	}
 
 	// Create new user settings
-	params := store.UserSettingsParams{
+	usParams := store.UserSettingsParams{
 		UserId:  existingUser.ID,
 		Profile: profile,
 	}
-	_, err = s.usStore.CreateNewUserSettings(params)
+	_, err = s.usStore.CreateNewUserSettings(usParams)
 	if err != nil {
 		fmt.Println("Error Creating new UserSettings")
 		return nil, err
@@ -205,8 +247,10 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 	return newUserInfo, nil
 }
 
+// ReAuthenticate authenticates user, update server client and return new session.
 func (s *UserService) ReAuthenticate() (pennsieve.APISession, error) {
 	apiSession, err := s.client.Authentication.ReAuthenticate()
+
 	newSession := pennsieve.APISession{
 		Token:        apiSession.Token,
 		IdToken:      apiSession.IdToken,
@@ -218,89 +262,18 @@ func (s *UserService) ReAuthenticate() (pennsieve.APISession, error) {
 	return newSession, err
 }
 
-// UpdateActiveUser returns userInfo for active user and updates local SQlite DB
-func (s *UserService) UpdateActiveUser() (*store.UserInfo, error) {
+// UpdateTokenForUser updates the local database with new credentials and returns UserDTO
+func (s *UserService) UpdateTokenForUser(user *UserDTO, credentials *pennsieve.APISession) (*UserDTO, error) {
 
-	// Get current user-settings. This is either 0, or 1 entry.
-	userSettings, err := s.usStore.Get()
-
+	err := s.uiStore.UpdateTokenForUser(user.Id, credentials)
 	if err != nil {
-		// If no entry is found in database, check default profile in config and setup DB
-		if errors.Is(err, &store.NoClientSessionError{}) {
-			fmt.Println("No record found in User Settings --> Checking Default Profile.")
-
-			selectedProfile := viper.GetString("global.default_profile")
-			fmt.Println("Selected Profile: ", selectedProfile)
-
-			if selectedProfile == "" {
-				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
-					viper.ConfigFileUsed())
-			}
-
-			// Create new user settings
-			params := store.UserSettingsParams{
-				UserId:  "",
-				Profile: selectedProfile,
-			}
-			_, err = s.usStore.CreateNewUserSettings(params)
-			if err != nil {
-				fmt.Println("Error Creating new UserSettings")
-				return nil, err
-			}
-
-			fmt.Printf("about to switch")
-
-			currentUser, err := s.SwitchUser(selectedProfile)
-			if err != nil {
-				fmt.Println("Error switching user.")
-				return nil, err
-			}
-
-			return currentUser, nil
-		} else {
-			return nil, err
-		}
-	}
-
-	// If entries found in database, continue with active profile
-	currentUserInfo, err := s.uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			fmt.Println("No userInfo found for user settings")
-			_, err := s.SwitchUser(userSettings.Profile)
-			if err != nil {
-				fmt.Println("error switching user:", err)
-			}
-
-		} else {
-			log.Fatal(err)
-		}
-
 		return nil, err
 	}
 
-	s.client.APISession = pennsieve.APISession{
-		Token:        currentUserInfo.SessionToken,
-		IdToken:      currentUserInfo.IdToken,
-		Expiration:   currentUserInfo.TokenExpire,
-		RefreshToken: currentUserInfo.RefreshToken,
-		IsRefreshed:  false,
-	}
+	user.SessionToken = credentials.Token
+	user.RefreshToken = credentials.RefreshToken
+	user.TokenExpire = credentials.Expiration
+	user.IdToken = credentials.IdToken
 
-	apiToken := viper.GetString("pennsieve.api_token")
-	apiSecret := viper.GetString("pennsieve.api_secret")
-	//apiToken := viper.GetString(userSettings.Profile + ".api_token")
-	//apiSecret := viper.GetString(userSettings.Profile + ".api_secret")
-
-	s.client.APICredentials = pennsieve.APICredentials{
-		ApiKey:    apiToken,
-		ApiSecret: apiSecret,
-	}
-
-	return currentUserInfo, nil
-}
-
-func (s *UserService) UpdateTokenForUser(user *store.UserInfo, credentials *pennsieve.APISession) (*store.UserInfo, error) {
-	userInfo, err := s.uiStore.UpdateTokenForUser(user, credentials)
-	return userInfo, err
+	return user, err
 }

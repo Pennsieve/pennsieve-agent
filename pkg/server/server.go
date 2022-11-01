@@ -25,8 +25,9 @@ var Version = "development"
 
 type server struct {
 	pb.UnimplementedAgentServer
-	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+	subscribers    sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs     sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+	syncCancelFncs sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
 
 	client *pennsieve.Client
 
@@ -116,6 +117,16 @@ func (s *server) Version(ctx context.Context, request *pb.VersionRequest) (*pb.V
 // HELPER FUNCTIONS
 // ----------------------------------------------
 
+func (s *server) stopSyncTimers() {
+	s.syncCancelFncs.Range(func(key interface{}, value interface{}) bool {
+		fmt.Println("STOP SYNCING on ", key.(int32))
+		tmr := value.(chan struct{})
+		tmr <- struct{}{}
+		s.syncCancelFncs.Delete(key)
+		return true
+	})
+}
+
 // messageSubscribers sends a string message to all grpc-update subscribers and the log
 func (s *server) messageSubscribers(message string) {
 
@@ -182,6 +193,7 @@ func StartAgent() error {
 
 	db, err := config.InitializeDB()
 	if err != nil {
+
 		fmt.Println("Error initializing DB --", err)
 	}
 	manifestStore := store.NewManifestStore(db)

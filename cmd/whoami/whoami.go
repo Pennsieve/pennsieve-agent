@@ -59,13 +59,13 @@ var WhoamiCmd = &cobra.Command{
 		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		_, err = config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}
 
 		showFull, _ := cmd.Flags().GetBool("full")
-		PrettyPrint(userResponse, pennsieveClient.BaseUrl, showFull)
+		PrettyPrint(userResponse, showFull)
 	},
 }
 
@@ -75,7 +75,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(info *v1.UserResponse, host string, showFull bool) {
+func PrettyPrint(info *v1.UserResponse, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{
@@ -88,8 +88,7 @@ func PrettyPrint(info *v1.UserResponse, host string, showFull bool) {
 		t.AppendRows([]table.Row{
 			{"PROFILE", info.Profile},
 			{"ENVIRONMENT", info.Environment},
-			{"SESSION-TOKEN", info.SessionToken},
-			{"HOST", host},
+			{"HOST", info.ApiHost},
 		})
 	}
 
