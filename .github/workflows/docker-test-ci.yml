@@ -46,7 +46,7 @@ jobs:
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
-        go mod init
+        #go mod init
         echo "Version?"
         ls
         go run main.go version
