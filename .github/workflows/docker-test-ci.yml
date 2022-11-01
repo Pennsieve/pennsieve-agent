@@ -2,11 +2,11 @@ name: Docker Test CI
 
 on:
   push:
-    branches: [ "main"]
+    branches: ["main"]
   pull_request:
-    branches: [ "main"]
+    branches: ["main"]
 
-jobs:         
+jobs:
   tester-job:
     strategy:
       fail-fast: false
@@ -14,10 +14,8 @@ jobs:
         go-version: ["1.18"]
         python-version: ["3.10"]
         os: [ubuntu-latest] 
-        
 
     runs-on: ubuntu-latest
-    
 
     services:
       # Label used to access the service container
@@ -46,16 +44,19 @@ jobs:
         wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
+        GOPATH=$(pwd)
         go build
         go install
+        go mod init
         echo "Version?"
         ls
         go run main.go version
-        echo "Dataset"
-        go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
-        echo "Manifest create"
-        go run manifest create .
-        echo "Manifest upload"
-        go run manifest upload
+        #echo "Dataset"
+        #go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
+        #echo "Manifest create"
+        #echo $(date) > ci.txt
+        #go run manifest create ci.txt
+        #echo "Manifest upload"
+        #go run manifest upload
         echo "DONE"
 
