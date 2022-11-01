@@ -44,7 +44,6 @@ jobs:
         wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
-        GOPATH=$(pwd)
         go build
         go install
         go mod init
