@@ -1,0 +1,61 @@
+name: Docker Test CI
+
+on:
+  push:
+    branches: [ "main"]
+  pull_request:
+    branches: [ "main"]
+
+jobs:         
+  tester-job:
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.18"]
+        python-version: ["3.10"]
+        os: [ubuntu-latest] 
+        
+
+    runs-on: ubuntu-latest
+    
+
+    services:
+      # Label used to access the service container
+      pennsieve:
+        image: athril/pennsieve-agent:latest
+        credentials:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        env:
+          PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
+          PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
+          PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+        ports:
+        - 9000:9000
+                
+    steps:
+    - name: Test Pennsieve Agent
+      env:
+        PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
+        PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
+        PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+      run: |
+        # apt-get update
+        # apt-get install jq zip -y
+        AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
+        wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
+        unzip ${AGENT_VERSION}.zip 
+        cd pennsieve-agent-${AGENT_VERSION}
+        go build
+        go install
+        echo "Version?"
+        ls
+        go run main.go version
+        echo "Dataset"
+        go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
+        echo "Manifest create"
+        go run manifest create .
+        echo "Manifest upload"
+        go run manifest upload
+        echo "DONE"
+
