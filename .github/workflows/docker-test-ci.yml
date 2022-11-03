@@ -34,7 +34,6 @@ jobs:
 
     steps:
     - name: Test Pennsieve Agent
-      uses: ./
       env:
         PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
         PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
@@ -58,7 +57,7 @@ jobs:
         echo $(date) > ${{ github.workspace }}/ci.txt
 
         go run manifest create /pennsieve/ci.txt
-#        go run manifest create ${{ github.workspace }}/ci.txt
+        #go run manifest create ${{ github.workspace }}/ci.txt
         echo "Manifest upload"
         go run manifest upload
         echo "DONE"
