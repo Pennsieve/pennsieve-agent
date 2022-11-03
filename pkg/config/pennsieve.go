@@ -207,7 +207,62 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			log.Error("Error authenticating:", err)
 			return nil, err
 		}
-		client.APISession = *session
+//		client.APISession = *session
+
+			// authentication for env variables:
+			credentials, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
+			if err != nil {
+				log.Error("Problem with authentication", err)
+				return nil, err
+			}
+
+			client.APISession = pennsieve.APISession{
+				Token:        credentials.Token,
+				IdToken:      credentials.IdToken,
+				Expiration:   credentials.Expiration,
+				RefreshToken: credentials.RefreshToken,
+				IsRefreshed:  false,
+			}
+
+			// Get the User for the new profile
+			existingUser, err := client.User.GetUser(nil)
+			if err != nil {
+				log.Error("Problem with getting user", err)
+				return nil, err
+			}
+
+			currentOrg, err := client.Organization.Get(context.Background(), existingUser.PreferredOrganization)
+
+			params := store.UserSettingsParams{
+				UserId:  existingUser.ID,
+				Profile: selectedProfile,
+			}
+
+			_, err = usStore.CreateNewUserSettings(params)
+			if err != nil {
+				fmt.Println("Error Creating new UserSettings")
+				return nil, err
+			}
+
+			uiParams := store.UserInfoParams{
+				Id:               existingUser.ID,
+				Name:             existingUser.FirstName + " " + existingUser.LastName,
+				SessionToken:     credentials.Token,
+				RefreshToken:     credentials.RefreshToken,
+				Profile:          selectedProfile,
+				IdToken:          "",
+				Environment:      "",
+				OrganizationId:   existingUser.PreferredOrganization,
+				OrganizationName: currentOrg.Organization.Name,
+			}
+
+			client.OrganizationNodeId = currentOrg.Organization.ID
+
+			info, err = uiStore.CreateNewUserInfo(uiParams)
+			if err != nil {
+				log.Error(err)
+			}
+			//end auhentication
 
 	}
 
