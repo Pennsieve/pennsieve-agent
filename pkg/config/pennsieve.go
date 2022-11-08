@@ -25,21 +25,24 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 	}
 
 	var client *pennsieve.Client
-
-	if viper.GetBool("agent.useConfigFile") {
-		// USE CONFIG INI AND PROFILE
-
-		// Get current user-settings. This is either 0, or 1 entry.
-		userSettings, err := usStore.Get()
-		if err != nil {
-			userSettings = &store.UserSettings{
-				UserId:          "",
-				Profile:         viper.GetString("global.default_profile"),
-				UseDatasetId:    "",
-				UploadSessionId: "",
-			}
+	selectedProfile := "xyz"
+	userSettings, err := usStore.Get()
+	if err != nil {
+		userSettings = &store.UserSettings{
+			UserId:          "",
+			Profile:         viper.GetString("global.default_profile"),
+			UseDatasetId:    "",
+			UploadSessionId: "",
 		}
-
+	}
+	if viper.GetBool("agent.useConfigFile") {
+		selectedProfile = viper.GetString("global.default_profile")
+		if selectedProfile == "" {
+			return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
+				viper.ConfigFileUsed())
+		}
+		activeConfig.ApiKey = viper.GetString(selectedProfile + ".api_token")
+		activeConfig.ApiSecret = viper.GetString(selectedProfile + ".api_secret")
 		// useProfile is true when config.ini file exists and using credentials associated with profile.
 		// It is false when we are using environment variables.
 		if viper.IsSet(userSettings.Profile + ".api_token") {
@@ -53,7 +56,6 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		} else {
 			return nil, errors.New("API Token/secret not set")
 		}
-
 		// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
 		if viper.IsSet(userSettings.Profile + ".api_host") {
 			activeConfig.ApiHost = viper.GetString(userSettings.Profile + ".api_host")
@@ -62,122 +64,6 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			activeConfig.ApiHost = pennsieve.BaseURLV1
 			activeConfig.ApiHost2 = pennsieve.BaseURLV2
 		}
-
-		if viper.IsSet(userSettings.Profile + ".upload_bucket") {
-			activeConfig.UploadBucket = viper.GetString(userSettings.Profile + ".upload_bucket")
-		} else {
-			activeConfig.UploadBucket = pennsieve.DefaultUploadBucket
-		}
-
-		client = pennsieve.NewClient(activeConfig)
-
-		// Check if existing session token is expired.
-		// Check Expiration Time for current session and refresh if necessary
-		info, err := uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
-		if err != nil {
-			fmt.Println("CREATE SETTINGS AND INFO")
-
-			selectedProfile := viper.GetString("global.default_profile")
-			if selectedProfile == "" {
-				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
-					viper.ConfigFileUsed())
-			}
-
-			activeConfig.ApiKey = viper.GetString(selectedProfile + ".api_token")
-			activeConfig.ApiSecret = viper.GetString(selectedProfile + ".api_secret")
-
-			// Check credentials of new profile
-			credentials, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
-			if err != nil {
-				log.Error("Problem with authentication", err)
-				return nil, err
-			}
-
-			client.APISession = pennsieve.APISession{
-				Token:        credentials.Token,
-				IdToken:      credentials.IdToken,
-				Expiration:   credentials.Expiration,
-				RefreshToken: credentials.RefreshToken,
-				IsRefreshed:  false,
-			}
-
-			// Get the User for the new profile
-			existingUser, err := client.User.GetUser(nil)
-			if err != nil {
-				log.Error("Problem with getting user", err)
-				return nil, err
-			}
-
-			currentOrg, err := client.Organization.Get(context.Background(), existingUser.PreferredOrganization)
-
-			params := store.UserSettingsParams{
-				UserId:  existingUser.ID,
-				Profile: selectedProfile,
-			}
-
-			_, err = usStore.CreateNewUserSettings(params)
-			if err != nil {
-				fmt.Println("Error Creating new UserSettings")
-				return nil, err
-			}
-
-			uiParams := store.UserInfoParams{
-				Id:               existingUser.ID,
-				Name:             existingUser.FirstName + " " + existingUser.LastName,
-				SessionToken:     credentials.Token,
-				RefreshToken:     credentials.RefreshToken,
-				Profile:          selectedProfile,
-				IdToken:          "",
-				Environment:      "",
-				OrganizationId:   existingUser.PreferredOrganization,
-				OrganizationName: currentOrg.Organization.Name,
-			}
-
-			client.OrganizationNodeId = currentOrg.Organization.ID
-
-			info, err = uiStore.CreateNewUserInfo(uiParams)
-			if err != nil {
-				log.Error(err)
-			}
-
-		}
-
-		if time.Now().After(info.TokenExpire.Add(-5 * time.Minute)) {
-			// Need to get new session token
-
-			log.Info("Refreshing Pennsieve session token")
-
-			session, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
-
-			if err != nil {
-				log.Error("Error authenticating:", err)
-				return nil, err
-			}
-			client.APISession = *session
-
-			err = uiStore.UpdateTokenForUser(info.Id, session)
-			if err != nil {
-				return nil, err
-			}
-
-			info.SessionToken = session.Token
-			info.RefreshToken = session.RefreshToken
-			info.TokenExpire = session.Expiration
-			info.IdToken = session.IdToken
-
-		} else {
-			// Existing info has active token that can be used.
-
-			client.APISession = pennsieve.APISession{
-				Token:        info.SessionToken,
-				IdToken:      info.IdToken,
-				Expiration:   info.TokenExpire,
-				RefreshToken: info.RefreshToken,
-				IsRefreshed:  false,
-			}
-
-		}
-
 	} else {
 		// USE ENVIRONMENT VARIABLES
 		fmt.Println("USE ENVIRONMENT VARIABLES")
@@ -199,17 +85,101 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			activeConfig.ApiHost = pennsieve.BaseURLV1
 			activeConfig.ApiHost2 = pennsieve.BaseURLV2
 		}
+	} 
 
-		client = pennsieve.NewClient(activeConfig)
+	if viper.IsSet(userSettings.Profile + ".upload_bucket") {
+		activeConfig.UploadBucket = viper.GetString(userSettings.Profile + ".upload_bucket")
+	} else {
+		activeConfig.UploadBucket = pennsieve.DefaultUploadBucket
+	}
+
+	client = pennsieve.NewClient(activeConfig)
+
+	// Check if existing session token is expired.
+	// Check Expiration Time for current session and refresh if necessary
+	info, err := uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
+	if err != nil {
+		fmt.Println("CREATE SETTINGS AND INFO")
+		// Check credentials of new profile
+		credentials, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
+		if err != nil {
+			log.Error("Problem with authentication", err)
+			return nil, err
+		}
+		client.APISession = pennsieve.APISession{
+			Token:        credentials.Token,
+			IdToken:      credentials.IdToken,
+			Expiration:   credentials.Expiration,
+			RefreshToken: credentials.RefreshToken,
+			IsRefreshed:  false,
+		}
+		// Get the User for the new profile
+		existingUser, err := client.User.GetUser(nil)
+		if err != nil {
+			log.Error("Problem with getting user", err)
+			return nil, err
+		}
+		currentOrg, err := client.Organization.Get(context.Background(), existingUser.PreferredOrganization)
+		params := store.UserSettingsParams{
+			UserId:  existingUser.ID,
+			Profile: selectedProfile,
+		}
+		_, err = usStore.CreateNewUserSettings(params)
+		if err != nil {
+			fmt.Println("Error Creating new UserSettings")
+			return nil, err
+		}
+		uiParams := store.UserInfoParams{
+			Id:               existingUser.ID,
+			Name:             existingUser.FirstName + " " + existingUser.LastName,
+			SessionToken:     credentials.Token,
+			RefreshToken:     credentials.RefreshToken,
+			Profile:          selectedProfile,
+			IdToken:          "",
+			Environment:      "",
+			OrganizationId:   existingUser.PreferredOrganization,
+			OrganizationName: currentOrg.Organization.Name,
+		}
+
+		client.OrganizationNodeId = currentOrg.Organization.ID
+
+		info, err = uiStore.CreateNewUserInfo(uiParams)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
+	if time.Now().After(info.TokenExpire.Add(-5 * time.Minute)) {
+		// Need to get new session token
+		log.Info("Refreshing Pennsieve session token")
 
 		session, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
+
 		if err != nil {
 			log.Error("Error authenticating:", err)
 			return nil, err
 		}
 		client.APISession = *session
+		err = uiStore.UpdateTokenForUser(info.Id, session)
+		if err != nil {
+			return nil, err
+		}
 
+		info.SessionToken = session.Token
+		info.RefreshToken = session.RefreshToken
+		info.TokenExpire = session.Expiration
+		info.IdToken = session.IdToken
+
+	} else {
+		// Existing info has active token that can be used.
+
+		client.APISession = pennsieve.APISession{
+			Token:        info.SessionToken,
+			IdToken:      info.IdToken,
+			Expiration:   info.TokenExpire,
+			RefreshToken: info.RefreshToken,
+			IsRefreshed:  false,
+		}
 	}
-
 	return client, nil
 }
