@@ -1,3 +1,4 @@
+
 name: Docker Test CI
 
 on:
@@ -21,6 +22,7 @@ jobs:
       # Label used to access the service container
       pennsieve:
         image: athril/pennsieve-agent:latest
+        options:  --user root -v ${{ github.workspace }}:/pennsieve
         credentials:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -30,7 +32,7 @@ jobs:
           PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
         ports:
         - 9000:9000
-                
+
     steps:
     - name: Test Pennsieve Agent
       env:
@@ -41,21 +43,21 @@ jobs:
         # apt-get update
         # apt-get install jq zip -y
         AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
-        wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
+        wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
         #go mod init
         echo "Version?"
-        ls
         go run main.go version
         echo "Dataset"
-        go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
+        go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }} &> /dev/null
         echo "Manifest create"
-        echo $(date) > ci.txt
-        go run manifest create ci.txt
+        echo $(date) > ${{ github.workspace }}/ci.txt
+        echo $( ls ${{ github.workspace }} )
+        go run main.go manifest create /pennsieve/ci.txt
+        #go run manifest create ${{ github.workspace }}/ci.txt
         echo "Manifest upload"
-        go run manifest upload
+        go run main.go manifest upload
         echo "DONE"
-
