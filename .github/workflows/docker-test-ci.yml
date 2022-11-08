@@ -50,12 +50,12 @@ jobs:
         echo "Version?"
         ls
         go run main.go version
-        #echo "Dataset"
-        #go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
-        #echo "Manifest create"
-        #echo $(date) > ci.txt
-        #go run manifest create ci.txt
-        #echo "Manifest upload"
-        #go run manifest upload
+        echo "Dataset"
+        go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
+        echo "Manifest create"
+        echo $(date) > ci.txt
+        go run manifest create ci.txt
+        echo "Manifest upload"
+        go run manifest upload
         echo "DONE"
 
