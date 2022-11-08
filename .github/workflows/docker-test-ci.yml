@@ -51,13 +51,15 @@ jobs:
         #go mod init
         echo "Version?"
         go run main.go version
-        echo "Dataset"
+        echo "Dataset check"
         go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }} &> /dev/null
-        echo "Manifest create"
+        echo "User check"
+        go run main.go whoami &> /dev/null
+        echo "Manifest create check"
         echo $(date) > ${{ github.workspace }}/ci.txt
         echo $( ls ${{ github.workspace }} )
         go run main.go manifest create /pennsieve/ci.txt
         #go run manifest create ${{ github.workspace }}/ci.txt
-        echo "Manifest upload"
+        echo "Manifest upload check"
         go run main.go manifest upload
         echo "DONE"
