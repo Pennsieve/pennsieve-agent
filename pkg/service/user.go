@@ -71,8 +71,7 @@ func (s *UserService) GetActiveUserId() (string, error) {
 // GetActiveUser returns the user that is currently set in UserSettings table
 // This method does not update the active session, or handles situations where
 // the active user is not set.
-//
-// Use the UpdateActiveUser method to handle those situations.
+
 func (s *UserService) GetActiveUser() (*UserDTO, error) {
 	// Get current user-settings. This is either 0, or 1 entry.
 	userSettings, err := s.usStore.Get()
@@ -103,10 +102,51 @@ func (s *UserService) GetActiveUser() (*UserDTO, error) {
 				return nil, err
 			}
 
-			currentUserInfo, err = s.SwitchUser(selectedProfile)
-			if err != nil {
-				fmt.Println("Error switching user.")
-				return nil, err
+			if s.client.GetAPIParams().UseConfigFile {
+				currentUserInfo, err = s.SwitchUser(selectedProfile)
+				if err != nil {
+					fmt.Println("Error switching user.")
+					return nil, err
+				}
+			} else {
+
+				apiParams := s.client.GetAPIParams()
+
+				// Check credentials of new profile
+				credentials, err := s.client.Authentication.Authenticate(apiParams.ApiKey, apiParams.ApiSecret)
+				if err != nil {
+					fmt.Println("Problem with authentication")
+					return nil, err
+				}
+
+				// Get the User for the new profile
+				existingUser, err := s.client.User.GetUser(nil)
+				if err != nil {
+					fmt.Println("Problem with getting user", err)
+					return nil, err
+				}
+
+				org, err := s.client.Organization.Get(nil, existingUser.PreferredOrganization)
+				if err != nil {
+					fmt.Println("Error getting organization")
+					return nil, err
+				}
+
+				infoParams := store.UserInfoParams{
+					Id:               existingUser.ID,
+					Name:             existingUser.FirstName + " " + existingUser.LastName,
+					SessionToken:     credentials.Token,
+					RefreshToken:     credentials.RefreshToken,
+					TokenExpire:      credentials.Expiration,
+					Profile:          selectedProfile,
+					IdToken:          credentials.IdToken,
+					Environment:      "",
+					OrganizationId:   org.Organization.ID,
+					OrganizationName: org.Organization.Name,
+				}
+
+				currentUserInfo, err = s.uiStore.CreateNewUserInfo(infoParams)
+
 			}
 
 		} else {
@@ -119,6 +159,8 @@ func (s *UserService) GetActiveUser() (*UserDTO, error) {
 			return nil, err
 		}
 	}
+
+	//fmt.Println(currentUserInfo)
 
 	userDTO := UserDTO{
 		Id:               currentUserInfo.Id,
@@ -227,6 +269,7 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 				Name:             existingUser.FirstName + " " + existingUser.LastName,
 				SessionToken:     credentials.Token,
 				RefreshToken:     credentials.RefreshToken,
+				TokenExpire:      credentials.Expiration,
 				Profile:          profile,
 				Environment:      environment,
 				OrganizationId:   s.client.OrganizationNodeId,

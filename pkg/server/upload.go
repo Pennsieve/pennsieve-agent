@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
@@ -215,6 +216,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 		// Create an uploader with the client and custom options
 		uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
 			u.PartSize = chunkSize * 1024 * 1024 // ...MB per part
+			u.Concurrency = 5
 		})
 
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_INIT)
@@ -230,7 +232,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.GetAPIParams().UploadBucket)
+				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.GetAPIParams().UploadBucket, m.DatasetId, m.OrganizationId)
 				if err != nil {
 					log.Println("Error in Upload Worker:", err)
 				}
@@ -248,7 +250,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 func (s *server) uploadWorker(ctx context.Context, workerId int32,
 	jobs <-chan store.ManifestFile, results chan<- int, manifestNodeId string,
-	uploader *manager.Uploader, cfg aws.Config, uploadBucket string) error {
+	uploader *manager.Uploader, cfg aws.Config, uploadBucket string, datasetId string, organizationId string) error {
 
 	for record := range jobs {
 
@@ -270,12 +272,18 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 
 		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
 
+		tags := fmt.Sprintf("OrgId=%s&Name=%s&DatasetId=%s", organizationId, record.TargetName, datasetId)
+
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
-			Bucket: aws.String(uploadBucket),
-			Key:    s3Key,
-			Body:   reader,
+			Bucket:            aws.String(uploadBucket),
+			Key:               s3Key,
+			Body:              reader,
+			ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
+			Tagging:           &tags,
 		})
 		if err != nil {
+
+			s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
 
 			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
 			// is done automatically by the manager.

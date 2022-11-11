@@ -21,7 +21,7 @@ var startCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 
-		fmt.Printf("Starting agent with config file: %s\n", viper.ConfigFileUsed())
+		//fmt.Printf("Starting agent with config file: %s\n", viper.ConfigFileUsed())
 
 		// Allow parent to set daemon flag
 		if len(args) > 0 && args[0] == "daemon" {

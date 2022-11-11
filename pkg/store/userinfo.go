@@ -44,7 +44,7 @@ type UserInfoParams struct {
 	RefreshToken     string
 	Profile          string
 	IdToken          string
-	tokenExpire      time.Time
+	TokenExpire      time.Time
 	Environment      string
 	OrganizationId   string
 	OrganizationName string
@@ -75,7 +75,7 @@ func (s *userInfoStore) CreateNewUserInfo(data UserInfoParams) (*UserInfo, error
 	statement, _ := s.db.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
 		"token_expire, id_token, environment, organization_id, organization_name, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.RefreshToken, data.Profile,
-		data.tokenExpire, data.IdToken, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
+		data.TokenExpire, data.IdToken, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
 	if err == nil {
 		innerId, _ := result.LastInsertId()
 		user.InnerId = int(innerId)
@@ -84,7 +84,7 @@ func (s *userInfoStore) CreateNewUserInfo(data UserInfoParams) (*UserInfo, error
 		user.SessionToken = data.SessionToken
 		user.IdToken = data.IdToken
 		user.Profile = data.Profile
-		user.TokenExpire = data.tokenExpire
+		user.TokenExpire = data.TokenExpire
 		user.Environment = data.Environment
 		user.OrganizationId = data.OrganizationId
 		user.OrganizationName = data.OrganizationName

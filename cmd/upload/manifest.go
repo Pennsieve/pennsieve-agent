@@ -73,7 +73,7 @@ var ManifestCmd = &cobra.Command{
 			fmt.Println("Unable to track uploads. Please check logs to verify files are uploaded.")
 		}
 		SubscribeClient.Start([]v1.SubscribeResponse_MessageType{
-			v1.SubscribeResponse_UPLOAD_STATUS, v1.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
+			v1.SubscribeResponse_UPLOAD_STATUS, v1.SubscribeResponse_EVENT}, subscriber.StopOnStatus{
 			Enable: true,
 			OnType: []v1.SubscribeResponse_MessageType{v1.SubscribeResponse_UPLOAD_STATUS},
 		})
