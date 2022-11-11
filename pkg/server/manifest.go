@@ -317,9 +317,10 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 
 	// Sync handler
 	go func() {
+		defer close(syncResults)
 
 		var syncWaitGroup sync.WaitGroup
-
+		
 		// 1. Ensure we get a manifest id from the server
 		err := s.getCreateManifestId(m)
 		if err != nil {
@@ -350,7 +351,6 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 		syncWaitGroup.Wait()
 		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubscribeResponse_SyncResponse_COMPLETE)
 		log.Info("All sync workers complete --> closing syncResults channel")
-		close(syncResults)
 	}()
 
 	// Handling results from sync handlers.

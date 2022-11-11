@@ -291,8 +291,12 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 }
 
 // ReAuthenticate authenticates user, update server client and return new session.
-func (s *UserService) ReAuthenticate() (pennsieve.APISession, error) {
+func (s *UserService) ReAuthenticate() (*pennsieve.APISession, error) {
 	apiSession, err := s.client.Authentication.ReAuthenticate()
+	if err != nil {
+		log.Error("Reauthenticate error: ", err)
+		return nil, err
+	}
 
 	newSession := pennsieve.APISession{
 		Token:        apiSession.Token,
@@ -302,7 +306,7 @@ func (s *UserService) ReAuthenticate() (pennsieve.APISession, error) {
 		IsRefreshed:  apiSession.IsRefreshed,
 	}
 
-	return newSession, err
+	return &newSession, err
 }
 
 // UpdateTokenForUser updates the local database with new credentials and returns UserDTO

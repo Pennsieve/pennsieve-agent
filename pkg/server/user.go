@@ -70,7 +70,7 @@ func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateR
 	}
 
 	// Update session in local database
-	updatedUser, _ := s.User.UpdateTokenForUser(activeUser, &updatedSession)
+	updatedUser, _ := s.User.UpdateTokenForUser(activeUser, updatedSession)
 
 	// Return user response
 	resp := pb.UserResponse{

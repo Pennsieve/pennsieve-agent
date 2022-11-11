@@ -101,6 +101,7 @@ func (s *server) UploadManifest(ctx context.Context,
 	// Ticker to get status updates from the server periodically
 	syncTickerDelay := 15 * time.Minute // time to continue syncing files after upload complete
 	go func() {
+		defer close(tickerDone)
 		for {
 			select {
 			case <-tickerDone:
