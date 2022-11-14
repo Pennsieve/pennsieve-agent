@@ -122,7 +122,6 @@ func (s *server) stopSyncTimers() {
 		fmt.Println("STOP SYNCING on ", key.(int32))
 		tmr := value.(chan struct{})
 		tmr <- struct{}{}
-		s.syncCancelFncs.Delete(key)
 		return true
 	})
 }

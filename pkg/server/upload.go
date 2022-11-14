@@ -148,8 +148,10 @@ func (s *server) UploadManifest(ctx context.Context,
 			select {
 			case <-syncTimer.C:
 				tickerDone <- true
+				s.syncCancelFncs.Delete(m.Id)
 			case <-cancel:
 				tickerDone <- true
+				s.syncCancelFncs.Delete(m.Id)
 			}
 		}
 	}()
@@ -217,7 +219,6 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 		// Create an uploader with the client and custom options
 		uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
 			u.PartSize = chunkSize * 1024 * 1024 // ...MB per part
-			u.Concurrency = 5
 		})
 
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_INIT)
