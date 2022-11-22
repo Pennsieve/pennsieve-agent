@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,7 +30,7 @@ var AddCmd = &cobra.Command{
 		targetBasePath, _ := cmd.Flags().GetString("target_path")
 		recursive, _ := cmd.Flags().GetBool("recursive")
 
-		req := v1.AddToManifestRequest{
+		req := api.AddToManifestRequest{
 			ManifestId:     manifestId,
 			BasePath:       localBasePath,
 			TargetBasePath: targetBasePath,
@@ -46,7 +46,7 @@ var AddCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		manifestResponse, err := client.AddToManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Add To Manifest command: %v", err))

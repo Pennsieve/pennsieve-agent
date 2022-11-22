@@ -55,6 +55,7 @@ type UserInfoStore interface {
 	GetUserInfo(id string, profile string) (*UserInfo, error)
 	GetAll() ([]UserInfo, error)
 	UpdateTokenForUser(userId string, credentials *pennsieve.APISession) error
+	DeleteUserForProfile(profile string) error
 }
 
 func NewUserInfoStore(db *sql.DB) *userInfoStore {
@@ -152,6 +153,22 @@ func (s *userInfoStore) UpdateTokenForUser(userId string, credentials *pennsieve
 	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken, userId)
 	if err != nil {
 		fmt.Sprintln("Unable to update Sessiontoken in database")
+		return err
+	}
+
+	return nil
+}
+
+func (s *userInfoStore) DeleteUserForProfile(profile string) error {
+	statement, err := s.db.Prepare("DELETE FROM user_record WHERE profile = ?")
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	_, err = statement.Exec(profile)
+	if err != nil {
+		fmt.Sprintf("Unable to delete userInfo for profile: %s\n", profile)
 		return err
 	}
 

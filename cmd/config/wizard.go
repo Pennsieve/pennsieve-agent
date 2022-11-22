@@ -109,7 +109,7 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 				fmt.Println(err)
 			}
 
-			log.Info("New profile created in config file: ", profileName)
+			fmt.Println("New profile created in config file: ", profileName)
 		}
 	},
 }

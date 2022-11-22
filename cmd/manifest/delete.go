@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,7 +25,7 @@ var DeleteCmd = &cobra.Command{
 		}
 		manifestId := int32(i)
 
-		req := v1.DeleteManifestRequest{
+		req := api.DeleteManifestRequest{
 			ManifestId: manifestId,
 		}
 
@@ -38,7 +38,7 @@ var DeleteCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		manifestResponse, err := client.DeleteManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Delete Manifest command: %v", err))

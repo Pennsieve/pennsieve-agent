@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
 	log "github.com/sirupsen/logrus"
@@ -28,7 +28,7 @@ var SyncCmd = &cobra.Command{
 		}
 		manifestId := int32(i)
 
-		req := v1.SyncManifestRequest{
+		req := api.SyncManifestRequest{
 			ManifestId: manifestId,
 		}
 
@@ -40,7 +40,7 @@ var SyncCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		_, err = client.SyncManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Sync Manifest command: %v", err))
@@ -59,9 +59,9 @@ var SyncCmd = &cobra.Command{
 			"\"pennsieve agent subscribe\" to track all events from the Pennsieve Agent.")
 
 		fmt.Println("\n------------")
-		SubscribeClient.Start([]v1.SubscribeResponse_MessageType{v1.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
+		SubscribeClient.Start([]api.SubscribeResponse_MessageType{api.SubscribeResponse_SYNC_STATUS}, subscriber.StopOnStatus{
 			Enable: true,
-			OnType: []v1.SubscribeResponse_MessageType{v1.SubscribeResponse_SYNC_STATUS},
+			OnType: []api.SubscribeResponse_MessageType{api.SubscribeResponse_SYNC_STATUS},
 		})
 
 	},

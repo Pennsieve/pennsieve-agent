@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,7 +26,7 @@ var RemoveCmd = &cobra.Command{
 
 		fmt.Println(args[0])
 
-		req := v1.RemoveFromManifestRequest{
+		req := api.RemoveFromManifestRequest{
 			ManifestId: manifestId,
 			RemovePath: args[0],
 		}
@@ -40,7 +40,7 @@ var RemoveCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		manifestResponse, err := client.RemoveFromManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Remove Manifest command: %v", err))

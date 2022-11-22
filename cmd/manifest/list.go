@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -45,7 +45,7 @@ var ListCmd = &cobra.Command{
 			limit = int32(i)
 		}
 
-		req := v1.ListManifestFilesRequest{
+		req := api.ListManifestFilesRequest{
 			ManifestId: manifestId,
 			Offset:     offset,
 			Limit:      limit,
@@ -59,7 +59,7 @@ var ListCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		listFilesResponse, err := client.ListManifestFiles(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err,
@@ -78,7 +78,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(files *v1.ListManifestFilesResponse, manifestID string, showFull bool) {
+func PrettyPrint(files *api.ListManifestFilesResponse, manifestID string, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetTitle(fmt.Sprintf("Files for upload manifest: %s", manifestID))

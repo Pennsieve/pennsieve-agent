@@ -3,7 +3,7 @@ package dataset
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	log "github.com/sirupsen/logrus"
@@ -23,7 +23,7 @@ var UseCmd = &cobra.Command{
 
 		datasetId := args[0]
 
-		req := v1.UseDatasetRequest{
+		req := api.UseDatasetRequest{
 			DatasetId: datasetId,
 		}
 
@@ -38,7 +38,7 @@ var UseCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// Update active dataset using GRPC
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		useDatasetResponse, err := client.UseDataset(ctx, &req)
 		if err != nil {
 			st := status.Convert(err)

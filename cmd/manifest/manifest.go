@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -22,7 +22,7 @@ var ManifestCmd = &cobra.Command{
 This list includes only upload manifests that are initiated from the current machine.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := v1.ListManifestsRequest{}
+		req := api.ListManifestsRequest{}
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -32,7 +32,7 @@ This list includes only upload manifests that are initiated from the current mac
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		manifestResponse, err := client.ListManifests(context.Background(), &req)
 		if err != nil {
 			st := status.Convert(err)

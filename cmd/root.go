@@ -29,7 +29,6 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 var cfgFile string
@@ -98,26 +97,53 @@ func initViper() error {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 
-	viper.SetDefault("agent.port", "9000")
-	viper.SetDefault("agent.upload_workers", "10")    // Number of concurrent files during upload
-	viper.SetDefault("agent.upload_chunk_size", "32") // Upload chunk-size in MB
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
 
-	viper.SetEnvKeyReplacer(strings.NewReplacer(`.`, `_`))
-	viper.AutomaticEnv() // read in environment variables that match
+	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
+	if len(workers) > 0 {
+		viper.Set("agent.upload_workers", os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS"))
+	} else {
+		viper.SetDefault("agent.upload_workers", "10") // Number of concurrent files during upload
+	}
 
-	// Read in Config.ini file if it exists
-	// If it does not exist, check that required ENV Vars are set instead.
-	if err := viper.ReadInConfig(); err != nil {
-		viper.Set("agent.useConfigFile", false)
-		if len(os.Getenv("PENNSIEVE_API_KEY")) == 0 ||
-			len(os.Getenv("PENNSIEVE_API_SECRET")) == 0 {
-			fmt.Println("No Pennsieve configuration file exists.")
-			fmt.Println("\nPlease use `pennsieve config wizard` to setup your Pennsieve profile, or")
-			fmt.Println("\nset the PENNSIEVE_API_KEY and PENNSIEVE_API_SECRET environment variables.")
+	port := os.Getenv("PENNSIEVE_AGENT_PORT")
+	if len(port) > 0 {
+		viper.Set("agent.port", os.Getenv("PENNSIEVE_AGENT_PORT"))
+	} else {
+		viper.SetDefault("agent.port", "9000")
+	}
+
+	chunkSize := os.Getenv("PENNSIEVE_AGENT_CHUNK_SIZE")
+	if len(chunkSize) > 0 {
+		viper.Set("agent.upload_chunk_size", os.Getenv("PENNSIEVE_AGENT_CHUNK_SIZE"))
+	} else {
+		viper.SetDefault("agent.upload_chunk_size", "32")
+	}
+
+	apiKey := os.Getenv("PENNSIEVE_API_KEY")
+	// use API Key and TOKEN from ENV vars if they exist
+	if len(apiKey) > 0 {
+		viper.Set("pennsieve.api_token", apiKey)
+
+		apiSecret := os.Getenv("PENNSIEVE_API_SECRET")
+		if len(apiSecret) == 0 {
+			fmt.Println("Need to set PENNSIEVE_API_SECRET when PENNSIEVE_API_KEY is set as an ENV variable")
 			os.Exit(1)
+		}
+		viper.Set("pennsieve.api_secret", apiSecret)
+		viper.Set("agent.useConfigFile", false)
+
+	} else {
+		// Load from config file if it exists
+		if err := viper.ReadInConfig(); err != nil {
+			if viper.GetBool("agent.useConfigFile") {
+				fmt.Println("No Pennsieve configuration file exists.")
+				fmt.Println("\nPlease use `pennsieve config wizard` to setup your Pennsieve profile, or")
+				fmt.Println("\nset the PENNSIEVE_API_KEY and PENNSIEVE_API_SECRET environment variables.")
+				os.Exit(1)
+			}
 		}
 	}
 

@@ -3,7 +3,7 @@ package profile
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/cmd/whoami"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
@@ -21,7 +21,7 @@ var ReauthCmd = &cobra.Command{
 	Long:  `Displays information about the logged in user.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := v1.ReAuthenticateRequest{}
+		req := api.ReAuthenticateRequest{}
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -32,7 +32,7 @@ var ReauthCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		userResponse, err := client.ReAuthenticate(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete getUser command: %v", err))

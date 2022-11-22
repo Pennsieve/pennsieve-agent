@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,7 +19,7 @@ var CreateCmd = &cobra.Command{
 
 		targetBasePath, _ := cmd.Flags().GetString("target_path")
 
-		req := v1.CreateManifestRequest{
+		req := api.CreateManifestRequest{
 			BasePath:       args[0],
 			TargetBasePath: targetBasePath,
 			Recursive:      true,
@@ -33,7 +33,7 @@ var CreateCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		manifestResponse, err := client.CreateManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Create Manifest command: %v", err))

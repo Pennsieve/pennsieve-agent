@@ -160,8 +160,6 @@ func (s *UserService) GetActiveUser() (*UserDTO, error) {
 		}
 	}
 
-	//fmt.Println(currentUserInfo)
-
 	userDTO := UserDTO{
 		Id:               currentUserInfo.Id,
 		Name:             currentUserInfo.Name,

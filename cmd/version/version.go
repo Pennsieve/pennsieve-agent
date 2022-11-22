@@ -3,7 +3,7 @@ package version
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,7 +18,7 @@ var VersionCmd = &cobra.Command{
 	Short: "Shows the version of the Agent and CLI.",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := v1.VersionRequest{}
+		req := api.VersionRequest{}
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial("127.0.0.1:"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -27,7 +27,7 @@ var VersionCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 
 		versionResponse, err := client.Version(context.Background(), &req)
 		if err != nil {

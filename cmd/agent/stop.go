@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -26,7 +26,7 @@ var stopCmd = &cobra.Command{
 			fmt.Printf("Stopping port: %s\n", port)
 		}
 
-		req := v1.StopRequest{}
+		req := api.StopRequest{}
 
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -35,10 +35,10 @@ var stopCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 
 		// Check if Pennsieve Server is running at the selected port
-		_, err = client.Ping(context.Background(), &v1.PingRequest{})
+		_, err = client.Ping(context.Background(), &api.PingRequest{})
 		if err != nil {
 			st := status.Convert(err)
 			switch st.Code() {

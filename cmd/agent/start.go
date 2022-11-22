@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	gp "github.com/pennsieve/pennsieve-agent/pkg/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -20,8 +20,6 @@ var startCmd = &cobra.Command{
 	Short: "Starts the Pennsieve Agent (blocking)",
 
 	Run: func(cmd *cobra.Command, args []string) {
-
-		//fmt.Printf("Starting agent with config file: %s\n", viper.ConfigFileUsed())
 
 		// Allow parent to set daemon flag
 		if len(args) > 0 && args[0] == "daemon" {
@@ -41,10 +39,10 @@ var startCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 
 		// Check if Pennsieve Server is running at the selected port
-		resp, _ := client.Ping(context.Background(), &v1.PingRequest{})
+		resp, _ := client.Ping(context.Background(), &api.PingRequest{})
 		if resp != nil {
 			fmt.Printf("Pennsieve Agent is already running on port: %s\n", viper.GetString("agent.port"))
 			return
@@ -59,7 +57,6 @@ var startCmd = &cobra.Command{
 				log.Fatalln(err)
 			}
 
-			// Store server PID in lock file, so we can terminate server when needed.
 			fmt.Printf("Pennsieve Agent started on port: %s\n", viper.GetString("agent.port"))
 			daemon = false
 			os.Exit(0)

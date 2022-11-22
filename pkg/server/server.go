@@ -192,9 +192,9 @@ func StartAgent() error {
 
 	db, err := config.InitializeDB()
 	if err != nil {
-
 		fmt.Println("Error initializing DB --", err)
 	}
+
 	manifestStore := store.NewManifestStore(db)
 	manifestFileStore := store.NewManifestFileStore(db)
 	server.Manifest = service.NewManifestService(manifestStore, manifestFileStore)

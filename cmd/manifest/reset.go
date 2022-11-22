@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -23,7 +23,7 @@ var ResetCmd = &cobra.Command{
 			log.Fatalln("Need to specify manifest id with `manifest_id` flag.")
 		}
 
-		req := v1.ResetManifestRequest{
+		req := api.ResetManifestRequest{
 			ManifestId: manifestId,
 		}
 
@@ -36,7 +36,7 @@ var ResetCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		manifestResponse, err := client.ResetManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Reset Manifest command: %v", err))

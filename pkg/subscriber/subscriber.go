@@ -3,7 +3,7 @@ package subscriber
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vbauerster/mpb/v5"
@@ -15,7 +15,7 @@ import (
 
 // subscriberClient holds the long-lived gRPC client fields
 type subscriberClient struct {
-	client v1.AgentClient   // client is the long lived gRPC client
+	client api.AgentClient  // client is the long lived gRPC client
 	conn   *grpc.ClientConn // conn is the client gRPC connection
 	id     int32            // id is the client ID used for subscribing
 }
@@ -31,7 +31,7 @@ func NewSubscriberClient(id int32) (*subscriberClient, error) {
 		return nil, err
 	}
 	return &subscriberClient{
-		client: v1.NewAgentClient(conn),
+		client: api.NewAgentClient(conn),
 		conn:   conn,
 		id:     id,
 	}, nil
@@ -40,7 +40,7 @@ func NewSubscriberClient(id int32) (*subscriberClient, error) {
 // StopOnStatus defines if the subscriber should unsubscribe and return on specific MessageType
 type StopOnStatus struct {
 	Enable bool
-	OnType []v1.SubscribeResponse_MessageType
+	OnType []api.SubscribeResponse_MessageType
 }
 
 // barInfo maps a progress-bar to a specific file
@@ -57,30 +57,30 @@ func (c *subscriberClient) close() {
 }
 
 // subscribe activates the client to listen for messages from the gRPC server
-func (c *subscriberClient) subscribe() (v1.Agent_SubscribeClient, error) {
+func (c *subscriberClient) subscribe() (api.Agent_SubscribeClient, error) {
 	fmt.Printf("Subscribing to updates from Pennsieve Agent (id: %d)\n", c.id)
-	return c.client.Subscribe(context.Background(), &v1.SubscribeRequest{Id: c.id})
+	return c.client.Subscribe(context.Background(), &api.SubscribeRequest{Id: c.id})
 }
 
 // unsubscribe deactivates listener for messages from the gRPC server
 func (c *subscriberClient) unsubscribe() error {
 	fmt.Printf("Unsubscribing client ID %d\n", c.id)
-	_, err := c.client.Unsubscribe(context.Background(), &v1.SubscribeRequest{Id: c.id})
+	_, err := c.client.Unsubscribe(context.Background(), &api.SubscribeRequest{Id: c.id})
 	return err
 }
 
 // Start listens to messages from the server and handles how to surface this to the user.
-func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopOnComplete StopOnStatus) {
+func (c *subscriberClient) Start(types []api.SubscribeResponse_MessageType, stopOnComplete StopOnStatus) {
 	var err error
 
 	nrSyncedFiles := 0
 
 	if types == nil {
-		types = []v1.SubscribeResponse_MessageType{
-			v1.SubscribeResponse_UPLOAD_STATUS,
-			v1.SubscribeResponse_EVENT,
-			v1.SubscribeResponse_SYNC_STATUS,
-			v1.SubscribeResponse_UPLOAD_CANCEL,
+		types = []api.SubscribeResponse_MessageType{
+			api.SubscribeResponse_UPLOAD_STATUS,
+			api.SubscribeResponse_EVENT,
+			api.SubscribeResponse_SYNC_STATUS,
+			api.SubscribeResponse_UPLOAD_CANCEL,
 		}
 	}
 
@@ -91,7 +91,7 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 	var syncBar *mpb.Bar
 
 	// stream is the client side of the RPC stream
-	var stream v1.Agent_SubscribeClient
+	var stream api.Agent_SubscribeClient
 	for {
 		if stream == nil {
 			if stream, err = c.subscribe(); err != nil {
@@ -114,13 +114,13 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 		}
 
 		switch response.GetType() {
-		case v1.SubscribeResponse_UPLOAD_STATUS:
-			if contains(types, v1.SubscribeResponse_UPLOAD_STATUS) {
+		case api.SubscribeResponse_UPLOAD_STATUS:
+			if contains(types, api.SubscribeResponse_UPLOAD_STATUS) {
 				r := response.GetUploadStatus()
 
 				switch r.Status {
-				case v1.SubscribeResponse_UploadResponse_INIT:
-				case v1.SubscribeResponse_UploadResponse_IN_PROGRESS:
+				case api.SubscribeResponse_UploadResponse_INIT:
+				case api.SubscribeResponse_UploadResponse_IN_PROGRESS:
 					// Get/Create Tracker
 					if t, ok := trackers[r.WorkerId]; ok {
 						if t.fileId == r.FileId {
@@ -135,20 +135,20 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 						// initialization of new worker progress bar.
 						c.addBar(pw, r, trackers)
 					}
-				case v1.SubscribeResponse_UploadResponse_COMPLETE:
-					if stopOnComplete.Enable && contains(stopOnComplete.OnType, v1.SubscribeResponse_UPLOAD_STATUS) {
+				case api.SubscribeResponse_UploadResponse_COMPLETE:
+					if stopOnComplete.Enable && contains(stopOnComplete.OnType, api.SubscribeResponse_UPLOAD_STATUS) {
 						_ = c.unsubscribe()
 						return
 					}
 				}
 			}
-		case v1.SubscribeResponse_EVENT:
-			if contains(types, v1.SubscribeResponse_EVENT) {
+		case api.SubscribeResponse_EVENT:
+			if contains(types, api.SubscribeResponse_EVENT) {
 				info := response.GetEventInfo()
 				fmt.Println(info.Details)
 			}
-		case v1.SubscribeResponse_SYNC_STATUS:
-			if contains(types, v1.SubscribeResponse_SYNC_STATUS) {
+		case api.SubscribeResponse_SYNC_STATUS:
+			if contains(types, api.SubscribeResponse_SYNC_STATUS) {
 				info := response.GetSyncStatus()
 
 				if syncBar == nil {
@@ -169,16 +169,16 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 				}
 
 				switch info.Status {
-				case v1.SubscribeResponse_SyncResponse_INIT:
+				case api.SubscribeResponse_SyncResponse_INIT:
 
-				case v1.SubscribeResponse_SyncResponse_IN_PROGRESS:
+				case api.SubscribeResponse_SyncResponse_IN_PROGRESS:
 					nrSyncedFiles += int(info.NrSynced)
 					syncBar.SetCurrent(int64(nrSyncedFiles))
 
-				case v1.SubscribeResponse_SyncResponse_COMPLETE:
-					if info.Status == v1.SubscribeResponse_SyncResponse_COMPLETE {
+				case api.SubscribeResponse_SyncResponse_COMPLETE:
+					if info.Status == api.SubscribeResponse_SyncResponse_COMPLETE {
 						syncBar.Completed()
-						if stopOnComplete.Enable && contains(stopOnComplete.OnType, v1.SubscribeResponse_SYNC_STATUS) {
+						if stopOnComplete.Enable && contains(stopOnComplete.OnType, api.SubscribeResponse_SYNC_STATUS) {
 							_ = c.unsubscribe()
 							return
 						}
@@ -188,8 +188,8 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 				}
 
 			}
-		case v1.SubscribeResponse_UPLOAD_CANCEL:
-			if contains(types, v1.SubscribeResponse_UPLOAD_CANCEL) {
+		case api.SubscribeResponse_UPLOAD_CANCEL:
+			if contains(types, api.SubscribeResponse_UPLOAD_CANCEL) {
 				for _, p := range trackers {
 					p.bar.Abort(true)
 				}
@@ -201,7 +201,7 @@ func (c *subscriberClient) Start(types []v1.SubscribeResponse_MessageType, stopO
 }
 
 // contains checks if a string is present in a slice
-func contains(s []v1.SubscribeResponse_MessageType, str v1.SubscribeResponse_MessageType) bool {
+func contains(s []api.SubscribeResponse_MessageType, str api.SubscribeResponse_MessageType) bool {
 	for _, v := range s {
 		if v == str {
 			return true
@@ -212,7 +212,7 @@ func contains(s []v1.SubscribeResponse_MessageType, str v1.SubscribeResponse_Mes
 }
 
 // addBar adds a progress bar to the trackers map
-func (c *subscriberClient) addBar(pw *mpb.Progress, r *v1.SubscribeResponse_UploadResponse, trackers map[int32]barInfo) {
+func (c *subscriberClient) addBar(pw *mpb.Progress, r *api.SubscribeResponse_UploadResponse, trackers map[int32]barInfo) {
 	newBar := pw.AddBar(r.GetTotal(),
 		mpb.BarFillerClearOnComplete(),
 		mpb.PrependDecorators(

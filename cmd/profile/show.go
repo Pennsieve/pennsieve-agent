@@ -18,7 +18,7 @@ package profile
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -32,7 +32,7 @@ var ShowCmd = &cobra.Command{
 	Long:  `Shows current profile`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := v1.GetUserRequest{}
+		req := api.GetUserRequest{}
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -42,7 +42,7 @@ var ShowCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 
 		userResponse, err := client.GetUser(context.Background(), &req)
 		if err != nil {

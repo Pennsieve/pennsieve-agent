@@ -18,7 +18,7 @@ package upload
 import (
 	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
 	"github.com/spf13/cobra"
@@ -45,7 +45,7 @@ var ManifestCmd = &cobra.Command{
 		}
 
 		manifestId := int32(i)
-		req := v1.UploadManifestRequest{ManifestId: manifestId}
+		req := api.UploadManifestRequest{ManifestId: manifestId}
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -54,7 +54,7 @@ var ManifestCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 		_, err = client.UploadManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintln("Error uploading manifest: ", err))
@@ -72,10 +72,10 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Unable to track uploads. Please check logs to verify files are uploaded.")
 		}
-		SubscribeClient.Start([]v1.SubscribeResponse_MessageType{
-			v1.SubscribeResponse_UPLOAD_STATUS, v1.SubscribeResponse_EVENT}, subscriber.StopOnStatus{
+		SubscribeClient.Start([]api.SubscribeResponse_MessageType{
+			api.SubscribeResponse_UPLOAD_STATUS, api.SubscribeResponse_EVENT}, subscriber.StopOnStatus{
 			Enable: true,
-			OnType: []v1.SubscribeResponse_MessageType{v1.SubscribeResponse_UPLOAD_STATUS},
+			OnType: []api.SubscribeResponse_MessageType{api.SubscribeResponse_UPLOAD_STATUS},
 		})
 	},
 }

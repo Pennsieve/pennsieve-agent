@@ -31,7 +31,10 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 
 		// Get current user-settings. This is either 0, or 1 entry.
 		userSettings, err := usStore.Get()
-		if err != nil {
+
+		// If there is not userSetting, or the profile that was set in the userSettings table no longer exists
+		// in the config file, create a new settings
+		if err != nil || !viper.IsSet(userSettings.Profile+".api_token") {
 			userSettings = &store.UserSettings{
 				UserId:          "",
 				Profile:         viper.GetString("global.default_profile"),
@@ -40,18 +43,10 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			}
 		}
 
-		// useProfile is true when config.ini file exists and using credentials associated with profile.
-		// It is false when we are using environment variables.
-		if viper.IsSet(userSettings.Profile + ".api_token") {
-			activeConfig.ApiKey = viper.GetString(userSettings.Profile + ".api_token")
-			activeConfig.ApiSecret = viper.GetString(userSettings.Profile + ".api_secret")
-
-			if activeConfig.ApiKey == "" || activeConfig.ApiSecret == "" {
-				return nil, errors.New("API Token/secret not set")
-			}
-
-		} else {
-			return nil, errors.New("API Token/secret not set")
+		activeConfig.ApiKey = viper.GetString(userSettings.Profile + ".api_token")
+		activeConfig.ApiSecret = viper.GetString(userSettings.Profile + ".api_secret")
+		if activeConfig.ApiKey == "" || activeConfig.ApiSecret == "" {
+			return nil, errors.New(fmt.Sprintf("API Token/secret not set for profile: %s", userSettings.Profile))
 		}
 
 		// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
@@ -76,15 +71,6 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		info, err := uiStore.GetUserInfo(userSettings.UserId, userSettings.Profile)
 		if err != nil {
 			fmt.Println("CREATE SETTINGS AND INFO")
-
-			selectedProfile := viper.GetString("global.default_profile")
-			if selectedProfile == "" {
-				return nil, fmt.Errorf("No default profile defined in %s. Please update configuration.\n",
-					viper.ConfigFileUsed())
-			}
-
-			activeConfig.ApiKey = viper.GetString(selectedProfile + ".api_token")
-			activeConfig.ApiSecret = viper.GetString(selectedProfile + ".api_secret")
 
 			// Check credentials of new profile
 			credentials, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
@@ -112,7 +98,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 
 			params := store.UserSettingsParams{
 				UserId:  existingUser.ID,
-				Profile: selectedProfile,
+				Profile: userSettings.Profile,
 			}
 
 			_, err = usStore.CreateNewUserSettings(params)
@@ -126,7 +112,8 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 				Name:             existingUser.FirstName + " " + existingUser.LastName,
 				SessionToken:     credentials.Token,
 				RefreshToken:     credentials.RefreshToken,
-				Profile:          selectedProfile,
+				TokenExpire:      credentials.Expiration,
+				Profile:          userSettings.Profile,
 				IdToken:          "",
 				Environment:      "",
 				OrganizationId:   existingUser.PreferredOrganization,
@@ -208,6 +195,57 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			return nil, err
 		}
 		client.APISession = *session
+
+		// Get the User for the new profile
+		existingUser, err := client.User.GetUser(nil)
+		if err != nil {
+			log.Error("Problem with getting user", err)
+			return nil, err
+		}
+
+		currentOrg, err := client.Organization.Get(context.Background(), existingUser.PreferredOrganization)
+
+		params := store.UserSettingsParams{
+			UserId:  existingUser.ID,
+			Profile: "N/A",
+		}
+
+		err = usStore.Delete()
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = usStore.CreateNewUserSettings(params)
+		if err != nil {
+			fmt.Println("Error Creating new UserSettings")
+			return nil, err
+		}
+
+		// Delete existing ENV Variable User_Info
+		err = uiStore.DeleteUserForProfile("N/A")
+		if err != nil {
+			return nil, err
+		}
+
+		uiParams := store.UserInfoParams{
+			Id:               existingUser.ID,
+			Name:             existingUser.FirstName + " " + existingUser.LastName,
+			SessionToken:     session.Token,
+			RefreshToken:     session.RefreshToken,
+			TokenExpire:      session.Expiration,
+			Profile:          "N/A",
+			IdToken:          "",
+			Environment:      "",
+			OrganizationId:   existingUser.PreferredOrganization,
+			OrganizationName: currentOrg.Organization.Name,
+		}
+
+		client.OrganizationNodeId = currentOrg.Organization.ID
+
+		_, err = uiStore.CreateNewUserInfo(uiParams)
+		if err != nil {
+			log.Error(err)
+		}
 
 	}
 

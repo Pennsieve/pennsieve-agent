@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
@@ -38,7 +38,7 @@ var WhoamiCmd = &cobra.Command{
 	Long:  `Displays information about the logged in user.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		req := v1.GetUserRequest{}
+		req := api.GetUserRequest{}
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -48,7 +48,7 @@ var WhoamiCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := v1.NewAgentClient(conn)
+		client := api.NewAgentClient(conn)
 
 		userResponse, err := client.GetUser(context.Background(), &req)
 		if err != nil {
@@ -61,7 +61,7 @@ var WhoamiCmd = &cobra.Command{
 		userInfoStore := store.NewUserInfoStore(db)
 		_, err = config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
-			log.Fatalln("Cannot connect to Pennsieve.")
+			log.Fatalln("Cannot connect to Pennsieve.", err)
 		}
 
 		showFull, _ := cmd.Flags().GetBool("full")
@@ -75,7 +75,7 @@ func init() {
 }
 
 // PrettyPrint renders a table with current userinfo to terminal
-func PrettyPrint(info *v1.UserResponse, showFull bool) {
+func PrettyPrint(info *api.UserResponse, showFull bool) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendRows([]table.Row{
