@@ -1,3 +1,8 @@
+**1.2.5**
+- Calculating SHA256 for files during upload
+- Bug fix to terminate sync-handlers post uploading files
+- Updated mechanisms to handle credentials provided in ENV variables.
+
 **1.2.4**
 - Added apihost information to the active user GRPC endpoint response
 
