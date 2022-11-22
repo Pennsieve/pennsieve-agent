@@ -116,7 +116,6 @@ func (s *userInfoStore) GetUserInfo(id string, profile string) (*UserInfo, error
 		&user.OrganizationId, &user.OrganizationName, &user.UpdatedAt)
 
 	if err != nil {
-		log.Error(" NOT FOUND ")
 		return nil, err
 	}
 

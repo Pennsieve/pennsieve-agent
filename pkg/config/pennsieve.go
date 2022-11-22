@@ -32,6 +32,16 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		// Get current user-settings. This is either 0, or 1 entry.
 		userSettings, err := usStore.Get()
 
+		if userSettings.Profile == "N/A" {
+			usStore.Delete()
+			userSettings = &store.UserSettings{
+				UserId:          "",
+				Profile:         viper.GetString("global.default_profile"),
+				UseDatasetId:    "",
+				UploadSessionId: "",
+			}
+		}
+
 		// If there is not userSetting, or the profile that was set in the userSettings table no longer exists
 		// in the config file, create a new settings
 		if err != nil || !viper.IsSet(userSettings.Profile+".api_token") {
