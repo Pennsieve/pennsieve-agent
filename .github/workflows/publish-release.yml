@@ -92,7 +92,7 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PS_EXECUTABLE: ${{ env.PACKAGE_BINARY_NAME }}
+          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
@@ -106,7 +106,7 @@ jobs:
             --verbose \
             -s dir \
             -t deb \
-            --prefix="${{ env.PS_PATH }}/bin/" \
+            --prefix="${{ env.PS_PATH }}" \
             --url="https://app.pennsieve.io" \
             --deb-no-default-config-files \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
@@ -244,7 +244,7 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
+          PS_EXECUTABLE: ${{ env.PACKAGE_BINARY_NAME }}
           PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
           UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
         run: |
@@ -263,7 +263,7 @@ jobs:
             --verbose \
             -s dir \
             -t osxpkg \
-            --prefix="${{ env.PS_PATH }}" \
+            --prefix="${{ env.PS_PATH }}/bin/" \
             --url="https://app.pennsieve.io" \
             --osxpkg-identifier-prefix com.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
