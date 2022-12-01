@@ -205,7 +205,7 @@ jobs:
       - name: Install dependencies
         id: install-deps
         run: |
-          sudo gem install fpm
+          sudo gem install fpm -v 1.14.2
           brew install coreutils
       - name: Setup directories
         id: setup-dirs
