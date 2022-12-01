@@ -263,7 +263,7 @@ jobs:
             --verbose \
             -s dir \
             -t osxpkg \
-            --prefix="${{ env.PS_PATH }}/bin/" \
+            --prefix="" \
             --url="https://app.pennsieve.io" \
             --osxpkg-identifier-prefix com.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
