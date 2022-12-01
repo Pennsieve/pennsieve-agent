@@ -205,7 +205,7 @@ jobs:
       - name: Install dependencies
         id: install-deps
         run: |
-          sudo gem install fpm
+          sudo gem install fpm -v
           brew install coreutils
       - name: Setup directories
         id: setup-dirs
@@ -270,7 +270,7 @@ jobs:
             --after-install ci/unix/mac_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
-            --template-value ps_path="${{ env.PS_PATH }}" \
+            --template-value ps_path="" \
             --template-value ps_version="${{ env.PS_VERSION }}" \
             --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
             --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
