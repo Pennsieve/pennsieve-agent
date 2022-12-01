@@ -205,7 +205,7 @@ jobs:
       - name: Install dependencies
         id: install-deps
         run: |
-          sudo gem install fpm -v
+          sudo gem install fpm
           brew install coreutils
       - name: Setup directories
         id: setup-dirs
@@ -221,11 +221,6 @@ jobs:
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
-#      - name: Cache build release
-#        uses: actions/cache@v2
-#        with:
-#          path: ./target/release
-#          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
@@ -263,14 +258,14 @@ jobs:
             --verbose \
             -s dir \
             -t osxpkg \
-            --prefix="" \
+            --prefix="${{ env.PS_PATH }}" \
             --url="https://app.pennsieve.io" \
             --osxpkg-identifier-prefix com.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/mac_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
-            --template-value ps_path="" \
+            --template-value ps_path="${{ env.PS_PATH }}" \
             --template-value ps_version="${{ env.PS_VERSION }}" \
             --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
             --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
