@@ -32,7 +32,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 		// Get current user-settings. This is either 0, or 1 entry.
 		userSettings, err := usStore.Get()
 
-		if userSettings.Profile == "N/A" {
+		if userSettings == nil || userSettings.Profile == "N/A" {
 			usStore.Delete()
 			userSettings = &store.UserSettings{
 				UserId:          "",
