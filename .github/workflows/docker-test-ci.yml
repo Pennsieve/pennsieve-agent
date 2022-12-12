@@ -28,7 +28,6 @@ jobs:
           PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
           PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
           PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
-          PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
           PENNSIEVE_DATASET: $ {{ secrets.PENNSIEVE_DATASET }}
           PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
         ports:
