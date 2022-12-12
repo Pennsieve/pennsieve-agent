@@ -28,7 +28,7 @@ jobs:
           PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
           PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
           PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
-          PENNSIEVE_DATASET: $ {{ secrets.PENNSIEVE_DATASET }}
+          PENNSIEVE_DATASET: ${{ secrets.PENNSIEVE_DATASET }}
           PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
         ports:
         - 9000:9000
@@ -39,7 +39,7 @@ jobs:
         PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
         PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY }}
         PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY }}
-        PENNSIEVE_DATASET: $ {{ secrets.PENNSIEVE_DATASET }}
+        PENNSIEVE_DATASET: ${{ secrets.PENNSIEVE_DATASET }}
         PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
       run: |
         # apt-get update
@@ -55,6 +55,8 @@ jobs:
         echo "Version?"
         ls
         go run main.go version
+        echo "Whoami?"
+        go run main.go whoami
         echo "Dataset"
         echo "$PENNSIEVE_DATASET"
         go run main.go dataset use $PENNSIEVE_DATASET
