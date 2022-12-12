@@ -28,15 +28,20 @@ jobs:
           PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
           PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
           PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+          PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
+          PENNSIEVE_DATASET: $ {{ secrets.PENNSIEVE_DATASET }}
+          PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
         ports:
         - 9000:9000
-                
+
     steps:
     - name: Test Pennsieve Agent
       env:
         PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
-        PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
-        PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+        PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY }}
+        PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY }}
+        PENNSIEVE_DATASET: $ {{ secrets.PENNSIEVE_DATASET }}
+        PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
       run: |
         # apt-get update
         # apt-get install jq zip -y
@@ -47,15 +52,16 @@ jobs:
         go build
         go install
         #go mod init
+        echo "$PENNSIEVE_API_HOST"
         echo "Version?"
         ls
         go run main.go version
-        #echo "Dataset"
-        #go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
-        #echo "Manifest create"
-        #echo $(date) > ci.txt
-        #go run manifest create ci.txt
-        #echo "Manifest upload"
-        #go run manifest upload
+        echo "Dataset"
+        go run main.go dataset use $PENNSIEVE_DATASET
+        echo "Manifest create"
+        echo $(date) > ci.txt
+        go run manifest create ci.txt
+        echo "Manifest upload"
+        go run manifest upload
         echo "DONE"
 
