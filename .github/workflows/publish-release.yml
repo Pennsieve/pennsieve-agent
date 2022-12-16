@@ -258,7 +258,6 @@ jobs:
             --verbose \
             -s dir \
             -t osxpkg \
-            --prefix="${{ env.PS_PATH }}" \
             --url="https://app.pennsieve.io" \
             --osxpkg-identifier-prefix com.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
@@ -269,7 +268,7 @@ jobs:
             --template-value ps_version="${{ env.PS_VERSION }}" \
             --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
             --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
-            "${{ env.BUILD_DIR }}/=."
+            "${{ env.BUILD_DIR }}/="${{env.PS_PATH}}"
             echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
             mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
       - name: Sign assets
