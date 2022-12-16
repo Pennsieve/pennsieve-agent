@@ -205,7 +205,7 @@ jobs:
       - name: Install dependencies
         id: install-deps
         run: |
-          sudo gem install fpm -v 1.14.2
+          sudo gem install fpm
           brew install coreutils
       - name: Setup directories
         id: setup-dirs
@@ -268,7 +268,7 @@ jobs:
             --template-value ps_version="${{ env.PS_VERSION }}" \
             --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
             --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
-            "${{ env.BUILD_DIR }}/="${{env.PS_PATH}}"
+            "${{ env.BUILD_DIR }}"="${{env.PS_PATH}}"
             echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
             mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
       - name: Sign assets
