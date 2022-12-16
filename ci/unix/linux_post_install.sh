@@ -53,9 +53,9 @@ echo "PS_EXECUTABLE=<%= ps_executable %>" >> $INSTALL_LOG
 
 # Set the appropriate permissions:
 USER=$(who | awk '{print $1}')
-sudo chown -R $USER:$USER "$PS_HOME/"
-chmod -R a+rX "$PS_HOME"
-chmod 755 "$PS_PATH"
+#sudo chown -R $USER:$USER "$PS_HOME/"
+#chmod -R a+rX "$PS_HOME"
+chmod -R 755 "$PS_PATH"
 
 ## Create the cache directory:
 #if [ ! -d "$PS_HOME/cache" ]; then
@@ -64,5 +64,5 @@ chmod 755 "$PS_PATH"
 
 # Symlink $PS_EXECUTABLE to /usr/local/bin:
 if [ -d "/usr/local/bin" ]; then
-  sudo ln -s -f "$PS_EXECUTABLE" "/usr/local/bin/pennsieve"
+  sudo ln -s -f "$PS_PATH"/bin/"$PS_EXECUTABLE" "/usr/local/bin/pennsieve"  
 fi
