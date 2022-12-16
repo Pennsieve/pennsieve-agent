@@ -30,6 +30,9 @@ jobs:
           PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
           PENNSIEVE_DATASET: ${{ secrets.PENNSIEVE_DATASET }}
           PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
+          PENNSIEVE_AGENT_PORT: 9000
+          PENNSIEVE_AGENT_UPLOAD_WORKERS: 1
+          PENNSIEVE_AGENT_CHUNK_SIZE: 32
         ports:
         - 9000:9000
 
@@ -41,6 +44,10 @@ jobs:
         PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY }}
         PENNSIEVE_DATASET: ${{ secrets.PENNSIEVE_DATASET }}
         PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
+        PENNSIEVE_AGENT_PORT: 9000
+        PENNSIEVE_AGENT_UPLOAD_WORKERS: 1
+        PENNSIEVE_AGENT_CHUNK_SIZE: 32
+
       run: |
         # apt-get update
         # apt-get install jq zip -y
@@ -58,10 +65,10 @@ jobs:
         echo ">Version?"
         go run main.go version
         echo ">Whoami?"
-        go run main.go whoami
+        echo "go run main.go whoami"
         echo ">Dataset"
         echo "$PENNSIEVE_DATASET"
-        go run main.go dataset use $PENNSIEVE_DATASET
+        echo "go run main.go dataset use $PENNSIEVE_DATASET"
         echo ">Manifest create"
         echo $(date) > ci.txt
         go run manifest create ci.txt
