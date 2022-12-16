@@ -57,7 +57,7 @@ jobs:
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
-        #go mod init
+        go mod init
         echo ">Host"
         echo "$PENNSIEVE_API_HOST"
         echo ">Files"
@@ -65,13 +65,13 @@ jobs:
         echo ">Version?"
         go run main.go version
         echo ">Whoami?"
-        echo "go run main.go whoami"
+        echo "$(go run main.go whoami)"
         echo ">Dataset"
         echo "$PENNSIEVE_DATASET"
-        echo "go run main.go dataset use $PENNSIEVE_DATASET"
+        echo "$(go run main.go dataset use $PENNSIEVE_DATASET)"
         echo ">Manifest create"
-        echo $(date) > ci.txt
-        go run manifest create ci.txt
+        echo "$(date)" > ci.txt
+        echo "$(go run manifest create ci.txt)"
         echo ">Manifest upload"
         go run manifest upload
         echo ">DONE"
