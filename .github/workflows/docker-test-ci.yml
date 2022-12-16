@@ -57,11 +57,11 @@ jobs:
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
-        go mod init
+        #go mod init
         echo ">Host"
         echo "$PENNSIEVE_API_HOST"
         echo ">Files"
-        ls
+        ls -al
         echo ">Version?"
         go run main.go version
         echo ">Whoami?"
