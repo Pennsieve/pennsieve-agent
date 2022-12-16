@@ -51,19 +51,21 @@ jobs:
         go build
         go install
         #go mod init
+        echo ">Host"
         echo "$PENNSIEVE_API_HOST"
-        echo "Version?"
+        echo ">Files"
         ls
+        echo ">Version?"
         go run main.go version
-        echo "Whoami?"
+        echo ">Whoami?"
         go run main.go whoami
-        echo "Dataset"
+        echo ">Dataset"
         echo "$PENNSIEVE_DATASET"
         go run main.go dataset use $PENNSIEVE_DATASET
-        echo "Manifest create"
+        echo ">Manifest create"
         echo $(date) > ci.txt
         go run manifest create ci.txt
-        echo "Manifest upload"
+        echo ">Manifest upload"
         go run manifest upload
-        echo "DONE"
+        echo ">DONE"
 
