@@ -268,7 +268,7 @@ jobs:
             --template-value ps_version="${{ env.PS_VERSION }}" \
             --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
             --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
-            "${{ env.BUILD_DIR }}"="${{env.PS_PATH}}"
+            pennsieve-agent=/usr/local/opt/pennsieve/pennsieve-agent
             echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
             mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
       - name: Sign assets
