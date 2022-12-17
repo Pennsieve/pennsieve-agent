@@ -239,7 +239,7 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PS_EXECUTABLE: ${{ env.PS_PATH }}/${{ env.PACKAGE_BINARY_NAME }}
+          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
           UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
         run: |
@@ -264,10 +264,10 @@ jobs:
             --after-install ci/unix/mac_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
-            --template-value ps_path="${{ env.PS_PATH }}" \
+            --template-value ps_path=/usr/local/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
-            --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
-            --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
+            --template-value ps_release_name=pennsieve-agent \
+            --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve-agent \
             pennsieve-agent=/usr/local/opt/pennsieve/pennsieve-agent
             echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
             mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
