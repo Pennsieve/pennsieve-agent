@@ -239,7 +239,7 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
+          PS_EXECUTABLE: ${{ env.PS_PATH }}/${{ env.PACKAGE_BINARY_NAME }}
           PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
           UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
         run: |
