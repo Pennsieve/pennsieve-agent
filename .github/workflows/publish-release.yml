@@ -234,7 +234,7 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:
