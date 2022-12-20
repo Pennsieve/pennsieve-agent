@@ -19,8 +19,7 @@ jobs:
         id: read-tag
         shell: bash  # Needed so that variable expansion operators work properly:
         run: |
-          echo "tag=${GITHUB_REF:10}" >> $GITHUB_OUTPUT # Export just the tag name, e.g. "0.0.1" instead of "refs/tags/0.0.1" as a step output
-#          echo "::set-output name=tag::${GITHUB_REF:10}"  # Export just the tag name, e.g. "0.0.1" instead of "refs/tags/0.0.1" as a step output
+          echo "::set-output name=tag::${GITHUB_REF:10}"  # Export just the tag name, e.g. "0.0.1" instead of "refs/tags/0.0.1" as a step output
 
   create-release:
     runs-on: ubuntu-latest
@@ -63,15 +62,18 @@ jobs:
           BUILD_DIR=$(mktemp -d)
           mkdir $BUILD_DIR/bin
           echo "BUILD_DIR = $BUILD_DIR"
-          echo "build-dir=${{BUILD_DIR}}" >> $GITHUB_OUTPUT
-#          echo "::set-output name=build-dir::$BUILD_DIR"
+          echo "::set-output name=build-dir::$BUILD_DIR" 
       - name: Read version
         id: read-version
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
-          echo "version=${{VERSION}}" >> $GITHUB_OUTPUT
-#          echo "::set-output name=version::$VERSION"
+          echo "::set-output name=version::$VERSION"
+#      - name: Cache build release
+#        uses: actions/cache@v2
+#        with:
+#          path: ./target/release
+#          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
@@ -95,8 +97,7 @@ jobs:
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
           echo "PS_EXECUTABLE=$PS_EXECUTABLE"
-          echo "asset-file=pennsieve-agent_${{ env.PS_VERSION }}_amd64.deb" >> $GITHUB_OUTPUT
-#          echo "::set-output name=asset-file::pennsieve-agent_${{ env.PS_VERSION }}_amd64.deb"
+          echo "::set-output name=asset-file::pennsieve-agent_${{ env.PS_VERSION }}_amd64.deb"
           cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           cp ./resources/config* ${{ env.BUILD_DIR }}
@@ -174,8 +175,7 @@ jobs:
           echo ":::debug:: " ls
           candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension -dVersion='1.0.20'           
           light.exe obj\*.wixobj -o pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension
-          echo "asset-file=pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi" >> $GITHUB_OUTPUT
-#          echo "::set-output name=asset-file::pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
+          echo "::set-output name=asset-file::pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
         id: publish-assets
         uses: actions/upload-release-asset@v1
@@ -194,7 +194,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve
+      PACKAGE_BINARY_NAME: pennsieve-agent
       PS_PATH: /usr/local/opt/pennsieve
       APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
       KEYCHAIN: "pennsieve-agent"
@@ -214,13 +214,13 @@ jobs:
           BUILD_DIR=$(mktemp -d)
           mkdir $BUILD_DIR/bin
           echo "BUILD_DIR = $BUILD_DIR"
-          echo "{build-dir}={$BUILD_DIR} >> $GITHUB_OUTPUT
+          echo "::set-output name=build-dir::$BUILD_DIR"
       - name: Read version
         id: read-version
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
-          echo "version=${{VERSION}}" >> $GITHUB_OUTPUT
+          echo "::set-output name=version::$VERSION"
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
@@ -248,9 +248,8 @@ jobs:
           echo "PS_EXECUTABLE=$PS_EXECUTABLE"
           echo "PACKAGE_FILE=$PACKAGE_FILE"
           echo "UNSIGNED_PACKAGE_FILE=$UNSIGNED_PACKAGE_FILE"
-          echo "asset-file=${{env.PACKAGE_FILE}} >> $GITHUB_OUTPUT
-          echo "unsigned-asset-file=${{ env.UNSIGNED_PACKAGE_FILE }}" >> $GITHUB_OUTPUT
-#          echo "::set-output name=unsigned-asset-file::${{ env.UNSIGNED_PACKAGE_FILE }}"
+          echo "::set-output name=asset-file::${{ env.PACKAGE_FILE }}"
+          echo "::set-output name=unsigned-asset-file::${{ env.UNSIGNED_PACKAGE_FILE }}"
           cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           cp ./resources/config* ${{ env.BUILD_DIR }}
@@ -260,16 +259,16 @@ jobs:
             -s dir \
             -t osxpkg \
             --url="https://app.pennsieve.io" \
-            --osxpkg-identifier-prefix io.pennsieve \
+            --osxpkg-identifier-prefix com.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/mac_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
             --template-value ps_path=/usr/local/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
-            --template-value ps_release_name=pennsieve \
-            --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve \
-            pennsieve=/usr/local/opt/pennsieve/pennsieve
+            --template-value ps_release_name=pennsieve-agent \
+            --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve-agent \
+            pennsieve-agent=/usr/local/opt/pennsieve/pennsieve-agent
             echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
             mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
       - name: Sign assets
