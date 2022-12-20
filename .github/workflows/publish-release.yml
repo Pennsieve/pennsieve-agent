@@ -45,7 +45,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve-agent
+      PACKAGE_BINARY_NAME: pennsieve
       PS_PATH: /opt/pennsieve
     steps:
       - name: Checkout
@@ -70,11 +70,6 @@ jobs:
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
-#      - name: Cache build release
-#        uses: actions/cache@v2
-#        with:
-#          path: ./target/release
-#          key: ${{ runner.os }}-release-${{ needs.read-tag.outputs.tag }}-${{ hashFiles('Cargo.lock') }}
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
@@ -87,18 +82,16 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
-          echo "PS_EXECUTABLE=$PS_EXECUTABLE"
-          echo "::set-output name=asset-file::pennsieve-agent_${{ env.PS_VERSION }}_amd64.deb"
+          echo "::set-output name=asset-file::pennsieve_${{ env.PS_VERSION }}_amd64.deb"
           cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           cp ./resources/config* ${{ env.BUILD_DIR }}
@@ -107,18 +100,17 @@ jobs:
             --verbose \
             -s dir \
             -t deb \
-            --prefix="${{ env.PS_PATH }}" \
             --url="https://app.pennsieve.io" \
             --deb-no-default-config-files \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/linux_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
-            --template-value ps_path="${{ env.PS_PATH }}" \
+            --template-value ps_path=/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
-            --template-value ps_release_name="${{ env.PACKAGE_BINARY_NAME }}" \
-            --template-value ps_executable="${{ env.PS_EXECUTABLE }}" \
-            "${{ env.BUILD_DIR }}/=."
+            --template-value ps_release_name=pennsieve \
+            --template-value ps_executable=/opt/pennsieve/pennsieve \
+            pennsieve=/opt/pennsieve/pennsieve
       - name: Publish assets
         id: publish-assets
         uses: actions/upload-release-asset@v1
@@ -240,20 +232,17 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PS_EXECUTABLE: ${{ env.PS_PATH }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
           UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
-          echo "PS_EXECUTABLE=$PS_EXECUTABLE"
           echo "PACKAGE_FILE=$PACKAGE_FILE"
           echo "UNSIGNED_PACKAGE_FILE=$UNSIGNED_PACKAGE_FILE"
           echo "::set-output name=asset-file::${{ env.PACKAGE_FILE }}"
           echo "::set-output name=unsigned-asset-file::${{ env.UNSIGNED_PACKAGE_FILE }}"
           cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
-          cp ./resources/config* ${{ env.BUILD_DIR }}
           fpm \
             -f \
             --verbose \
