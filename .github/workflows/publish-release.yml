@@ -5,7 +5,6 @@ name: Publish-Release
 # Controls when the workflow will run
 on:
   push:
-    branches: [ main ]
     tags:
       - '*.*.*'  # Match anything resembling semver
 
@@ -64,14 +63,14 @@ jobs:
           BUILD_DIR=$(mktemp -d)
           mkdir $BUILD_DIR/bin
           echo "BUILD_DIR = $BUILD_DIR"
-          echo "build-dir=$BUILD_DIR" >> $GITHUB_OUTPUT
+          echo "build-dir=${{BUILD_DIR}}" >> $GITHUB_OUTPUT
 #          echo "::set-output name=build-dir::$BUILD_DIR"
       - name: Read version
         id: read-version
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=${{VERSION}}" >> $GITHUB_OUTPUT
 #          echo "::set-output name=version::$VERSION"
       - name: Setup Go
         uses: actions/setup-go@v2
