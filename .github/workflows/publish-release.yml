@@ -194,7 +194,7 @@ jobs:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
       PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
       PRODUCT_NAME: Pennsieve
-      PACKAGE_BINARY_NAME: pennsieve-agent
+      PACKAGE_BINARY_NAME: pennsieve
       PS_PATH: /usr/local/opt/pennsieve
       APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
       KEYCHAIN: "pennsieve-agent"
@@ -259,18 +259,18 @@ jobs:
             -s dir \
             -t osxpkg \
             --url="https://app.pennsieve.io" \
-            --osxpkg-identifier-prefix com.pennsieve \
+            --osxpkg-identifier-prefix io.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/mac_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
             --template-value ps_path=/usr/local/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
-            --template-value ps_release_name=pennsieve-agent \
-            --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve-agent \
-            pennsieve-agent=/usr/local/opt/pennsieve/pennsieve-agent
-            echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
-            mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
+            --template-value ps_release_name=pennsieve \
+            --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve \
+            pennsieve=/usr/local/opt/pennsieve/pennsieve
+          echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
+          mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
       - name: Sign assets
         id: sign-assets
         env:

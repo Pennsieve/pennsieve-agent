@@ -60,10 +60,10 @@ sudo chmod 755 "$PS_PATH"
 sudo chgrp staff "$PS_PATH"
 sudo chgrp -R staff "$PS_PATH"
 
-# Create the cache directory:
-if [ ! -d "$PS_HOME/cache" ]; then
-	mkdir "$PS_HOME/cache"
-fi
+## Create the cache directory:
+#if [ ! -d "$PS_HOME/cache" ]; then
+#	mkdir "$PS_HOME/cache"
+#fi
 
 # Symlink $PS_EXECUTABLE to /usr/local/bin:
 if [ -d "/usr/local/bin" ]; then
