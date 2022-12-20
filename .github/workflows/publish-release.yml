@@ -215,13 +215,13 @@ jobs:
           BUILD_DIR=$(mktemp -d)
           mkdir $BUILD_DIR/bin
           echo "BUILD_DIR = $BUILD_DIR"
-          echo "{build-dir}={$BUILD_DIR} >> $GITHUB_OUTPUT
+          echo "build-dir=$BUILD_DIR" >> $GITHUB_OUTPUT
       - name: Read version
         id: read-version
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
           echo "VERSION = $VERSION"
-          echo "version=${{VERSION}}" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
