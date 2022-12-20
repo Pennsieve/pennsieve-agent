@@ -2,7 +2,7 @@
 ![Version](https://img.shields.io/github/v/release/Pennsieve/pennsieve-agent?include_prereleases)
 
 # pennsieve-agent
-Pennsieve Agent and Command Line Interface..
+Pennsieve Agent and Command Line Interface.
 
 
 ## Features
