@@ -6,6 +6,7 @@ name: Publish-Release
 on:
   push:
     tags:
+      - 'test.*'
       - '*.*.*'  # Match anything resembling semver
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
