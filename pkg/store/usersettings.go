@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -77,15 +76,17 @@ func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*Use
 }
 
 func (s *userSettingsStore) UpdateActiveDataset(datasetId string) error {
+
 	statement, err := s.db.Prepare(
 		"UPDATE user_settings SET use_dataset_id = ?")
 	if err != nil {
+		log.Warn("Unable to update ActiveDataset in database")
 		return err
 	}
 
 	_, err = statement.Exec(datasetId)
 	if err != nil {
-		fmt.Sprintln("Unable to update ActiveDataset in database")
+		log.Warn("Unable to update ActiveDataset in database")
 		return err
 	}
 

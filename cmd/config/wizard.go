@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -60,7 +61,10 @@ will not be recoverable. Use the 'pennsieve profile create' function to add prof
 		for {
 			profileName = ""
 			fmt.Printf("   Profile name [user]: ")
-			fmt.Scanln(&profileName)
+			scanner := bufio.NewScanner(os.Stdin)
+			if scanner.Scan() {
+				profileName = strings.TrimSpace(scanner.Text())
+			}
 
 			if strings.ToLower(profileName) == "pennsieve" {
 				fmt.Println("Cannot use 'pennsieve' as a profile name as this is a reserved variable name.")

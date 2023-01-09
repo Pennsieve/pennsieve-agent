@@ -1,3 +1,11 @@
+**1.2.9**
+- Fix to enable setting a dataset for use when agent is configured with ENV vars
+- Checking that agent runs when starting in daemon mode
+- Fixing bug in config when creating a profile name with spaces
+
+**1.2.8**
+- Fix for Mac installation process after changes to an external dependency
+
 **1.2.5**
 - Calculating SHA256 for files during upload
 - Bug fix to terminate sync-handlers post uploading files

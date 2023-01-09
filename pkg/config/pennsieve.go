@@ -215,20 +215,24 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 
 		currentOrg, err := client.Organization.Get(context.Background(), existingUser.PreferredOrganization)
 
-		params := store.UserSettingsParams{
-			UserId:  existingUser.ID,
-			Profile: "N/A",
-		}
+		// Replace userSetteings if the user is different from existing user
+		userSettings, err := usStore.Get()
+		if err != nil || userSettings.UserId != existingUser.ID || userSettings.Profile != "N/A" {
+			params := store.UserSettingsParams{
+				UserId:  existingUser.ID,
+				Profile: "N/A",
+			}
 
-		err = usStore.Delete()
-		if err != nil {
-			return nil, err
-		}
+			err = usStore.Delete()
+			if err != nil {
+				return nil, err
+			}
 
-		_, err = usStore.CreateNewUserSettings(params)
-		if err != nil {
-			fmt.Println("Error Creating new UserSettings")
-			return nil, err
+			_, err = usStore.CreateNewUserSettings(params)
+			if err != nil {
+				fmt.Println("Error Creating new UserSettings")
+				return nil, err
+			}
 		}
 
 		// Delete existing ENV Variable User_Info

@@ -9,9 +9,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"os"
 	"os/exec"
+	"time"
 )
 
 var daemon bool
@@ -57,9 +60,39 @@ var startCmd = &cobra.Command{
 				log.Fatalln(err)
 			}
 
-			fmt.Printf("Pennsieve Agent started on port: %s\n", viper.GetString("agent.port"))
-			daemon = false
-			os.Exit(0)
+			// Wait 2 seconds to allow agent to start in separate process
+			time.Sleep(2 * time.Second)
+
+			// Check if agent is running
+			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				fmt.Println("Error connecting to GRPC Server: ", err)
+				return
+			}
+			defer conn.Close()
+
+			client := api.NewAgentClient(conn)
+
+			// Check if Pennsieve Server is running at the selected port
+			_, err = client.Ping(context.Background(), &api.PingRequest{})
+			if err != nil {
+				st := status.Convert(err)
+				switch st.Code() {
+				case codes.Unavailable:
+					fmt.Println("Unknown error while starting Pennsieve Agent Server. \n" +
+						"Please check the agent.log file for more details.")
+				default:
+					fmt.Println("Unknown error while starting Pennsieve Agent Server. \n" +
+						"Please check the agent.log file for more details.")
+				}
+				os.Exit(1)
+			} else {
+
+				fmt.Printf("Pennsieve Agent started on port: %s\n", viper.GetString("agent.port"))
+				daemon = false
+				os.Exit(0)
+			}
+
 		}
 
 		fmt.Println("Running Agent NOT as daemon")

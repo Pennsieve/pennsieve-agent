@@ -72,6 +72,22 @@ api_host = XXXX (eg. https://api.pennsieve.net)
 upload_bucket = XXXXX (eg. pennsieve-dev-uploads-v2-use1)
 ```
 
+## Configuration with Environment variables
+You can set agent configuration parameters by updating the configuration file or by setting the following Environment Variables:
+
+- PENNSIEVE_AGENT_PORT
+- PENNSIEVE_AGENT_UPLOAD_WORKERS
+- PENNSIEVE_AGENT_CHUNK_SIZE
+
+You can use environment variables to set your profile using the following variables
+
+- PENNSIEVE_API_KEY
+- PENNSIEVE_API_SECRET
+- PENNSIEVE_UPLOAD_BUCKET (optional)
+- PENNSIEVE_API_HOST (optional)
+
+If you set the PENNSIEVE_API_KEY, the agent will not use the configuration file and use the profile specified in the environment variables. Note that upload bucket and api_host are optional and default to the production version of the platform.
+
 ### Specifying Agent Parameters
 The Pennsieve Agent is configured with a set of default parameters. You can update these parameters by specifying these in the configuration file. Specifically, you can update:
 

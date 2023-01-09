@@ -68,7 +68,6 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 	}
 
 	curClientSession, err := s.User.GetUserSettings()
-
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to get Client Session\n "+
@@ -320,7 +319,7 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 		defer close(syncResults)
 
 		var syncWaitGroup sync.WaitGroup
-		
+
 		// 1. Ensure we get a manifest id from the server
 		err := s.getCreateManifestId(m)
 		if err != nil {

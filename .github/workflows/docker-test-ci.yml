@@ -28,34 +28,51 @@ jobs:
           PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
           PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
           PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+          PENNSIEVE_DATASET: ${{ secrets.PENNSIEVE_DATASET }}
+          PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
+          PENNSIEVE_AGENT_PORT: 9000
+          PENNSIEVE_AGENT_UPLOAD_WORKERS: 1
+          PENNSIEVE_AGENT_CHUNK_SIZE: 32
         ports:
         - 9000:9000
-                
+
     steps:
     - name: Test Pennsieve Agent
       env:
         PENNSIEVE_API_HOST : ${{ secrets.API_HOST }}
-        PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY  }}
-        PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY  }}
+        PENNSIEVE_API_KEY : ${{ secrets.PENNSIEVE_API_KEY }}
+        PENNSIEVE_API_SECRET: ${{ secrets.PENNSIEVE_SECRET_KEY }}
+        PENNSIEVE_DATASET: ${{ secrets.PENNSIEVE_DATASET }}
+        PENNSIEVE_UPLOAD_BUCKET: ${{ secrets.PENNSIEVE_UPLOAD_BUCKET }}
+        PENNSIEVE_AGENT_PORT: 9000
+        PENNSIEVE_AGENT_UPLOAD_WORKERS: 1
+        PENNSIEVE_AGENT_CHUNK_SIZE: 32
+
       run: |
         # apt-get update
         # apt-get install jq zip -y
-        AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases -s | jq -r .[].tag_name | grep '^[0-9]*\.[0-9]*\.[0-9]*$' -m1)
+        AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases/latest -s | jq -r .tag_name)
         wget https://github.com/Pennsieve/pennsieve-agent/archive/refs/tags/${AGENT_VERSION}.zip 
         unzip ${AGENT_VERSION}.zip 
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
         #go mod init
-        echo "Version?"
-        ls
+        echo ">Host"
+        echo "$PENNSIEVE_API_HOST"
+        echo ">Files"
+        ls -al
+        echo ">Version?"
         go run main.go version
-        #echo "Dataset"
-        #go run main.go dataset use ${{ secrets.PENNSIEVE_DATASET }}
-        #echo "Manifest create"
-        #echo $(date) > ci.txt
-        #go run manifest create ci.txt
-        #echo "Manifest upload"
-        #go run manifest upload
-        echo "DONE"
+        echo ">Whoami?"
+        echo "$(go run main.go whoami)"
+        echo ">Dataset"
+        echo "$PENNSIEVE_DATASET"
+        echo "$(go run main.go dataset use $PENNSIEVE_DATASET)"
+        echo ">Manifest create"
+        echo "$(date)" > ci.txt
+        echo "$(go run manifest create ci.txt)"
+        echo ">Manifest upload"
+        go run manifest upload
+        echo ">DONE"
 
