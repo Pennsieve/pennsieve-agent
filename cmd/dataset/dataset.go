@@ -52,6 +52,7 @@ func init() {
 	DatasetCmd.AddCommand(UseCmd)
 	DatasetCmd.AddCommand(ListCmd)
 	DatasetCmd.AddCommand(FindCmd)
+	DatasetCmd.AddCommand(CreateCmd)
 
 	DatasetCmd.Flags().BoolP("full", "f",
 		false, "Show expanded information")
