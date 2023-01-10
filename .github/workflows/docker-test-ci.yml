@@ -49,7 +49,6 @@ jobs:
         PENNSIEVE_AGENT_CHUNK_SIZE: 32
 
       run: |
-        apt-get install sqlite3
         # apt-get update
         # apt-get install jq zip -y
         AGENT_VERSION=$(curl https://api.github.com/repos/pennsieve/pennsieve-agent/releases/latest -s | jq -r .tag_name)
@@ -58,6 +57,11 @@ jobs:
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
+        echo "$(ls /usr)"
+        echo "$(ls /opt)"
+        echo "$(ls /usr/local/bin)"
+        echo "$(ls /home/runner)"
+        echo "$(pwd)"
         #go mod init
         echo ">Confirm sqlite3 installation"
         echo "$(sqlite3 --version)"
