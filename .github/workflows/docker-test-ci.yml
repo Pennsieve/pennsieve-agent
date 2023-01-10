@@ -58,6 +58,8 @@ jobs:
         go build
         go install
         #go mod init
+        echo ">Confirm sqlite3 installation"
+        echo "$(sqlite3 --version)"
         echo ">Host"
         echo "$PENNSIEVE_API_HOST"
         echo ">Files"
