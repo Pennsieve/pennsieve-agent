@@ -16,7 +16,9 @@ import (
 )
 
 // InitPennsieveClient initializes the Pennsieve Client.
-func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfoStore) (*pennsieve.Client, error) {
+func InitPennsieveClient(usStore store.UserSettingsStore,
+	uiStore store.UserInfoStore,
+	awsEndpoints *pennsieve.AWSCognitoEndpoints) (*pennsieve.Client, error) {
 
 	activeConfig := pennsieve.APIParams{
 		Port:          viper.GetString("agent.port"),
@@ -74,7 +76,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			activeConfig.UploadBucket = pennsieve.DefaultUploadBucket
 		}
 
-		client = pennsieve.NewClient(activeConfig)
+		client = pennsieve.NewClient(activeConfig, awsEndpoints)
 
 		// Check if existing session token is expired.
 		// Check Expiration Time for current session and refresh if necessary
@@ -197,7 +199,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			activeConfig.ApiHost2 = pennsieve.BaseURLV2
 		}
 
-		client = pennsieve.NewClient(activeConfig)
+		client = pennsieve.NewClient(activeConfig, awsEndpoints)
 
 		session, err := client.Authentication.Authenticate(activeConfig.ApiKey, activeConfig.ApiSecret)
 		if err != nil {

@@ -59,7 +59,7 @@ var WhoamiCmd = &cobra.Command{
 		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		_, err = config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		_, err = config.InitPennsieveClient(userSettingsStore, userInfoStore, nil)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.", err)
 		}

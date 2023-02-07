@@ -31,7 +31,7 @@ Search is fuzzy and returns datasets based on matches in:
 		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore, nil)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}

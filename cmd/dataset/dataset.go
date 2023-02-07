@@ -28,7 +28,7 @@ Any manifests that are created will be uploaded to the active dataset.`,
 
 		userInfoStore := store.NewUserInfoStore(db)
 
-		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore, nil)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}

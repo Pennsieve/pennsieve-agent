@@ -53,6 +53,8 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 		Environment:      activeUser.Environment,
 		OrganizationId:   activeUser.OrganizationId,
 		OrganizationName: activeUser.OrganizationName,
+		ApiHost:          s.client.GetAPIParams().ApiHost,
+		Api2Host:         s.client.GetAPIParams().ApiHost2,
 	}
 	return &resp, nil
 }
