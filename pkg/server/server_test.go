@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pennsieve/pennsieve-agent/migrations"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/authentication"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/organization"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/user"
@@ -63,6 +64,7 @@ type ServerTestSuite struct {
 	suite.Suite
 	db            *sql.DB
 	mockPennsieve *MockPennsieve
+	testServer    *server
 }
 
 func (suite *ServerTestSuite) SetupSuite() {
@@ -123,6 +125,11 @@ func (suite *ServerTestSuite) SetupTest() {
 
 	suite.clearDatabase()
 	suite.initConfig()
+	testServer, err := newServer(suite.db,
+		&pennsieve.AWSCognitoEndpoints{IdentityProviderEndpoint: suite.mockPennsieve.IDProvider.Server.URL})
+	suite.NoError(err)
+	suite.testServer = testServer
+
 }
 
 func (suite *ServerTestSuite) TearDownTest() {
@@ -297,9 +304,9 @@ func NewMockPennsieve(t *testing.T, cognitoConfig authentication.CognitoConfig, 
 		apiKeyToUserProfile[u.Profile.APIToken] = u
 	}
 
-	pennsieve := MockPennsieve{APIKeyToUserProfile: apiKeyToUserProfile, JWTToAPIKey: map[string]string{}}
-	pennsieve.attachNewMockIDProviderServer(t)
-	pennsieve.attachNewMockPennsieveServer(t, cognitoConfig)
+	mockPennsieve := MockPennsieve{APIKeyToUserProfile: apiKeyToUserProfile, JWTToAPIKey: map[string]string{}}
+	mockPennsieve.attachNewMockIDProviderServer(t)
+	mockPennsieve.attachNewMockPennsieveServer(t, cognitoConfig)
 
-	return &pennsieve
+	return &mockPennsieve
 }
