@@ -16,8 +16,7 @@ import (
 )
 
 // InitPennsieveClient initializes the Pennsieve Client.
-func InitPennsieveClient(usStore store.UserSettingsStore,
-	uiStore store.UserInfoStore) (*pennsieve.Client, error) {
+func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfoStore) (*pennsieve.Client, error) {
 
 	activeConfig := pennsieve.APIParams{
 		Port:          viper.GetString("agent.port"),
