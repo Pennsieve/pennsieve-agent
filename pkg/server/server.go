@@ -194,7 +194,7 @@ func StartAgent() error {
 	if err != nil {
 		fmt.Println("Error initializing DB --", err)
 	}
-	server, err := newServer(db, nil)
+	server, err := newServer(db)
 	if err != nil {
 		return err
 	}
@@ -236,14 +236,14 @@ func SetupLogger() {
 	log.SetOutput(logFileLocation)
 }
 
-func newServer(db *sql.DB, awsEndpoints *pennsieve.AWSCognitoEndpoints) (*server, error) {
+func newServer(db *sql.DB) (*server, error) {
 	manifestStore := store.NewManifestStore(db)
 	manifestFileStore := store.NewManifestFileStore(db)
 
 	userInfoStore := store.NewUserInfoStore(db)
 	userSettingsStore := store.NewUserSettingsStore(db)
 
-	client, err := config.InitPennsieveClient(userSettingsStore, userInfoStore, awsEndpoints)
+	client, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
 	if err != nil {
 		return &server{}, err
 	}

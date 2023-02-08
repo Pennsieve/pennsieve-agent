@@ -93,6 +93,7 @@ func (suite *ServerTestSuite) clearDatabase() {
 }
 
 // Programmatically inits viper and for each profile sets api_host the suite's mock URLs.
+// Also updates config.AWSEndpoints to point to mock Cognito
 func (suite *ServerTestSuite) initConfig() {
 	// Initialize Viper
 	viper.Set("agent.useConfigFile", true)
@@ -103,6 +104,7 @@ func (suite *ServerTestSuite) initConfig() {
 		viper.Set(profile.Name+".api_secret", profile.APISecret)
 		viper.Set(profile.Name+".api_host", suite.mockPennsieve.API.Server.URL)
 	}
+	pennsieve.AWSEndpoints = pennsieve.AWSCognitoEndpoints{IdentityProviderEndpoint: suite.mockPennsieve.IDProvider.Server.URL}
 }
 
 func (suite *ServerTestSuite) SetupTest() {
@@ -125,8 +127,7 @@ func (suite *ServerTestSuite) SetupTest() {
 
 	suite.clearDatabase()
 	suite.initConfig()
-	testServer, err := newServer(suite.db,
-		&pennsieve.AWSCognitoEndpoints{IdentityProviderEndpoint: suite.mockPennsieve.IDProvider.Server.URL})
+	testServer, err := newServer(suite.db)
 	suite.NoError(err)
 	suite.testServer = testServer
 
@@ -135,6 +136,7 @@ func (suite *ServerTestSuite) SetupTest() {
 func (suite *ServerTestSuite) TearDownTest() {
 	suite.mockPennsieve.Close()
 	viper.Reset()
+	pennsieve.AWSEndpoints.Reset()
 }
 
 func (suite *ServerTestSuite) TearDownSuite() {

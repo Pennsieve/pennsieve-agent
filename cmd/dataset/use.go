@@ -50,7 +50,7 @@ var UseCmd = &cobra.Command{
 		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
 		userInfoStore := store.NewUserInfoStore(db)
-		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore, nil)
+		pennsieveClient, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
 		if err != nil {
 			log.Fatalln("Cannot connect to Pennsieve.")
 		}
