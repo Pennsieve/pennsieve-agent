@@ -26,7 +26,7 @@ func InitializeDB() (*sql.DB, error) {
 	}
 	err = db.Ping()
 	if err != nil {
-		log.Errorf("unable to connect to database at %s", dbPath)
+		log.Errorf("unable to connect to database at %s: %s", dbPath, err)
 	}
 
 	userSettingsStore := store.NewUserSettingsStore(db)
