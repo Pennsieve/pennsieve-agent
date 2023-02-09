@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
@@ -188,30 +189,15 @@ func StartAgent() error {
 
 	// Create new server
 	GRPCServer = grpc.NewServer()
-	server := &server{}
 
 	db, err := config.InitializeDB()
 	if err != nil {
 		fmt.Println("Error initializing DB --", err)
 	}
-
-	manifestStore := store.NewManifestStore(db)
-	manifestFileStore := store.NewManifestFileStore(db)
-	server.Manifest = service.NewManifestService(manifestStore, manifestFileStore)
-
-	userInfoStore := store.NewUserInfoStore(db)
-	userSettingsStore := store.NewUserSettingsStore(db)
-	server.User = service.NewUserService(userInfoStore, userSettingsStore)
-
-	client, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+	server, err := newServer(db)
 	if err != nil {
 		return err
 	}
-
-	server.client = client
-	server.Manifest.SetPennsieveClient(client)
-	server.User.SetPennsieveClient(client)
-
 	// Register services
 	pb.RegisterAgentServer(GRPCServer, server)
 
@@ -248,4 +234,25 @@ func SetupLogger() {
 		log.Fatalln(err)
 	}
 	log.SetOutput(logFileLocation)
+}
+
+func newServer(db *sql.DB) (*server, error) {
+	manifestStore := store.NewManifestStore(db)
+	manifestFileStore := store.NewManifestFileStore(db)
+
+	userInfoStore := store.NewUserInfoStore(db)
+	userSettingsStore := store.NewUserSettingsStore(db)
+
+	client, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
+	if err != nil {
+		return &server{}, err
+	}
+	server := server{}
+	server.Manifest = service.NewManifestService(manifestStore, manifestFileStore)
+	server.User = service.NewUserService(userInfoStore, userSettingsStore)
+
+	server.client = client
+	server.Manifest.SetPennsieveClient(client)
+	server.User.SetPennsieveClient(client)
+	return &server, nil
 }

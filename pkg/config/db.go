@@ -24,6 +24,10 @@ func InitializeDB() (*sql.DB, error) {
 	if err != nil {
 		log.Error("Unable to open database")
 	}
+	err = db.Ping()
+	if err != nil {
+		log.Errorf("unable to connect to database at %s: %s", dbPath, err)
+	}
 
 	userSettingsStore := store.NewUserSettingsStore(db)
 
