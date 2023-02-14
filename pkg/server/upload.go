@@ -274,7 +274,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 
 		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
 
-		tags := fmt.Sprintf("OrgId=%s&Name=%s&DatasetId=%s", organizationId, record.TargetName, datasetId)
+		tags := fmt.Sprintf("OrgId=%s&DatasetId=%s", organizationId, datasetId)
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:            aws.String(uploadBucket),
