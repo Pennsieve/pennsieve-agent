@@ -57,6 +57,11 @@ jobs:
         cd pennsieve-agent-${AGENT_VERSION}
         go build
         go install
+        echo "$(ls /usr)"
+        echo "$(ls /opt)"
+        echo "$(ls /usr/local/bin)"
+        echo "$(ls /home/runner)"
+        echo "$(pwd)"
         #go mod init
         echo ">Confirm sqlite3 installation"
         echo "$(sqlite3 --version)"
