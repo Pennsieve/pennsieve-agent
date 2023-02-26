@@ -17,3 +17,14 @@ release:
 	echo Version: $$version;
 	@echo "\nChangelog"
 	@git log --format="%h %s" $$(git tag | sort -n -r | head -n 1 | awk -F_ '{print $$2}').. | sed -e 's/^/-\ /g'
+
+docker:
+	@echo ""
+	@echo "*********************************"
+	@echo "*   Building Docker Container   *"
+	@echo "*********************************"
+	@echo ""
+	cd $(WORKING_DIR)/fargate/upload-move; \
+#		env GOOS=linux GOARCH=amd64 go build -o app/upload-move-files; \
+		docker build -t pennsieve/upload_move_files:${VERSION} . ;\
+		docker push pennsieve/upload_move_files:${VERSION} ;\
