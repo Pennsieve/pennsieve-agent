@@ -61,7 +61,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: pennsieve/pennsieve-agent:$VERSION, pennsieve/pennsieve-agent:latest
+          tags: 'pennsieve/pennsieve-agent:$VERSION'
 
   linux-release:
     runs-on: ubuntu-latest
