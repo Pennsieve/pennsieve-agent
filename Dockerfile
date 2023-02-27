@@ -1,29 +1,19 @@
-FROM golang:1.19 as image
-MAINTAINER Patryk Orzechowski, Joost Wagenaar
+# syntax=docker/dockerfile:1
 
-#setup env variables
-ENV PENNSIEVE API_HOST host
-ENV PENNSIEVE_API_KEY key
-ENV PENNSIEVE_API_SECRET secret
-ENV PENNSIEVE_PATH .
-ENV PENNSIEVE_DATASET dataset
-ENV PENNSIEVE_UPLOAD_BUCKET bucket
-ENV PENNSIEVE_AGENT_PORT 9000
-ENV PENNSIEVE_AGENT_UPLOAD_WORKERS 1
-ENV PENNSIEVE_AGENT_CHUNK_SIZE 32
-
-WORKDIR /opt/pennsieve
-
-#copy all files from the repo
+FROM golang:1.20.1-alpine3.16
+WORKDIR /go/src/github.com/pennsieve/pennsieve-agent/
+COPY go.mod .
+COPY go.sum .
+RUN apk add build-base
+RUN go mod download
+RUN go install github.com/mattn/go-sqlite3
 COPY . .
-RUN apt-get update
-RUN go install 
-RUN go build -v -o /opt/pennsieve .
-RUN ls -laR /opt/pennsieve/
-RUN echo "$PENNSIEVE_PATH"
-RUN ln -s -f pennsieve-agent pennsieve
+RUN CGO_ENABLED=1 go build -a -installsuffix cgo -o pennsieve .
 
-RUN apt-get install sqlite3
-
+FROM alpine:3.16
+WORKDIR /root/
+RUN apk update && apk upgrade
+RUN apk add --no-cache sqlite
+COPY --from=0 /go/src/github.com/pennsieve/pennsieve-agent/pennsieve ./
 EXPOSE 9000
-CMD ["go", "run", "main.go", "agent", "start"]
+CMD ["./pennsieve", "agent", "start"]
