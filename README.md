@@ -101,6 +101,8 @@ upload_workers          The number of files that are uploaded simultaneously.
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.
 
+You can set the log-level by setting the following environment variable: PENNSIEVE_LOG_LEVEL
+
 ## Testing
 We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
 

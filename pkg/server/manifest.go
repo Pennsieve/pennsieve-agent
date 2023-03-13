@@ -243,7 +243,7 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 	}
 	s.cancelFncs.Store(request.GetManifestId(), session)
 
-	go s.syncProcessor(ctx, manifest)
+	s.syncProcessor(ctx, manifest)
 
 	r := pb.SyncManifestResponse{
 		ManifestNodeId: manifest.NodeId.String,
@@ -296,6 +296,8 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 		return nil, err
 	}
 
+	log.Debug("Number of rows to sync: ", totalNrRows)
+
 	// Database crawler to fetch rows
 	go func() {
 		defer close(syncWalker)
@@ -326,6 +328,8 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 			log.Error("Error: ", err)
 			return
 		}
+
+		log.Info(fmt.Sprintf("Manifest ID: %v", m.NodeId))
 
 		s.syncUpdateSubscribers(totalNrRows, 0, 0, pb.SubscribeResponse_SyncResponse_INIT)
 
@@ -463,6 +467,8 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 }
 
 func (s *server) syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *store.Manifest) (*manifest.PostResponse, error) {
+
+	fmt.Println(requestFiles)
 
 	requestBody := manifest.DTO{
 		DatasetId: m.DatasetId,
