@@ -52,7 +52,9 @@ echo "PS_VERSION=<%= ps_version %>" >> $INSTALL_LOG
 echo "PS_EXECUTABLE=<%= ps_executable %>" >> $INSTALL_LOG
 
 # Set the appropriate permissions:
-USER=$(who | awk '{print $1}')
+#or USER=$(who | awk '{print $1})
+USER=$(whoami || id -nu | awk '{print $1}')
+#echo "$USER" | awk '{print $1}'
 sudo chown -R $USER:$USER "$PS_HOME/"
 chmod -R a+rX "$PS_HOME"
 chmod 755 "$PS_PATH"
