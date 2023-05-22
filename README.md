@@ -32,7 +32,7 @@ Download the latest installer for your operating system: https://github.com/Penn
 ## Releasing a new version
 
 1. Merge updates into the main branch
-2. Create a new tag in main and name the tag: vx.x.x following [semantic versioning](https://semver.org/).
+2. Create a new tag in main and name the tag: x.x.x following [semantic versioning](https://semver.org/).
 
     e.g ```git tag -a 0.0.1 -m "Initial release"```
 
