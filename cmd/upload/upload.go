@@ -34,5 +34,6 @@ func init() {
 
 	UploadCmd.AddCommand(CancelCmd)
 	UploadCmd.AddCommand(ManifestCmd)
+	ManifestCmd.Flags().String("workflow", "", "Add a workflow to the upload process")
 
 }

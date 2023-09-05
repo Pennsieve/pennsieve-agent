@@ -21,6 +21,7 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
+	"github.com/pennsieve/pennsieve-agent/workflow"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -36,6 +37,14 @@ var ManifestCmd = &cobra.Command{
 	Long:  `Upload files to the Pennsieve platform.`,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+
+		workflowArgs, err := cmd.Flags().GetString("workflow")
+		wrkflw := workflow.NewWorkflow(workflowArgs)
+		wrkflw.RunWorkflow()
+
+		if err != nil {
+			fmt.Println("Workflow error: ", err)
+		}
 
 		// Check input argument (needs to be an integer)
 		i, err := strconv.ParseInt(args[0], 10, 32)
