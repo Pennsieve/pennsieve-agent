@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,6 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
-	"github.com/pennsieve/pennsieve-agent/workflow"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -38,13 +37,14 @@ var ManifestCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
-		workflowArgs, err := cmd.Flags().GetString("workflow")
-		wrkflw := workflow.NewWorkflow(workflowArgs)
-		wrkflw.RunWorkflow()
+		port := viper.GetString("agent.port")
+		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err != nil {
-			fmt.Println("Workflow error: ", err)
+			fmt.Println("Error connecting to GRPC Server: ", err)
+			return
 		}
+		client := api.NewAgentClient(conn)
 
 		// Check input argument (needs to be an integer)
 		i, err := strconv.ParseInt(args[0], 10, 32)
@@ -54,16 +54,31 @@ var ManifestCmd = &cobra.Command{
 		}
 
 		manifestId := int32(i)
-		req := api.UploadManifestRequest{ManifestId: manifestId}
-		port := viper.GetString("agent.port")
-		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+		//wrkflw := server.NewWorkflow(workflowArgs)
+		//
+		//wrkflw.RunWorkflow()
+		workflowArgs, err := cmd.Flags().GetString("workflow")
 		if err != nil {
-			fmt.Println("Error connecting to GRPC Server: ", err)
+			fmt.Println("Workflow error: ", err)
+		}
+		WrkFlwReq := api.StartWorkflowRequest{
+			ManifestId:   manifestId,
+			WorkflowFlag: workflowArgs,
+		}
+		workflowResponse, err := client.StartWorkflow(context.Background(), &WrkFlwReq)
+		fmt.Println(workflowResponse)
+
+		// Stop upload if workflow fails
+		if workflowResponse.Success == false {
+			fmt.Println("Workflow failed. Stopping upload", err)
 			return
 		}
+
+		req := api.UploadManifestRequest{ManifestId: manifestId}
+
 		defer conn.Close()
 
-		client := api.NewAgentClient(conn)
 		_, err = client.UploadManifest(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintln("Error uploading manifest: ", err))
