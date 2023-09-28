@@ -262,7 +262,13 @@ message StartWorkflowRequest{
 }
 
 message WorkflowResponse{
+
+	enum WorkflowType{
+		PATH = 0;  	// File indexed locally
+		NAMED = 1;
+	}
 	bool success = 1;
 	string derivatives = 2;
+	WorkflowType workflowType = 3;
 
 }

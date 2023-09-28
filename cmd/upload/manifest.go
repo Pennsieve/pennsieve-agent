@@ -54,11 +54,8 @@ var ManifestCmd = &cobra.Command{
 		}
 
 		manifestId := int32(i)
-
-		//wrkflw := server.NewWorkflow(workflowArgs)
-		//
-		//wrkflw.RunWorkflow()
 		workflowArgs, err := cmd.Flags().GetString("workflow")
+
 		if err != nil {
 			fmt.Println("Workflow error: ", err)
 		}
