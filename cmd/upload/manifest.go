@@ -54,22 +54,26 @@ var ManifestCmd = &cobra.Command{
 		}
 
 		manifestId := int32(i)
-		workflowArgs, err := cmd.Flags().GetString("workflow")
+		workflowPath, err := cmd.Flags().GetString("workflow")
+		workflowOpts, err := cmd.Flags().GetString("workflowOpts")
 
 		if err != nil {
 			fmt.Println("Workflow error: ", err)
 		}
 		WrkFlwReq := api.StartWorkflowRequest{
 			ManifestId:   manifestId,
-			WorkflowFlag: workflowArgs,
+			WorkflowFlag: workflowPath,
 		}
-		workflowResponse, err := client.StartWorkflow(context.Background(), &WrkFlwReq)
-		fmt.Println(workflowResponse)
+		if workflowPath != "" {
+			fmt.Println(workflowOpts)
+			workflowResponse, err := client.StartWorkflow(context.Background(), &WrkFlwReq)
+			fmt.Println(workflowResponse)
 
-		// Stop upload if workflow fails
-		if workflowResponse.Success == false {
-			fmt.Println("Workflow failed. Stopping upload", err)
-			return
+			// Stop upload if workflow fails
+			if workflowResponse.Success == false {
+				fmt.Println("Workflow failed. Stopping upload", err)
+				return
+			}
 		}
 
 		req := api.UploadManifestRequest{ManifestId: manifestId}
