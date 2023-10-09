@@ -86,8 +86,13 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 		createInputCSV(&workOrder, listFilesResponse)
 		workOrder.ManifestRoots = getRootDirectories(&workOrder, listFilesResponse)
 
-		content := "process.containerOptions = '--platform linux/amd64 --rm -v " + workOrder.ManifestRoots[0] + ":/data:ro'\ndocker{\n    enabled = true\n}"
-		os.WriteFile(filepath.Dir(workOrder.WorkOrderInput)+"/temp.cfg", []byte(content), 0644)
+		content := "" +
+			"process.failFast = true\n " +
+			"process.containerOptions = '--platform linux/amd64 --rm -v " + workOrder.ManifestRoots[0] + ":/data -v " + workOrder.WorkOrderFiles + ":/input/input.csv'" +
+			"\ndocker{" +
+			"\n    enabled = true" +
+			"\n}"
+		os.WriteFile(filepath.Dir(workOrder.WorkOrderInput)+"/nextflow.config", []byte(content), 0644)
 		fmt.Println("Manifest roots")
 		fmt.Println(workOrder.ManifestRoots)
 
@@ -113,7 +118,9 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 }
 
 func runWorkflow(workOrder *WorkOrder) {
+
 	app := "nextflow"
+	fmt.Println(fmt.Sprintf("Running nextflow: `%s %s`\n", app, workOrder.WorkOrderInput))
 	cmd := exec.Command(app, workOrder.WorkOrderInput)
 
 	//err := cmd.Run()
