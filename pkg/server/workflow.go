@@ -11,6 +11,7 @@ import (
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
@@ -84,7 +85,7 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 
 		fmt.Println("START  CSV Gen")
 		createInputCSV(&workOrder, listFilesResponse)
-		workOrder.ManifestRoots = getRootDirectories(&workOrder, listFilesResponse)
+		workOrder.ManifestRoots = getRootDirectories(listFilesResponse)
 
 		content := "" +
 			"process.failFast = true\n " +
@@ -202,58 +203,60 @@ func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFil
 	f.Close()
 }
 
-func getRootDirectories(workOrder *WorkOrder, listFilesResponse *api.ListManifestFilesResponse) []string {
+func getRootDirectories(listFilesResponse *api.ListManifestFilesResponse) []string {
 
-	var rootDirs []string
-	// Push all common paths into an array
+	var dirs []string
+	// Push all paths into array
 	for _, file := range listFilesResponse.File {
-		if len(rootDirs) == 0 { // Push in first path
-			rootDirs = append(rootDirs, filepath.Dir(file.SourcePath))
-		} else {
-			rootDirs = append(rootDirs, strings.Join(commonPathParts(rootDirs[len(rootDirs)-1], file.SourcePath), "\\"))
-		}
+		dirs = append(dirs, filepath.Dir(file.SourcePath))
 	}
-
-	log.Println(rootDirs)
-
-	var deduplicatedCommonPaths []string
+	// Remove duplicates
+	var uniqueDirPaths []string
 	seen := map[string]bool{}
-	for _, commonPath := range rootDirs {
-		if !seen[commonPath] {
-			seen[commonPath] = true
-			deduplicatedCommonPaths = append(deduplicatedCommonPaths, commonPath)
+	for _, dir := range dirs {
+		if seen[dir] == false {
+			seen[dir] = true
+			uniqueDirPaths = append(uniqueDirPaths, dir)
 		}
 	}
-	return deduplicatedCommonPaths
+
+	// Check for highest level folder
+	var skips []int
+	rootsMap := map[string]bool{}
+	for i := 0; i < len(uniqueDirPaths); i++ {
+		if slices.Contains(skips, i) {
+			continue
+		}
+		for j := 0; j < len(uniqueDirPaths); j++ {
+			if strings.Contains(uniqueDirPaths[j], uniqueDirPaths[i]) {
+				rootsMap[uniqueDirPaths[i]] = true
+				skips = append(skips, j)
+			}
+		}
+	}
+
+	// Pull dirs out of keys
+	rootDirs := make([]string, len(rootsMap))
+	i := 0
+	for k := range rootsMap {
+		rootDirs[i] = k
+		i++
+	}
+	return rootDirs
 }
 
 // find common parts of path between 2 file paths
 func commonPathParts(path1 string, path2 string) []string {
-	parts1 := strings.Split(path1, "\\")
-	parts2 := strings.Split(path2, "\\")
+	parts1 := strings.Split(path1, "/")
+	parts2 := strings.Split(path2, "/")
 
 	var commonParts []string
 	for i := 0; i < len(parts1) && i < len(parts2); i++ {
-		if path1[i] == path2[i] {
+		if parts1[i] == parts2[i] {
 			commonParts = append(commonParts, parts1[i])
 		} else {
-			break
+			continue
 		}
 	}
 	return commonParts
-}
-
-func isCommandAvailable(command string) bool {
-	// Run the "command --version" to check if it's available
-	cmd := exec.Command(command, "--version")
-
-	// Capture the output of the command
-	output, err := cmd.CombinedOutput()
-
-	// Check if the command executed successfully
-	if err != nil || strings.Contains(string(output), "not found") {
-		return false
-	}
-
-	return true
 }
