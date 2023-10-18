@@ -88,8 +88,10 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 		workOrder.ManifestRoots = getRootDirectories(listFilesResponse)
 
 		content := "" +
-			"process.failFast = true\n " +
-			"process.containerOptions = '--platform linux/amd64 --rm -v " + workOrder.ManifestRoots[0] + ":/data -v " + workOrder.WorkOrderFiles + ":/input/input.csv'" +
+			"process.failFast = true\n" +
+			"process.containerOptions = '--platform linux/amd64 --rm " +
+			"-v " + workOrder.ManifestRoots[0] + ":/data " +
+			"-v " + workOrder.FilePath + ":/job'" +
 			"\ndocker{" +
 			"\n    enabled = true" +
 			"\n}"
@@ -120,6 +122,7 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 
 func runWorkflow(workOrder *WorkOrder) {
 
+	writeWorkOrder(workOrder)
 	app := "nextflow"
 	fmt.Println(fmt.Sprintf("Running nextflow: `%s %s`\n", app, workOrder.WorkOrderInput))
 	cmd := exec.Command(app, workOrder.WorkOrderInput)
@@ -148,6 +151,10 @@ func runWorkflow(workOrder *WorkOrder) {
 		fmt.Println("Command completed successfully")
 	}
 
+	writeWorkOrder(workOrder)
+}
+
+func writeWorkOrder(workOrder *WorkOrder) {
 	// Marshal the struct into JSON
 	jsonData, err := json.Marshal(workOrder)
 	if err != nil {
