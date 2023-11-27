@@ -87,7 +87,7 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 		createInputCSV(&workOrder, listFilesResponse)
 		workOrder.ManifestRoots = getRootDirectories(listFilesResponse)
 
-		content := "" +
+		nextflowConfigContent := "" +
 			"process.failFast = true\n" +
 			"process.containerOptions = '--platform linux/amd64 --rm " +
 			"-v " + workOrder.ManifestRoots[0] + ":/data " +
@@ -95,7 +95,7 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 			"\ndocker{" +
 			"\n    enabled = true" +
 			"\n}"
-		os.WriteFile(filepath.Dir(workOrder.WorkOrderInput)+"/nextflow.config", []byte(content), 0644)
+		os.WriteFile(filepath.Dir(workOrder.WorkOrderInput)+"/nextflow.config", []byte(nextflowConfigContent), 0644)
 		fmt.Println("Manifest roots")
 		fmt.Println(workOrder.ManifestRoots)
 
@@ -124,26 +124,14 @@ func runWorkflow(workOrder *WorkOrder) {
 
 	writeWorkOrder(workOrder)
 	app := "nextflow"
-	fmt.Println(fmt.Sprintf("Running nextflow: `%s %s`\n", app, workOrder.WorkOrderInput))
-	cmd := exec.Command(app, workOrder.WorkOrderInput)
+	cmd := exec.Command(app, workOrder.WorkOrderInput, "--workflowJobId", workOrder.ProcessID.String())
 
-	//err := cmd.Run()
 	output, err := cmd.Output()
 	if err != nil {
+		fmt.Println("failed on command execution")
+		fmt.Println(string(output))
 
 		workOrder.WorkOrderStatus = false
-		// Check if the error is of type ExitError, which contains exit status information
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			// The command exited with a non-zero status
-			fmt.Printf("Command finished with error: %v\n", exitErr)
-			fmt.Printf("Exit status: %d\n", exitErr.ExitCode())
-			fmt.Println(err.Error())
-			workOrder.WorkFlowOutput = string(output)
-			fmt.Print(string(output))
-		} else {
-			// Some other error occurred
-			fmt.Printf("Command finished with error: %v\n", err)
-		}
 	} else {
 		// Command completed successfully
 		fmt.Println(string(output))
