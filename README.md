@@ -102,7 +102,7 @@ upload_workers          The number of files that are uploaded simultaneously.
 
  * Install [nextflow](https://www.nextflow.io/)
    * This will require JDK 8 - 20 to work
-   * Move add nextflow to your path so it is globally accessible
+   * Add nextflow to your path so it is globally accessible
    * Confirm installation with `nextflow -version`
  * Make your workflow file. See [Demo Workflow](https://github.com/Pennsieve/nextflow_example) example
  * Create file manifest
