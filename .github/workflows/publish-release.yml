@@ -148,7 +148,7 @@ jobs:
           asset_content_type: application/octet-stream
 
   windows-release:
-    runs-on: win-20230630.1
+    runs-on: windows-latest
     needs: [read-tag, create-release]
     defaults:
       run:
