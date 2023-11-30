@@ -105,3 +105,5 @@ We are using the [logrus](https://github.com/sirupsen/logrus) library for loggin
 We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
 
 The goal is to keep testing simple and effective. There is no need to make testing itself complex. 
+
+## Test update
