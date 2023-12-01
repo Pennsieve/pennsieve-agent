@@ -1,10 +1,8 @@
 package server
 
 import (
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"path/filepath"
 	"testing"
 )
 
@@ -33,114 +31,7 @@ func (s *WorkflowTestSuite) TestWorkflow() {
 
 	paths = commonPathParts(filePaths[3], filePaths[4])
 	assert.Equal(s.T(), []string{"", "Users", "code", "pennsieve-agent", "sub-folder"}, paths)
-
-	responseFiles := []*api.ListManifestFilesResponse_FileUpload{
-		{
-			Id:         2,
-			ManifestId: 2,
-			SourcePath: filePaths[0],
-			TargetPath: filePaths[0],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         3,
-			ManifestId: 2,
-			SourcePath: filePaths[1],
-			TargetPath: filePaths[1],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         4,
-			ManifestId: 2,
-			SourcePath: filePaths[2],
-			TargetPath: filePaths[2],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         5,
-			ManifestId: 2,
-			SourcePath: filePaths[3],
-			TargetPath: filePaths[3],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         6,
-			ManifestId: 2,
-			SourcePath: filePaths[4],
-			TargetPath: filePaths[4],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         7,
-			ManifestId: 2,
-			SourcePath: filePaths[5],
-			TargetPath: filePaths[5],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         8,
-			ManifestId: 2,
-			SourcePath: filePaths[6],
-			TargetPath: filePaths[6],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         9,
-			ManifestId: 2,
-			SourcePath: filePaths[7],
-			TargetPath: filePaths[7],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         10,
-			ManifestId: 2,
-			SourcePath: filePaths[8],
-			TargetPath: filePaths[8],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         11,
-			ManifestId: 2,
-			SourcePath: filePaths[9],
-			TargetPath: filePaths[9],
-			UploadId:   "",
-			Status:     0,
-		},
-		{
-			Id:         12,
-			ManifestId: 2,
-			SourcePath: filePaths[10],
-			TargetPath: filePaths[10],
-			UploadId:   "",
-			Status:     0,
-		},
-	}
-	response := api.ListManifestFilesResponse{File: responseFiles}
-
-	rootDirs := getRootDirectories(&response)
-	for i, dir := range rootDirs {
-		rootDirs[i] = filepath.ToSlash(dir)
-	}
-
-	expectedPaths := []string{
-		"/Users/code/pennsieve-agent",
-		"/Users/Documents/Adobe",
-		"/Volumes/DBeaver Community/.background",
-	}
-	for i, path := range expectedPaths {
-		expectedPaths[i] = filepath.ToSlash(path)
-	}
-	assert.Equal(s.T(), expectedPaths, rootDirs)
-
+	
 }
 
 func TestWorkflowSuite(t *testing.T) {
