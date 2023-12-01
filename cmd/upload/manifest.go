@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"log"
 	"math/rand"
 	"strconv"
 	"time"
@@ -41,7 +42,7 @@ var ManifestCmd = &cobra.Command{
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err != nil {
-			fmt.Println("Error connecting to GRPC Server: ", err)
+			log.Println("Error connecting to GRPC Server: ", err)
 			return
 		}
 		client := api.NewAgentClient(conn)
@@ -49,7 +50,7 @@ var ManifestCmd = &cobra.Command{
 		// Check input argument (needs to be an integer)
 		i, err := strconv.ParseInt(args[0], 10, 32)
 		if err != nil {
-			fmt.Printf("Error: <manifestId> should be an integer.")
+			log.Printf("Error: <manifestId> should be an integer.")
 			return
 		}
 
@@ -58,20 +59,20 @@ var ManifestCmd = &cobra.Command{
 		workflowOpts, err := cmd.Flags().GetString("workflowOpts")
 
 		if err != nil {
-			fmt.Println("Workflow error: ", err)
+			log.Println("Workflow error: ", err)
 		}
 		WrkFlwReq := api.StartWorkflowRequest{
 			ManifestId:   manifestId,
 			WorkflowFlag: workflowPath,
 		}
 		if workflowPath != "" {
-			fmt.Println(workflowOpts)
+			log.Println(workflowOpts)
 			workflowResponse, err := client.StartWorkflow(context.Background(), &WrkFlwReq)
-			fmt.Println(workflowResponse)
+			log.Println(workflowResponse)
 
 			// Stop upload if workflow fails
-			if workflowResponse.Success == false {
-				fmt.Println("Workflow failed. Stopping upload", err)
+			if workflowResponse.Success == false || err != nil {
+				log.Println("Workflow failed. Stopping upload", err)
 				return
 			}
 		}
@@ -85,17 +86,17 @@ var ManifestCmd = &cobra.Command{
 			shared.HandleAgentError(err, fmt.Sprintln("Error uploading manifest: ", err))
 		}
 
-		fmt.Println(fmt.Sprintf("\nUpload initiated for manifest: %d.\n You can safely Ctr-C as uploading process will continue to run in the background."+
+		log.Println(fmt.Sprintf("\nUpload initiated for manifest: %d.\n You can safely Ctr-C as uploading process will continue to run in the background."+
 			"\n\n  Use \"pennsieve agent subscribe\" to track progress of the uploaded files.\n\n"+
 			"  Use \"pennsieve upload cancel %d\" to cancel the current upload session.", manifestId, manifestId))
 
-		fmt.Println("\n------------")
+		log.Println("\n------------")
 
 		// Subscribe to messages from the GRPC server and quit when upload is complete.
 		r1 := rand.New(rand.NewSource(time.Now().UnixNano()))
 		SubscribeClient, err := subscriber.NewSubscriberClient(int32(r1.Intn(100)))
 		if err != nil {
-			fmt.Println("Unable to track uploads. Please check logs to verify files are uploaded.")
+			log.Println("Unable to track uploads. Please check logs to verify files are uploaded.")
 		}
 		SubscribeClient.Start([]api.SubscribeResponse_MessageType{
 			api.SubscribeResponse_UPLOAD_STATUS, api.SubscribeResponse_EVENT}, subscriber.StopOnStatus{

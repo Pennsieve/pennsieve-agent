@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"fmt"
 	guuid "github.com/google/uuid"
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
@@ -14,6 +13,7 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,51 +22,56 @@ import (
 )
 
 type WorkOrder struct {
-	ProcessID       guuid.UUID                       `json:"ProcessID"`
-	FilePath        string                           `json:"FilePath"`
-	ManifestId      int32                            `json:"ManifestId"`
-	WorkFlowType    pb.WorkflowResponse_WorkflowType `json:"WorkFlowType"`
-	WorkOrderInput  string                           `json:"WorkOrderInput"`
-	WorkOrderFiles  string                           `json:"WorkOrderFiles"`
-	WorkOrderStatus bool                             `json:"WorkOrderStatus"`
-	WorkFlowOutput  string                           `json:"WorkFlowOutput"`
-	ManifestRoots   []string                         `json:"ManifestRoots"`
+	ProcessID      guuid.UUID                       `json:"ProcessID"`
+	FilePath       string                           `json:"FilePath"`
+	ManifestID     int32                            `json:"ManifestID"`
+	WorkFlowType   pb.WorkflowResponse_WorkflowType `json:"WorkFlowType"`
+	Input          string                           `json:"Input"`
+	Files          string                           `json:"Files"`
+	Status         bool                             `json:"Status"`
+	WorkFlowOutput string                           `json:"WorkFlowOutput"`
+	ManifestRoots  []string                         `json:"ManifestRoots"`
 }
 
 func isPath(path string) bool {
-	if _, err := os.Stat(path); err == nil {
+	_, err := os.Stat(path)
+	if !errors.Is(err, fs.ErrNotExist) {
+		log.Error(err)
+	}
+	if err == nil {
 		return true
 	}
+
 	return false
 }
 
 func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowRequest) (*pb.WorkflowResponse, error) {
 
 	id := guuid.New()
-	fmt.Println("\nStarting workflow")
-	fmt.Println("ID:" + id.String())
+	log.Println("\nStarting workflow")
+	log.Println("ID:" + id.String())
 
 	var workOrder WorkOrder
 	var workflowType pb.WorkflowResponse_WorkflowType
 
 	workOrder.ProcessID = id
-	workOrder.WorkOrderStatus = false
-	workOrder.ManifestId = request.ManifestId
-	workOrder.WorkOrderInput = request.WorkflowFlag
+	workOrder.Status = false
+	workOrder.ManifestID = request.ManifestId
+	workOrder.Input = request.WorkflowFlag
 	offset := int32(0)
 	limit := int32(100)
 
-	switch isPath(workOrder.WorkOrderInput) {
+	switch isPath(workOrder.Input) {
 
 	case true:
-		fmt.Println("Path workflow")
+		log.Println("Path workflow")
 		workOrder.WorkFlowType = pb.WorkflowResponse_PATH
 
 		newJobFolder := createWorkflowFolder(workOrder)
 		workOrder.FilePath = newJobFolder
 
 		req := api.ListManifestFilesRequest{
-			ManifestId: workOrder.ManifestId,
+			ManifestId: workOrder.ManifestID,
 			Offset:     offset,
 			Limit:      limit,
 		}
@@ -83,7 +88,7 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 		client := api.NewAgentClient(conn)
 		listFilesResponse, err := client.ListManifestFiles(context.Background(), &req)
 
-		fmt.Println("START  CSV Gen")
+		log.Println("START  CSV Gen")
 		createInputCSV(&workOrder, listFilesResponse)
 		workOrder.ManifestRoots = getRootDirectories(listFilesResponse)
 
@@ -95,24 +100,24 @@ func (s *server) StartWorkflow(ctx context.Context, request *pb.StartWorkflowReq
 			"\ndocker{" +
 			"\n    enabled = true" +
 			"\n}"
-		os.WriteFile(filepath.Dir(workOrder.WorkOrderInput)+"/nextflow.config", []byte(nextflowConfigContent), 0644)
-		fmt.Println("Manifest roots")
-		fmt.Println(workOrder.ManifestRoots)
+		os.WriteFile(filepath.Dir(workOrder.Input)+"/nextflow.config", []byte(nextflowConfigContent), 0644)
+		log.Println("Manifest roots")
+		log.Println(workOrder.ManifestRoots)
 
 		runWorkflow(&workOrder)
 
 	case false:
-		fmt.Println("Named Workflow")
+		log.Println("Named Workflow")
 		workOrder.WorkFlowType = pb.WorkflowResponse_NAMED
-		workflowSteps := strings.Split(workOrder.WorkOrderInput, ",")
+		workflowSteps := strings.Split(workOrder.Input, ",")
 
 		for _, workflow := range workflowSteps {
-			fmt.Println(workflow)
+			log.Println(workflow)
 		}
 	}
 
 	response := pb.WorkflowResponse{
-		Success:      workOrder.WorkOrderStatus,
+		Success:      workOrder.Status,
 		Derivatives:  "test/path",
 		WorkflowType: workflowType,
 	}
@@ -124,19 +129,19 @@ func runWorkflow(workOrder *WorkOrder) {
 
 	writeWorkOrder(workOrder)
 	app := "nextflow"
-	cmd := exec.Command(app, workOrder.WorkOrderInput, "--workflowJobId", workOrder.ProcessID.String())
+	cmd := exec.Command(app, workOrder.Input, "--workflowJobId", workOrder.ProcessID.String())
 
 	output, err := cmd.Output()
 	if err != nil {
-		fmt.Println("failed on command execution")
-		fmt.Println(string(output))
+		log.Println("failed on command execution")
+		log.Println(string(output))
 
-		workOrder.WorkOrderStatus = false
+		workOrder.Status = false
 	} else {
 		// Command completed successfully
-		fmt.Println(string(output))
-		workOrder.WorkOrderStatus = true
-		fmt.Println("Command completed successfully")
+		log.Println(string(output))
+		workOrder.Status = true
+		log.Println("Command completed successfully")
 	}
 
 	writeWorkOrder(workOrder)
@@ -154,12 +159,12 @@ func writeWorkOrder(workOrder *WorkOrder) {
 	if err != nil {
 		log.Fatal("Error writing JSON to file:", err)
 	}
-	fmt.Println("JSON data written to work_order.json")
+	log.Println("JSON data written to work_order.json")
 }
 
 func createWorkflowFolder(workOrder WorkOrder) string {
 	// 2. Create Folder structure
-	pennsieveFolder := filepath.Dir(workOrder.WorkOrderInput)
+	pennsieveFolder := filepath.Dir(workOrder.Input)
 	jobsFolder := filepath.Join(pennsieveFolder, ".jobs")
 	if _, err := os.Stat(jobsFolder); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir(jobsFolder, os.ModePerm); err != nil {
@@ -178,10 +183,10 @@ func createWorkflowFolder(workOrder WorkOrder) string {
 }
 
 func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFilesResponse) {
-	fmt.Println("Creating Input CSV file")
+	log.Println("Creating Input CSV file")
 
 	f, err := os.Create(workOrder.FilePath + "/workflow/input.csv")
-	workOrder.WorkOrderFiles = f.Name()
+	workOrder.Files = f.Name()
 	w := csv.NewWriter(f)
 	record := []string{"id", "source_path", "target_path"}
 	err = w.Write(record)

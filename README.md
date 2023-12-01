@@ -107,7 +107,7 @@ upload_workers          The number of files that are uploaded simultaneously.
  * Make your workflow file. See [Demo Workflow](https://github.com/Pennsieve/nextflow_example) example
  * Create file manifest
  * Run manifest upload with workflow flag
-   * `pennsieve upload manifest 4 --workflow path/to/your/workflow/bids_validator.nf`
+   * `pennsieve upload manifest [MANIFEST_ID] --workflow path/to/your/workflow/bids_validator.nf`
 
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.
