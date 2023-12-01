@@ -4,6 +4,7 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"path/filepath"
 	"testing"
 )
 
@@ -13,7 +14,6 @@ type WorkflowTestSuite struct {
 }
 
 func (s *WorkflowTestSuite) TestWorkflow() {
-
 	filePaths := []string{
 		"/Users/code/pennsieve-agent/File1.jpg",
 		"/Users/code/pennsieve-agent/File2.jpg",
@@ -127,7 +127,19 @@ func (s *WorkflowTestSuite) TestWorkflow() {
 	response := api.ListManifestFilesResponse{File: responseFiles}
 
 	rootDirs := getRootDirectories(&response)
-	assert.Equal(s.T(), []string{"/Users/code/pennsieve-agent", "/Users/Documents/Adobe", "/Volumes/DBeaver Community/.background"}, rootDirs)
+	for i, dir := range rootDirs {
+		rootDirs[i] = filepath.ToSlash(dir)
+	}
+
+	expectedPaths := []string{
+		"/Users/code/pennsieve-agent",
+		"/Users/Documents/Adobe",
+		"/Volumes/DBeaver Community/.background",
+	}
+	for i, path := range expectedPaths {
+		expectedPaths[i] = filepath.ToSlash(path)
+	}
+	assert.Equal(s.T(), expectedPaths, rootDirs)
 
 }
 
