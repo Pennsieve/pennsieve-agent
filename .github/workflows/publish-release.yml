@@ -98,7 +98,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.18.0'
+          go-version: '1.21.5'
       - name: Install dependencies
         run: |
           go version
@@ -172,7 +172,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.18.0'
+          go-version: '1.21.5'
       - name: Install dependencies
         run: |
           go version
@@ -242,7 +242,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.18.0'
+          go-version: '1.21.5'
       - name: Install dependencies
         run: |
           go version
