@@ -35,6 +35,9 @@ service Agent {
 	// Datasets Endpoints
 	rpc UseDataset(UseDatasetRequest) returns (UseDatasetResponse) {}
 
+	//Workflow Endpoints
+	rpc StartWorkflow(StartWorkflowRequest) returns (WorkflowResponse){}
+
 }
 
 message SubscribeRequest {
@@ -251,4 +254,21 @@ message RelocateManifestFilesRequest {
 	int32 manifest_id = 1;
 	string path = 2;
 	string updated_path = 3;
+}
+
+message StartWorkflowRequest{
+	int32 manifest_id = 1;
+	string workflowFlag = 2;
+}
+
+message WorkflowResponse{
+
+	enum WorkflowType{
+		PATH = 0;  	// File indexed locally
+		NAMED = 1;
+	}
+	bool success = 1;
+	string derivatives = 2;
+	WorkflowType workflowType = 3;
+
 }

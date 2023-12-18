@@ -15,14 +15,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        goVer: [1.18]
+        goVer: [1.21.0]
     steps:
     - uses: actions/checkout@v2
 
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18
+        go-version: 1.21.0
 
     - name: Build
       run: go build -v ./...

@@ -98,6 +98,17 @@ port                    The port on which the agent is available
 upload_workers          The number of files that are uploaded simultaneously.
 ```
 
+### Using workflows
+
+ * Install [nextflow](https://www.nextflow.io/)
+   * This will require JDK 8 - 20 to work
+   * Add nextflow to your path so it is globally accessible
+   * Confirm installation with `nextflow -version`
+ * Make your workflow file. See [Demo Workflow](https://github.com/Pennsieve/nextflow_example) example
+ * Create file manifest
+ * Run manifest upload with workflow flag
+   * `pennsieve upload manifest [MANIFEST_ID] --workflow path/to/your/workflow/bids_validator.nf`
+
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.
 
