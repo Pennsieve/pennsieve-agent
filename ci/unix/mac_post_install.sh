@@ -34,6 +34,7 @@
 PS_HOME="$HOME/.pennsieve"
 PS_PATH="<%= ps_path %>"
 PS_EXECUTABLE="<%= ps_executable %>"
+USER_BINARY_DIR="/usr/local/bin"
 
 # Create the Pennsieve home directory, if needed:
 if [ ! -d "$PS_HOME" ]; then
@@ -65,7 +66,27 @@ sudo chgrp -R staff "$PS_PATH"
 #	mkdir "$PS_HOME/cache"
 #fi
 
-# Symlink $PS_EXECUTABLE to /usr/local/bin:
-if [ -d "/usr/local/bin" ]; then
-  sudo ln -s -f "$PS_EXECUTABLE" "/usr/local/bin/pennsieve"
+# Create /usr/local/bin if it does not exist
+if [ ! -d $USER_BINARY_DIR ]; then
+
+	sudo mkdir $USER_BINARY_DIR
+	mkdir_status=$?
+	if [ "$mkdir_status" -ne 0 ]; then
+	  echo "Failed to create $USER_BINARY_DIR" >> $INSTALL_LOG
+	fi
+
+	sudo chmod 755 $USER_BINARY_DIR
+  chmod_status=$?
+  if [ "$chmod_status" -ne 0 ]; then
+    echo "Failed to update permissions on $USER_BINARY_DIR" >> $INSTALL_LOG
+  fi
 fi
+
+
+# Symlink $PS_EXECUTABLE to /usr/local/bin:
+sudo ln -s -f "$PS_EXECUTABLE" "$USER_BINARY_DIR/pennsieve"
+ln_status=$?
+if [ "$ln_status" -ne 0 ]; then
+  echo "Failed to create symlink from $PS_EXECUTABLE to $USER_BINARY_DIR/pennsieve" >> $INSTALL_LOG
+fi
+
