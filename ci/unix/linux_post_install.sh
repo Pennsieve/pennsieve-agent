@@ -66,7 +66,7 @@ chmod 755 "$PS_PATH"
 
 # Create /usr/local/bin if it does not exist
 if [ ! -d "/usr/local/bin" ]; then
-	mkdir /usr/local/bin
+	sudo mkdir /usr/local/bin
 	sudo chmod 755 /usr/local/bin
 fi
 
