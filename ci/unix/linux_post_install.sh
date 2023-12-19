@@ -64,7 +64,12 @@ chmod 755 "$PS_PATH"
 #	mkdir "$PS_HOME/cache"
 #fi
 
-# Symlink $PS_EXECUTABLE to /usr/local/bin:
-if [ -d "/usr/local/bin" ]; then
-  sudo ln -s -f "$PS_EXECUTABLE" "/usr/local/bin/pennsieve"
+# Create /usr/local/bin if it does not exist
+if [ ! -d "/usr/local/bin" ]; then
+	mkdir /usr/local/bin
+	sudo chmod 755 /usr/local/bin
 fi
+
+
+# Symlink $PS_EXECUTABLE to /usr/local/bin:
+sudo ln -s -f "$PS_EXECUTABLE" "/usr/local/bin/pennsieve"
