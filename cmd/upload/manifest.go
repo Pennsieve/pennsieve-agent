@@ -56,7 +56,7 @@ var ManifestCmd = &cobra.Command{
 
 		manifestId := int32(i)
 		workflowPath, err := cmd.Flags().GetString("workflow")
-		workflowOpts, err := cmd.Flags().GetString("workflowOpts")
+		_, err = cmd.Flags().GetString("workflowOpts")
 
 		if err != nil {
 			log.Println("Workflow error: ", err)
@@ -66,8 +66,9 @@ var ManifestCmd = &cobra.Command{
 			WorkflowFlag: workflowPath,
 		}
 		if workflowPath != "" {
-			log.Println(workflowOpts)
+			log.Println("STARTING WORKFLOW")
 			workflowResponse, err := client.StartWorkflow(context.Background(), &WrkFlwReq)
+			log.Println("Workflow Response")
 			log.Println(workflowResponse)
 
 			// Stop upload if workflow fails
