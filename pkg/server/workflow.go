@@ -150,13 +150,13 @@ func runWorkflow(workOrder *WorkOrder) {
 	output, err := cmd.Output()
 	fmt.Println(string(output))
 	if err != nil {
-		fmt.Println("failed on command execution")
+		fmt.Println("Workflow failed. See output above or .nextflow.log")
 
 		workOrder.Status = false
 	} else {
 		// Command completed successfully
 		workOrder.Status = true
-		fmt.Println("Command completed successfully")
+		fmt.Println("Workflow completed successfully")
 	}
 
 	writeWorkOrder(workOrder)
