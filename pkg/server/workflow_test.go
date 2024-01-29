@@ -23,7 +23,7 @@ getRootDirectories takes in *api.ListManifestFilesResponse
 and returns only the root most directories as an array
 */
 func (s *WorkflowTestSuite) TestGetRootDirectories() {
-	expectedSingleRootDirResponse := []string{"/Users/pennUser/Documents/bids-data"}
+	expectedSingleRootDirResponse := []string{filepath.Clean("/Users/pennUser/Documents/bids-data")}
 	actualSingleRootDirResponse := getRootDirectories(singleRootDir)
 
 	// Add a different root dir path
