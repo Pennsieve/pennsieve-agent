@@ -26,4 +26,4 @@ server.lock
 # build
 pennsieve-agent
 .nextflow*
-work*
+work/

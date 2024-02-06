@@ -1,8 +1,11 @@
 package server
 
 import (
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"path/filepath"
 	"testing"
 )
 
@@ -11,29 +14,74 @@ type WorkflowTestSuite struct {
 	suite.Suite
 }
 
-func (s *WorkflowTestSuite) TestWorkflow() {
-	filePaths := []string{
-		"/Users/code/pennsieve-agent/File1.jpg",
-		"/Users/code/pennsieve-agent/File2.jpg",
-		"/Users/code/pennsieve-agent/File3.jpg",
-		"/Users/code/pennsieve-agent/sub-folder/File3.jpg",
-		"/Users/code/pennsieve-agent/sub-folder/sub-sub-folder/File3.jpg",
-		"/Users/Documents/Adobe/File1.txt",
-		"/Users/Documents/Adobe/File2.txt",
-		"/Users/Documents/Adobe/images/File2.png",
-		"/Users/Documents/Adobe/backup/File2.txt",
-		"/Volumes/DBeaver Community/.background/file1.md",
-		"/Volumes/DBeaver Community/.background/file3.md",
+var (
+	singleRootDir *api.ListManifestFilesResponse
+)
+
+/*
+getRootDirectories takes in *api.ListManifestFilesResponse
+and returns only the root most directories as an array
+*/
+func (s *WorkflowTestSuite) TestGetRootDirectories() {
+	expectedSingleRootDirResponse := []string{filepath.Clean("/Users/pennUser/Documents/bids-data")}
+	actualSingleRootDirResponse := getRootDirectories(singleRootDir)
+
+	// Add a different root dir path
+	multipleRootDirs := singleRootDir
+	newFile := api.ListManifestFilesResponse_FileUpload{
+		Id:         61,
+		ManifestId: 10,
+		SourcePath: filepath.Clean("/Volumes/mounted/.background/file3.md"),
+		TargetPath: "",
+		UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c5",
+		Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
 	}
+	multipleRootDirs.File = append(multipleRootDirs.File, &newFile)
 
-	paths := commonPathParts(filePaths[0], filePaths[1])
-	assert.Equal(s.T(), []string{"", "Users", "code", "pennsieve-agent"}, paths)
+	expectedMultipleRootDirResponse := append(expectedSingleRootDirResponse, filepath.Clean("/Volumes/mounted/.background"))
+	actualMultipleRootDirs := getRootDirectories(singleRootDir)
 
-	paths = commonPathParts(filePaths[3], filePaths[4])
-	assert.Equal(s.T(), []string{"", "Users", "code", "pennsieve-agent", "sub-folder"}, paths)
-	
+	assert.Equal(s.T(), expectedSingleRootDirResponse, actualSingleRootDirResponse)
+	assert.Contains(s.T(), expectedMultipleRootDirResponse, actualMultipleRootDirs[0])
+	assert.Contains(s.T(), expectedMultipleRootDirResponse, actualMultipleRootDirs[1])
 }
 
 func TestWorkflowSuite(t *testing.T) {
+	singleRootDir = &api.ListManifestFilesResponse{
+		File: []*api.ListManifestFilesResponse_FileUpload{
+			{
+				Id:         61,
+				ManifestId: 10,
+				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/.DS_Store"),
+				TargetPath: "",
+				UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c1",
+				Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
+			},
+			{
+				Id:         62,
+				ManifestId: 10,
+				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/.bidsignore"),
+				TargetPath: "",
+				UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c2",
+				Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
+			},
+			{
+				Id:         63,
+				ManifestId: 10,
+				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/sub-0001/ses-preimplant0001/eeg/sub-0001_ses-preimplant0001_task-task_run-01_eeg.json"),
+				TargetPath: "",
+				UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c3",
+				Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
+			},
+			{
+				Id:         64,
+				ManifestId: 10,
+				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/sub-0001/.DS_Store"),
+				TargetPath: "",
+				UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c4",
+				Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
+			},
+		},
+	}
 	suite.Run(t, new(WorkflowTestSuite))
 }
