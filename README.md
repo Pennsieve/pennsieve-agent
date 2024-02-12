@@ -19,7 +19,7 @@ Second iteration of the Pennsieve Agent
 
 Download the latest installer for your operating system: https://github.com/Pennsieve/pennsieve-agent/releases
 
-- Windows and MacOS release come with graphical installers (.msi and .pkg )
+- Windows and MacOS release come with graphical wizard installers (.msi and .pkg )
 
 - For *nix environments use `dpkg -i  pennsieve-VERSION_amd64.deb` to install
 
@@ -29,8 +29,6 @@ Download the latest installer for your operating system: https://github.com/Penn
 2. Install Golang on the machine
 3. Run `go build` or `go install` in the pennsieve-agent folder
 4. Symlink "pennsieve" to the output (the linux executable is called 'pennsieve-agent' instead of 'pennsieve')
-
-
 
 
 ## Releasing a new version
