@@ -19,6 +19,10 @@ Second iteration of the Pennsieve Agent
 
 Download the latest installer for your operating system: https://github.com/Pennsieve/pennsieve-agent/releases
 
+- Windows and MacOS release come with graphical installers (.msi and .pkg )
+
+- For *nix environments use `dpkg -i  pennsieve-VERSION_amd64.deb` to install
+
 ### From Source
 
 1. Clone the Pennsieve Agent repository
