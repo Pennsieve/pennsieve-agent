@@ -15,7 +15,7 @@ Second iteration of the Pennsieve Agent
 
 ## Installing the Pennsieve Agent
 
-### Using the Installlers (recommended)
+### Using the Installers (recommended)
 
 Download the latest installer for your operating system: https://github.com/Pennsieve/pennsieve-agent/releases
 
@@ -42,7 +42,7 @@ Download the latest installer for your operating system: https://github.com/Penn
     - MINOR version when you add functionality in a backwards compatible manner, and
     - PATCH version when you make backwards compatible bug fixes.
 
-3. Push the tag to Gihub
+3. Push the tag to GitHub
 
     eg. ```git push origin 0.0.1```
     
