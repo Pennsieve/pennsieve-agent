@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"os"
+	"path/filepath"
 )
 
 var CreateCmd = &cobra.Command{
@@ -18,9 +20,35 @@ var CreateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		targetBasePath, _ := cmd.Flags().GetString("target_path")
+		targetAutoPath, _ := cmd.Flags().GetBool("auto_path")
+		basePath := args[0]
+
+		if targetAutoPath && targetBasePath != "" {
+			fmt.Println("Cannot set auto path and target path")
+			return
+		} else if targetAutoPath {
+			//Get leaf directory
+			targetBasePath = filepath.Base(basePath)
+			fileInfo, err := os.Stat(basePath)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			// Check if user is sending
+			if !fileInfo.IsDir() {
+				// ANSI escape code for bold text
+				bold := "\033[1m"
+				// ANSI escape code to reset text attributes
+				reset := "\033[0m"
+				fmt.Println(bold + "Using auto_path with a file instead of a folder.")
+				fmt.Println("Are you sure you want to do this?" + reset)
+			}
+
+		}
 
 		req := api.CreateManifestRequest{
-			BasePath:       args[0],
+			BasePath:       basePath,
 			TargetBasePath: targetBasePath,
 			Recursive:      true,
 		}
@@ -47,4 +75,8 @@ var CreateCmd = &cobra.Command{
 func init() {
 	CreateCmd.Flags().StringP("target_path", "t",
 		"", "Target base path in dataset.")
+
+	CreateCmd.Flags().BoolP("auto_path", "a",
+		false, "Automatically creates the base path for dataset using the last folder in the given path")
+
 }

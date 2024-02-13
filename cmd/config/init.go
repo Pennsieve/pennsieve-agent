@@ -96,10 +96,10 @@ func init() {
 		"user", "Profile name to be associated with provided api key/secret")
 
 	InitCmd.Flags().String("api_token",
-		"", "Target base path in dataset.")
+		"", "API Token.")
 
 	InitCmd.Flags().String("api_secret",
-		"", "Target base path in dataset.")
+		"", "Api Secret.")
 
 	InitCmd.Flags().BoolP("force", "f",
 		false, "Force creation of config file.")
