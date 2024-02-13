@@ -27,7 +27,7 @@ var CreateCmd = &cobra.Command{
 			return
 		} else if targetAutoPath {
 			//Get leaf directory
-			targetBasePath = shared.GetLeafDirectory(basePath, string(filepath.Separator))
+			targetBasePath = filepath.Base(basePath)
 		}
 
 		req := api.CreateManifestRequest{
