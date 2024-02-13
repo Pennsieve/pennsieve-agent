@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"os"
 	"path/filepath"
 )
 
@@ -28,6 +29,22 @@ var CreateCmd = &cobra.Command{
 		} else if targetAutoPath {
 			//Get leaf directory
 			targetBasePath = filepath.Base(basePath)
+			fileInfo, err := os.Stat(basePath)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			// Check if user is sending
+			if !fileInfo.IsDir() {
+				// ANSI escape code for bold text
+				bold := "\033[1m"
+				// ANSI escape code to reset text attributes
+				reset := "\033[0m"
+				fmt.Println(bold + "Using auto_path with a file instead of a folder.")
+				fmt.Println("Are you sure you want to do this?" + reset)
+			}
+
 		}
 
 		req := api.CreateManifestRequest{
