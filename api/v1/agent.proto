@@ -38,6 +38,8 @@ service Agent {
 	//Workflow Endpoints
 	rpc StartWorkflow(StartWorkflowRequest) returns (WorkflowResponse){}
 
+	// Account Endpoints
+	rpc Register(RegisterRequest) returns (RegisterResponse){}
 }
 
 message SubscribeRequest {
@@ -271,4 +273,21 @@ message WorkflowResponse{
 	string derivatives = 2;
 	WorkflowType workflowType = 3;
 
+}
+
+message RegisterRequest{
+    Account account = 1;
+	Credentials credentials = 2;
+
+}
+message RegisterResponse{
+    int64 id = 1;
+}
+
+message Account {
+ string type = 1;
+}
+
+message Credentials {
+ string profile = 1;
 }
