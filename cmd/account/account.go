@@ -28,7 +28,7 @@ var AccountCmd = &cobra.Command{
 func init() {
 	AccountCmd.AddCommand(RegisterCmd)
 	RegisterCmd.Flags().String("type",
-		"aws", "Account Type")
+		"AWS", "Account Type")
 	RegisterCmd.Flags().String("profile",
 		"default", "CLI profile")
 }

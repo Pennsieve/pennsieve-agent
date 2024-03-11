@@ -115,7 +115,7 @@ upload_workers          The number of files that are uploaded simultaneously.
 
  * Install [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
  * Run the account register command to register an AWS account
-   * `pennsieve account register [ACCOUNT_ID] --type aws`  
+   * `pennsieve account register --type <accountType> --profile <profile>`  
 
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.

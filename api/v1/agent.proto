@@ -285,7 +285,12 @@ message RegisterResponse{
 }
 
 message Account {
- string type = 1;
+	enum AccountType {
+		AWS = 0;
+		Azure = 1;
+	}
+
+ 	AccountType type = 1;
 }
 
 message Credentials {

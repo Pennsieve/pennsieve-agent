@@ -19,9 +19,15 @@ var RegisterCmd = &cobra.Command{
 		accountType, _ := cmd.Flags().GetString("type")
 		profile, _ := cmd.Flags().GetString("profile")
 
+		value, ok := api.Account_AccountType_value[accountType]
+		if !ok {
+			panic("invalid accountType value")
+		}
+
 		req := api.RegisterRequest{
-			Account:     &api.Account{Type: accountType},
-			Credentials: &api.Credentials{Profile: profile}}
+			Account:     &api.Account{Type: api.Account_AccountType(value)},
+			Credentials: &api.Credentials{Profile: profile},
+		}
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial("127.0.0.1:"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -34,7 +40,7 @@ var RegisterCmd = &cobra.Command{
 
 		registerResponse, err := client.Register(context.Background(), &req)
 		if err != nil {
-			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Register command: %v", err))
+			shared.HandleAgentError(err, fmt.Sprintf("error: Unable to complete Register command: %v", err))
 			return
 		}
 
