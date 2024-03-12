@@ -2,8 +2,8 @@
 
 ACCOUNT_ID=$1
 AWS_PROFILE=$2
-TRUST_POLICY="scripts/aws/TRUST_POLICY_${ACCOUNT_ID}.json"
-PERMISSION_POLICY="scripts/aws/PERMISSION_POLICY.json"
+TRUST_POLICY="TRUST_POLICY_${ACCOUNT_ID}.json"
+PERMISSION_POLICY="PERMISSION_POLICY.json"
 ROLE_NAME="ROLE-${ACCOUNT_ID}"
 POLICY_NAME="POLICY-${ACCOUNT_ID}"
 
@@ -33,7 +33,7 @@ if echo $GET_ROLE_RESULT | grep -q $ROLE_NAME; then
 else
     echo "ROLE DOES NOT EXIST"
     CREATE_ROLE_RESULT=`aws --profile $AWS_PROFILE iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://$TRUST_POLICY`
-    echo $CREATE_ROLE_RESULT > "scripts/aws/role-${ACCOUNT_ID}.json"
+    echo $CREATE_ROLE_RESULT > "role-${ACCOUNT_ID}.json"
     echo "Role created"
     CREATE_PERMISSIONS_RESULT=`aws --profile $AWS_PROFILE iam put-role-policy --role-name $ROLE_NAME --policy-name $POLICY_NAME --policy-document file://$PERMISSION_POLICY --output text`
     echo "Inline permissions policy created"

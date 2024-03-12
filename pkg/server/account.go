@@ -28,7 +28,6 @@ func (s *server) Register(ctx context.Context, req *api.RegisterRequest) (*api.R
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(awsRole)
 
 		return &api.RegisterResponse{
 			AccountId: extractAccountId(awsRole.Role.Arn)}, nil

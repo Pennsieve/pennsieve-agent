@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/pennsieve/pennsieve-agent/internal/account"
+	"github.com/pennsieve/pennsieve-agent/internal/projectpath"
 )
 
 type AWSRoleCreator struct {
@@ -19,9 +20,12 @@ func NewAWSRoleCreator(accountId int64, profile string) account.Registration {
 }
 
 func (r *AWSRoleCreator) Create() ([]byte, error) {
+
+	fmt.Println(projectpath.Root)
+
 	// create role
-	cmd := exec.Command("./scripts/aws/create-role.sh", fmt.Sprintf("%v", r.AccountId), r.Profile)
-	cmd.Dir = "./pkg/server"
+	cmd := exec.Command("./create-role.sh", fmt.Sprintf("%v", r.AccountId), r.Profile)
+	cmd.Dir = fmt.Sprintf("%s/pkg/server/scripts/aws", projectpath.Root)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Println(string(out))
@@ -29,7 +33,8 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 	}
 	fmt.Println(string(out))
 
-	data, err := os.ReadFile(fmt.Sprintf("./pkg/server/scripts/aws/role-%v.json", r.AccountId))
+	data, err := os.ReadFile(fmt.Sprintf("%s/pkg/server/scripts/aws/role-%v.json",
+		projectpath.Root, r.AccountId))
 	if err != nil {
 		return nil, err
 	}
