@@ -281,7 +281,7 @@ message RegisterRequest{
 
 }
 message RegisterResponse{
-    int64 id = 1;
+    string account_id = 1;
 }
 
 message Account {
