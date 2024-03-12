@@ -1,5 +1,5 @@
 package account
 
 type Registration interface {
-	Create() error
+	Create() ([]byte, error)
 }

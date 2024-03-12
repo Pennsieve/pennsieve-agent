@@ -44,8 +44,7 @@ var RegisterCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Account Registration")
+		fmt.Println("Account Registered")
 		fmt.Println(registerResponse)
-
 	},
 }
