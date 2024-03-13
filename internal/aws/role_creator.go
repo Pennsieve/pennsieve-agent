@@ -20,9 +20,6 @@ func NewAWSRoleCreator(accountId int64, profile string) account.Registration {
 }
 
 func (r *AWSRoleCreator) Create() ([]byte, error) {
-
-	fmt.Println(projectpath.Root)
-
 	// create role
 	cmd := exec.Command("./create-role.sh", fmt.Sprintf("%v", r.AccountId), r.Profile)
 	cmd.Dir = fmt.Sprintf("%s/pkg/server/scripts/aws", projectpath.Root)
