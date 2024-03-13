@@ -7,7 +7,6 @@ PERMISSION_POLICY="PERMISSION_POLICY.json"
 ROLE_NAME="ROLE-${ACCOUNT_ID}"
 POLICY_NAME="POLICY-${ACCOUNT_ID}"
 
-echo "Creating trust policy"
 /bin/cat > $TRUST_POLICY <<EOL
 {
     "Version": "2012-10-17",
@@ -23,7 +22,6 @@ echo "Creating trust policy"
 }
 EOL
 
-echo "Checking for the existence of a role"
 GET_ROLE_RESULT=`aws --profile $AWS_PROFILE iam get-role --role-name $ROLE_NAME`
 
 if echo $GET_ROLE_RESULT | grep -q $ROLE_NAME; then

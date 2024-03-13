@@ -1,10 +1,12 @@
 package aws
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/pennsieve/pennsieve-agent/internal/account"
 	"github.com/pennsieve/pennsieve-agent/internal/projectpath"
@@ -29,6 +31,10 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 		return nil, err
 	}
 	log.Println(string(out))
+
+	if strings.TrimSpace(string(out)) == "ROLE EXISTS" {
+		return nil, errors.New("role already exists")
+	}
 
 	data, err := os.ReadFile(fmt.Sprintf("%s/pkg/server/scripts/aws/role-%v.json",
 		projectpath.Root, r.AccountId))

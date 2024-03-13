@@ -43,6 +43,6 @@ var RegisterCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Account %s Registered", registerResponse)
+		fmt.Printf("Account %s Registered\n", registerResponse.AccountId)
 	},
 }
