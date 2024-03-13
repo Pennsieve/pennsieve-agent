@@ -276,12 +276,12 @@ message WorkflowResponse{
 }
 
 message RegisterRequest{
-    Account account = 1;
+	Account account = 1;
 	Credentials credentials = 2;
 
 }
 message RegisterResponse{
-    string account_id = 1;
+	string account_id = 1;
 }
 
 message Account {
@@ -290,9 +290,9 @@ message Account {
 		Azure = 1;
 	}
 
- 	AccountType type = 1;
+	AccountType type = 1;
 }
 
 message Credentials {
- string profile = 1;
+	string profile = 1;
 }

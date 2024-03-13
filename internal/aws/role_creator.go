@@ -28,7 +28,7 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 		log.Println(string(out))
 		return nil, err
 	}
-	fmt.Println(string(out))
+	log.Println(string(out))
 
 	data, err := os.ReadFile(fmt.Sprintf("%s/pkg/server/scripts/aws/role-%v.json",
 		projectpath.Root, r.AccountId))

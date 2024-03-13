@@ -37,14 +37,12 @@ var RegisterCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := api.NewAgentClient(conn)
-
 		registerResponse, err := client.Register(context.Background(), &req)
 		if err != nil {
 			shared.HandleAgentError(err, fmt.Sprintf("error: Unable to complete Register command: %v", err))
 			return
 		}
 
-		fmt.Println("Account Registered")
-		fmt.Println(registerResponse)
+		fmt.Printf("Account %s Registered", registerResponse)
 	},
 }
