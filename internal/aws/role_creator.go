@@ -24,7 +24,7 @@ func NewAWSRoleCreator(accountId int64, profile string) account.Registration {
 func (r *AWSRoleCreator) Create() ([]byte, error) {
 	// create role
 	cmd := exec.Command("./create-role.sh", fmt.Sprintf("%v", r.AccountId), r.Profile)
-	cmd.Dir = fmt.Sprintf("%s/pkg/server/scripts/aws", projectpath.Root)
+	cmd.Dir = fmt.Sprintf("%s/internal/aws/scripts", projectpath.Root)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Println(string(out))
@@ -36,7 +36,7 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 		return nil, errors.New("role already exists")
 	}
 
-	data, err := os.ReadFile(fmt.Sprintf("%s/pkg/server/scripts/aws/role-%v.json",
+	data, err := os.ReadFile(fmt.Sprintf("%s/internal/aws/scripts/role-%v.json",
 		projectpath.Root, r.AccountId))
 	if err != nil {
 		return nil, err
