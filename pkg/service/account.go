@@ -5,14 +5,12 @@ import (
 	"strings"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/internal/account"
 	"github.com/pennsieve/pennsieve-agent/internal/aws"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 )
 
 type AccountService struct {
-	Client      *pennsieve.Client
-	RoleCreator account.Registration
+	Client *pennsieve.Client
 }
 
 func NewAccountService(client *pennsieve.Client) *AccountService {
