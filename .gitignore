@@ -27,3 +27,4 @@ server.lock
 pennsieve-agent
 .nextflow*
 work/
+internal/aws/scripts/role-*.json
