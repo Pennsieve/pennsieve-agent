@@ -36,7 +36,13 @@ func (a *AccountService) PostAccounts(accountId string, accountType string, role
 	return resp.Uuid, nil
 }
 
-func (a *AccountService) RegisterAWS(pennsieveAccountId string, profile string, accountType string) (*api.RegisterResponse, error) {
+func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
+	pennsieveAccountId, err := a.GetPennsieveAccounts(accountType)
+	if err != nil {
+		return nil, err
+	}
+
+	//registration
 	registration := aws.NewAWSRoleCreator(pennsieveAccountId, profile)
 	data, err := registration.Create()
 	if err != nil {

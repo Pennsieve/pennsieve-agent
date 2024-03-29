@@ -13,11 +13,7 @@ func (s *server) Register(ctx context.Context, req *api.RegisterRequest) (*api.R
 
 	switch accountType {
 	case "AWS":
-		accountId, err := s.Account.GetPennsieveAccounts(accountType)
-		if err != nil {
-			return nil, err
-		}
-		return s.Account.RegisterAWS(accountId, req.Credentials.Profile, accountType)
+		return s.Account.RegisterAWS(req.Credentials.Profile, accountType)
 	default:
 		return nil, errors.New(fmt.Sprintf("unsupported accountType: %s", accountType))
 	}
