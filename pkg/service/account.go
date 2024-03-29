@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -17,13 +18,26 @@ func NewAccountService(client *pennsieve.Client) *AccountService {
 	return &AccountService{Client: client}
 }
 
-func (a *AccountService) GetPennsieveAccount(accountType string) (int64, error) {
-	// TODO: make a call to account-service to retrieve the Pennsieve AWS Account
-	return int64(0), nil
+func (a *AccountService) GetPennsieveAccounts(accountType string) (string, error) {
+	resp, err := a.Client.Account.GetPennsieveAccounts(context.Background(), accountType)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.AccountId, nil
 }
 
-func (a *AccountService) RegisterAWS(accountId int64, profile string) (*api.RegisterResponse, error) {
-	registration := aws.NewAWSRoleCreator(accountId, profile)
+func (a *AccountService) PostAccounts(accountId string, accountType string, roleName string, externalId string) (string, error) {
+	resp, err := a.Client.Account.CreateAccount(context.Background(), accountId, accountType, roleName, externalId)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Uuid, nil
+}
+
+func (a *AccountService) RegisterAWS(pennsieveAccountId string, profile string, accountType string) (*api.RegisterResponse, error) {
+	registration := aws.NewAWSRoleCreator(pennsieveAccountId, profile)
 	data, err := registration.Create()
 	if err != nil {
 		return nil, err
@@ -35,8 +49,13 @@ func (a *AccountService) RegisterAWS(accountId int64, profile string) (*api.Regi
 		return nil, err
 	}
 
-	return &api.RegisterResponse{
-		AccountId: extractAccountId(awsRole.Role.Arn)}, nil
+	externalAccountId := extractAccountId(awsRole.Role.Arn)
+	_, err = a.PostAccounts(externalAccountId, accountType, awsRole.Role.RoleName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.RegisterResponse{AccountId: externalAccountId}, nil
 }
 
 func extractAccountId(roleArn string) string {

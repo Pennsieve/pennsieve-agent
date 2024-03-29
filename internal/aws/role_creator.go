@@ -13,11 +13,11 @@ import (
 )
 
 type AWSRoleCreator struct {
-	AccountId int64
+	AccountId string
 	Profile   string
 }
 
-func NewAWSRoleCreator(accountId int64, profile string) account.Registration {
+func NewAWSRoleCreator(accountId string, profile string) account.Registration {
 	return &AWSRoleCreator{AccountId: accountId, Profile: profile}
 }
 
