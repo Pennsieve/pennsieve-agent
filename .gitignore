@@ -29,3 +29,4 @@ pennsieve-agent
 work/
 internal/aws/TRUST_POLICY_*.json
 .vscode/launch.json
+TRUST_POLICY_*.json
