@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pennsieve/pennsieve-agent/internal/account"
+	"github.com/pennsieve/pennsieve-agent/internal/projectpath"
 )
 
 type AWSRoleCreator struct {
@@ -71,6 +72,7 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 		var outb, errb bytes.Buffer
 		cmd.Stdout = &outb
 		cmd.Stderr = &errb
+		cmd.Dir = fmt.Sprintf("%s/internal/aws", projectpath.Root)
 		err = cmd.Run()
 		if err != nil {
 			return nil, errors.New(errb.String())
@@ -88,6 +90,7 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 		var poutb, perrb bytes.Buffer
 		permissionsCmd.Stdout = &poutb
 		permissionsCmd.Stderr = &perrb
+		permissionsCmd.Dir = fmt.Sprintf("%s/internal/aws", projectpath.Root)
 		err = permissionsCmd.Run()
 		if err != nil {
 			log.Println(perrb.String())
