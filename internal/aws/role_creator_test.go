@@ -7,8 +7,8 @@ import (
 )
 
 func TestRoleCreator(t *testing.T) {
-	accountId := "941165240011"
-	profile := "ih-app-deploy"
+	accountId := "someAccountId"
+	profile := "someProfile"
 
 	roleCreator := NewAWSRoleCreator(accountId, profile)
 
