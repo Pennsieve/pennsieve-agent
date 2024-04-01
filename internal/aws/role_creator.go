@@ -57,7 +57,8 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 
 		trustPolicyFile := fmt.Sprintf("TRUST_POLICY_%s.json", r.AccountId)
 
-		err = os.WriteFile(trustPolicyFile, []byte(trustPolicy), 0644)
+		err = os.WriteFile(fmt.Sprintf("%s/internal/aws/%s", projectpath.Root, trustPolicyFile),
+			[]byte(trustPolicy), 0644)
 		if err != nil {
 			log.Println("error writing data:", err)
 			return nil, err
