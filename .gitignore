@@ -27,4 +27,5 @@ server.lock
 pennsieve-agent
 .nextflow*
 work/
-internal/aws/scripts/role-*.json
+internal/aws/TRUST_POLICY_*.json
+.vscode/launch.json
