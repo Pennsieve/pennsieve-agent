@@ -43,7 +43,7 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 	}
 
 	//registration
-	registration := aws.NewAWSRoleCreator(pennsieveAccountId, profile)
+	registration := aws.NewAWSRoleManager(pennsieveAccountId, profile)
 	data, err := registration.Create()
 	if err != nil {
 		return nil, err

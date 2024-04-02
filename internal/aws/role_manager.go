@@ -13,16 +13,16 @@ import (
 	"github.com/pennsieve/pennsieve-agent/internal/projectpath"
 )
 
-type AWSRoleCreator struct {
+type AWSRoleManager struct {
 	AccountId string
 	Profile   string
 }
 
-func NewAWSRoleCreator(pennsieveAccountId string, profile string) account.Registration {
-	return &AWSRoleCreator{AccountId: pennsieveAccountId, Profile: profile}
+func NewAWSRoleManager(pennsieveAccountId string, profile string) account.Registration {
+	return &AWSRoleManager{AccountId: pennsieveAccountId, Profile: profile}
 }
 
-func (r *AWSRoleCreator) Create() ([]byte, error) {
+func (r *AWSRoleManager) Create() ([]byte, error) {
 	roleName := fmt.Sprintf("ROLE-%s", r.AccountId)
 
 	cmd := exec.Command("aws", "--profile", r.Profile, "iam", "get-role", "--role-name", roleName)
@@ -31,13 +31,13 @@ func (r *AWSRoleCreator) Create() ([]byte, error) {
 	cmd.Stderr = &errb
 	err := cmd.Run()
 
-	// check if role exists
+	// return immediately if role exists
 	if err == nil && strings.Contains(outb.String(), roleName) {
 		log.Println("role exists")
 		return nil, errors.New("role exists")
 	}
 
-	log.Println(errb.String())
+	log.Println("err: ", errb.String())
 	// check whether role does not exist
 	if strings.Contains(errb.String(), "cannot be found") {
 		log.Println("role does not exist")

@@ -6,12 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRoleCreator(t *testing.T) {
+func TestRoleManager(t *testing.T) {
 	accountId := "someAccountId"
 	profile := "someProfile"
 
-	roleCreator := NewAWSRoleCreator(accountId, profile)
+	roleManager := NewAWSRoleManager(accountId, profile)
 
-	_, err := roleCreator.Create()
+	_, err := roleManager.Create()
 	assert.Error(t, err)
 }
