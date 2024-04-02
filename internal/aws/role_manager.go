@@ -40,7 +40,7 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 	log.Println("err: ", errb.String())
 	// check whether role does not exist
 	if strings.Contains(errb.String(), "cannot be found") {
-		log.Println("role does not exist")
+		log.Println("role does not exist creating ...")
 
 		trustPolicy := fmt.Sprintf(`{
 			"Version": "2012-10-17",
