@@ -111,6 +111,12 @@ upload_workers          The number of files that are uploaded simultaneously.
  * Run manifest upload with workflow flag
    * `pennsieve upload manifest [MANIFEST_ID] --workflow path/to/your/workflow/bids_validator.nf`
 
+### Registering an account (as a compute resource)
+
+ * Install [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+ * Run the account register command to register an AWS account
+   * `pennsieve account register --type <accountType> --profile <profile>`  
+ *  To create a profile reference `https://docs.aws.amazon.com/cli/latest/reference/configure/`
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.
 

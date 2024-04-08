@@ -7,6 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
+	"os"
+	"sync"
+
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/service"
@@ -15,9 +19,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"net"
-	"os"
-	"sync"
 )
 
 var GRPCServer *grpc.Server
@@ -34,6 +35,7 @@ type server struct {
 
 	Manifest *service.ManifestService
 	User     *service.UserService
+	Account  *service.AccountService
 }
 
 type uploadSession struct {
@@ -254,5 +256,8 @@ func newServer(db *sql.DB) (*server, error) {
 	server.client = client
 	server.Manifest.SetPennsieveClient(client)
 	server.User.SetPennsieveClient(client)
+
+	server.Account = service.NewAccountService(client)
+
 	return &server, nil
 }
