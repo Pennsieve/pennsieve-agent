@@ -327,3 +327,124 @@ jobs:
           asset_name: ${{ steps.package-assets.outputs.asset-file }}
           asset_content_type: application/octet-stream
 
+  mac-intel-release:
+    runs-on: macos-13
+    needs: [ read-tag, create-release ]
+    env:
+      PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
+      PENNSIEVE_SECRET_KEY: ${{ secrets.PENNSIEVE_SECRET_KEY }}
+      PRODUCT_NAME: Pennsieve
+      PACKAGE_BINARY_NAME: pennsieve-intel
+      PS_PATH: /usr/local/opt/pennsieve
+      APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
+      KEYCHAIN: "pennsieve-agent"
+      KEYCHAIN_PASSWORD: "password"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        id: install-deps
+        run: |
+          sudo gem install fpm
+          brew install coreutils
+      - name: Setup directories
+        id: setup-dirs
+        run: |
+          mkdir -p ~/.pennsieve
+          BUILD_DIR=$(mktemp -d)
+          mkdir $BUILD_DIR/bin
+          echo "BUILD_DIR = $BUILD_DIR"
+          echo "::set-output name=build-dir::$BUILD_DIR"
+      - name: Read version
+        id: read-version
+        run: |
+          VERSION=${{needs.read-tag.outputs.tag}}
+          echo "VERSION = $VERSION"
+          echo "::set-output name=version::$VERSION"
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.21.5'
+      - name: Install dependencies
+        run: |
+          go version
+          go get -u golang.org/x/lint/golint
+      - name: Build release
+        id: build-release
+        run: |
+          VERSION=${{needs.read-tag.outputs.tag}}
+          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+      - name: Package assets
+        id: package-assets
+        env:
+          BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
+          PS_VERSION: ${{ steps.read-version.outputs.version }}
+          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
+          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
+        run: |
+          echo "BUILD_DIR=$BUILD_DIR"
+          echo "PS_VERSION=$PS_VERSION"
+          echo "PACKAGE_FILE=$PACKAGE_FILE"
+          echo "UNSIGNED_PACKAGE_FILE=$UNSIGNED_PACKAGE_FILE"
+          echo "::set-output name=asset-file::${{ env.PACKAGE_FILE }}"
+          echo "::set-output name=unsigned-asset-file::${{ env.UNSIGNED_PACKAGE_FILE }}"
+          cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
+          mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
+          fpm \
+            -f \
+            --verbose \
+            -s dir \
+            -t osxpkg \
+            --url="https://app.pennsieve.io" \
+            --osxpkg-identifier-prefix io.pennsieve \
+            -n "${{ env.PACKAGE_BINARY_NAME }}" \
+            --after-install ci/unix/mac_post_install.sh \
+            -v ${{ env.PS_VERSION }} \
+            --template-scripts \
+            --template-value ps_path=/usr/local/opt/pennsieve \
+            --template-value ps_version="${{ env.PS_VERSION }}" \
+            --template-value ps_release_name=pennsieve \
+            --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve \
+            pennsieve=/usr/local/opt/pennsieve/pennsieve
+          echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
+          mv ${{ env.PACKAGE_FILE }} ${{ env.UNSIGNED_PACKAGE_FILE }}
+      - name: Sign assets
+        id: sign-assets
+        env:
+          APPLE_CERTIFICATE_FILE: "PennsieveDeveloperCert.p12"
+        shell: bash
+        run: |
+          # Decode and dump the base64 encoded contents of the Apple Developer certificate into a file:
+          # (output in the log will be masked)
+          echo "${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}" | base64 --decode > "${{ env.APPLE_CERTIFICATE_FILE }}"
+          
+          # Remove the keychain if it exists:
+          security delete-keychain "${{ env.KEYCHAIN }}" || true
+          
+          # We do not have access to the system keychain on GitHub Actions, so
+          # we have to create a temporary keychain to hold the cert
+          security create-keychain -p "${{ env.KEYCHAIN_PASSWORD }}" "${{ env.KEYCHAIN }}"
+          security unlock-keychain -p "${{ env.KEYCHAIN_PASSWORD }}" "${{ env.KEYCHAIN }}"
+          security import "${{ env.APPLE_CERTIFICATE_FILE }}" -k "${{ env.KEYCHAIN }}" -P "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" -T /usr/bin/productsign
+          
+          # Set the access control for our certificate so that keychain does
+          # not prompt for the certificate password when used. See:
+          # https://apple.stackexchange.com/a/285320
+          # https://stackoverflow.com/a/40039594
+          # https://www.jamf.com/jamf-nation/discussions/22304/yet-another-keychain-security-command-line-tool-question
+          security set-key-partition-list -S apple-tool:,apple: -k "${{ env.KEYCHAIN_PASSWORD }}" -D "${{ env.APPLE_IDENTITY }}" -t private "${{ env.KEYCHAIN }}"
+          
+          sudo productsign --keychain "${{ env.KEYCHAIN }}" --sign "${{ env.APPLE_IDENTITY }}" "${{ steps.package-assets.outputs.unsigned-asset-file }}" "${{ steps.package-assets.outputs.asset-file }}"
+          
+          # Sanity check
+          # pkgutil --check-signature "${{ steps.package-assets.outputs.asset-file }}" || exit 1
+      - name: Publish assets
+        id: publish-assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload-url }}
+          asset_path: ./${{ steps.package-assets.outputs.asset-file }}
+          asset_name: ${{ steps.package-assets.outputs.asset-file }}
+          asset_content_type: application/octet-stream
