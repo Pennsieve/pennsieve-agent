@@ -388,8 +388,8 @@ jobs:
           echo "UNSIGNED_PACKAGE_FILE=$UNSIGNED_PACKAGE_FILE"
           echo "::set-output name=asset-file::${{ env.PACKAGE_FILE }}"
           echo "::set-output name=unsigned-asset-file::${{ env.UNSIGNED_PACKAGE_FILE }}"
-          cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
-          mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
+          cp ./pennsieve ${{ env.BUILD_DIR }}
+          mv ${{ env.BUILD_DIR }}/pennsieve ${{ env.BUILD_DIR }}/bin/pennsieve
           fpm \
             -f \
             --verbose \
