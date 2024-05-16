@@ -397,7 +397,7 @@ jobs:
             -t osxpkg \
             --url="https://app.pennsieve.io" \
             --osxpkg-identifier-prefix io.pennsieve \
-            -n "${{ env.PACKAGE_FILE }}" \
+            -n "pennsieve-intel" \
             --after-install ci/unix/mac_post_install.sh \
             -v ${{ env.PS_VERSION }} \
             --template-scripts \
