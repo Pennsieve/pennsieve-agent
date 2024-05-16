@@ -403,7 +403,7 @@ jobs:
             --template-scripts \
             --template-value ps_path=/usr/local/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
-            --template-value ps_release_name=pennsieve \
+            --template-value ps_release_name=pennsieve-intel \
             --template-value ps_executable=/usr/local/opt/pennsieve/pennsieve \
             pennsieve=/usr/local/opt/pennsieve/pennsieve
           echo "Renaming ${{ env.PACKAGE_FILE }} > ${{ env.UNSIGNED_PACKAGE_FILE }}"
