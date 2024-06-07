@@ -205,7 +205,7 @@ jobs:
           asset_name: ${{ steps.package-assets.outputs.asset-file }}
           asset_content_type: application/octet-stream
 
-  mac-release:
+  mac-arm64-release:
     runs-on: macos-latest
     needs: [ read-tag, create-release ]
     env:
@@ -257,8 +257,8 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
-          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}.pkg
+          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-arm64.pkg
+          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-arm64.pkg
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
@@ -327,7 +327,7 @@ jobs:
           asset_name: ${{ steps.package-assets.outputs.asset-file }}
           asset_content_type: application/octet-stream
 
-  mac-intel-release:
+  mac-x86_64-release:
     runs-on: macos-13
     needs: [ read-tag, create-release ]
     env:
@@ -379,8 +379,8 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-intel-${{ steps.read-version.outputs.version }}.pkg
-          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-intel-${{ steps.read-version.outputs.version }}.pkg
+          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-x86_64.pkg
+          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-x86_64.pkg
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
