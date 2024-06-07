@@ -217,6 +217,7 @@ jobs:
       APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
       KEYCHAIN: "pennsieve-agent"
       KEYCHAIN_PASSWORD: "password"
+      ARCH: "arm64"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -257,8 +258,8 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-arm64.pkg
-          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-arm64.pkg
+          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-${{ env.ARCH }}.pkg
+          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-${{ env.ARCH }}.pkg
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
@@ -277,7 +278,7 @@ jobs:
             --osxpkg-identifier-prefix io.pennsieve \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/mac_post_install.sh \
-            -v ${{ env.PS_VERSION }} \
+            -v "${{ env.PS_VERSION }}-${{ env.ARCH }}" \
             --template-scripts \
             --template-value ps_path=/usr/local/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
@@ -339,6 +340,7 @@ jobs:
       APPLE_IDENTITY: "Developer ID Installer: Joost Wagenaar (5GS9BDM7WS)"
       KEYCHAIN: "pennsieve-agent"
       KEYCHAIN_PASSWORD: "password"
+      ARCH: "x86_64"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -379,8 +381,8 @@ jobs:
         env:
           BUILD_DIR: ${{ steps.setup-dirs.outputs.build-dir }}
           PS_VERSION: ${{ steps.read-version.outputs.version }}
-          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-x86_64.pkg
-          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-x86_64.pkg
+          PACKAGE_FILE: ${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-${{ env.ARCH }}.pkg
+          UNSIGNED_PACKAGE_FILE: unsigned-${{ env.PACKAGE_BINARY_NAME }}-${{ steps.read-version.outputs.version }}-${{ env.ARCH }}.pkg
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
@@ -397,9 +399,9 @@ jobs:
             -t osxpkg \
             --url="https://app.pennsieve.io" \
             --osxpkg-identifier-prefix io.pennsieve \
-            -n "pennsieve-intel" \
+            -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/mac_post_install.sh \
-            -v ${{ env.PS_VERSION }} \
+            -v "${{ env.PS_VERSION }}-${{ env.ARCH }}" \
             --template-scripts \
             --template-value ps_path=/usr/local/opt/pennsieve \
             --template-value ps_version="${{ env.PS_VERSION }}" \
