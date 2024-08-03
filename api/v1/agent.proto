@@ -20,6 +20,10 @@ service Agent {
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
 	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
+	// Download Endpoints
+	rpc Download(DownloadFileRequest) returns (DownloadFileResponse) {}
+	rpc CancelDownload(CancelDownloadRequest) returns (SimpleStatusResponse) {}
+
 	// Server Endpoints
 	rpc Version(VersionRequest) returns (VersionResponse) {}
 	rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
@@ -50,6 +54,7 @@ message SubscribeResponse {
 	message EventResponse {
 		string details = 1;
 	}
+
 	message UploadResponse {
 		string file_id = 1;
 		int64 total = 2;
@@ -63,6 +68,20 @@ message SubscribeResponse {
 			COMPLETE = 2;
 		}
 	}
+
+	message DownloadStatusResponse {
+		string file_id = 1;
+		int64 total = 2;
+		int64 current = 3;
+		DownloadStatus status = 4;
+
+		enum DownloadStatus{
+			INIT = 0;
+			IN_PROGRESS = 1;
+			COMPLETE = 2;
+		}
+	}
+
 	message SyncResponse {
 		enum SyncStatus{
 			INIT = 0;
@@ -81,12 +100,16 @@ message SubscribeResponse {
 		UPLOAD_STATUS = 1;	// Upload Status Message
 		UPLOAD_CANCEL = 2; // Upload was cancelled
 		SYNC_STATUS = 3; // Sync Status message
+		DOWNLOAD_STATUS = 4; // Download Status Message
+		DOWNLOAD_CANCEL = 5; // Download was cancelled
 	}
 	MessageType type = 8;
 	oneof message_data {
 		UploadResponse upload_status = 9;
 		EventResponse event_info = 10;
 		SyncResponse sync_status = 11;
+		DownloadStatusResponse download_status = 12;
+
 	}
 }
 
@@ -96,6 +119,11 @@ message SimpleStatusResponse {
 
 message CancelUploadRequest {
 	int32 manifest_id = 1;
+	bool cancel_all = 2;
+}
+
+message CancelDownloadRequest {
+	string package_id = 1;
 	bool cancel_all = 2;
 }
 
@@ -295,4 +323,20 @@ message Account {
 
 message Credentials {
 	string profile = 1;
+}
+
+message DownloadFileRequest {
+	string package_id = 1;
+	bool get_presigned_url = 2;
+}
+
+message DownloadFileResponse {
+	enum ResponseType {
+		PRESIGNED_URL = 0;
+		DOWNLOAD = 1;
+	}
+
+	ResponseType type = 1;
+	string status = 2;
+	repeated string url = 3;
 }

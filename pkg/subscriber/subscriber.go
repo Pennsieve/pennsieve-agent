@@ -81,10 +81,12 @@ func (c *subscriberClient) Start(types []api.SubscribeResponse_MessageType, stop
 			api.SubscribeResponse_EVENT,
 			api.SubscribeResponse_SYNC_STATUS,
 			api.SubscribeResponse_UPLOAD_CANCEL,
+			api.SubscribeResponse_DOWNLOAD_STATUS,
 		}
 	}
 
 	trackers := make(map[int32]barInfo)
+	downloadTrackers := make(map[string]barInfo)
 	pw := mpb.New(
 		mpb.PopCompletedMode())
 
@@ -194,6 +196,42 @@ func (c *subscriberClient) Start(types []api.SubscribeResponse_MessageType, stop
 					p.bar.Abort(true)
 				}
 			}
+		case api.SubscribeResponse_DOWNLOAD_CANCEL:
+			if contains(types, api.SubscribeResponse_DOWNLOAD_CANCEL) {
+				for _, p := range downloadTrackers {
+					p.bar.Abort(true)
+				}
+			}
+		case api.SubscribeResponse_DOWNLOAD_STATUS:
+			if contains(types, api.SubscribeResponse_DOWNLOAD_STATUS) {
+				r := response.GetDownloadStatus()
+
+				switch r.Status {
+				case api.SubscribeResponse_DownloadStatusResponse_INIT:
+				case api.SubscribeResponse_DownloadStatusResponse_IN_PROGRESS:
+					// Get/Create Tracker
+					if t, ok := downloadTrackers[r.FileId]; ok {
+						if t.fileId == r.FileId {
+							t.bar.SetCurrent(r.GetCurrent())
+							t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
+						} else {
+							// In this case the previous upload was completed and should have been popped.
+							c.addDownloadBar(pw, r, downloadTrackers)
+						}
+
+					} else {
+						// initialization of new worker progress bar.
+						c.addDownloadBar(pw, r, downloadTrackers)
+					}
+				case api.SubscribeResponse_DownloadStatusResponse_COMPLETE:
+					if stopOnComplete.Enable && contains(stopOnComplete.OnType, api.SubscribeResponse_DOWNLOAD_STATUS) {
+						_ = c.unsubscribe()
+						return
+					}
+				}
+
+			}
+
 		default:
 			log.Error("Received an unknown message type: ", response.GetType())
 		}
@@ -209,6 +247,25 @@ func contains(s []api.SubscribeResponse_MessageType, str api.SubscribeResponse_M
 	}
 
 	return false
+}
+
+// addBar adds a progress bar to the trackers map
+func (c *subscriberClient) addDownloadBar(pw *mpb.Progress, r *api.SubscribeResponse_DownloadStatusResponse, trackers map[string]barInfo) {
+	newBar := pw.AddBar(r.GetTotal(),
+		mpb.BarFillerClearOnComplete(),
+		mpb.PrependDecorators(
+			decor.Name(r.GetFileId()),
+			decor.NewPercentage("% .1f", decor.WCSyncSpace),
+		),
+	)
+	newBar.SetCurrent(r.GetCurrent())
+
+	info := barInfo{
+		bar:    newBar,
+		fileId: r.GetFileId(),
+	}
+
+	trackers[r.FileId] = info
 }
 
 // addBar adds a progress bar to the trackers map

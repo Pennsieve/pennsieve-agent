@@ -371,7 +371,7 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 // getCreateManifestId takes a manifest and ensures the manifest has a node-id.
 // The method checks if the manifest has a node-id, and if not, registers the manifest
 // with Pennsieve model service and sets the returned node-id in the manifest object.
-func (s server) getCreateManifestId(m *store.Manifest) error {
+func (s *server) getCreateManifestId(m *store.Manifest) error {
 
 	// Return if the node id is already set.
 	if m.NodeId.Valid {
