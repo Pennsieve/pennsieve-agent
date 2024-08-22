@@ -36,7 +36,7 @@ type AgentClient interface {
 	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	// Download Endpoints
-	Download(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error)
+	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (*DownloadResponse, error)
 	CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error)
@@ -163,8 +163,8 @@ func (c *agentClient) CancelUpload(ctx context.Context, in *CancelUploadRequest,
 	return out, nil
 }
 
-func (c *agentClient) Download(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error) {
-	out := new(DownloadFileResponse)
+func (c *agentClient) Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (*DownloadResponse, error) {
+	out := new(DownloadResponse)
 	err := c.cc.Invoke(ctx, "/v1.Agent/Download", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -321,7 +321,7 @@ type AgentServer interface {
 	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
 	CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error)
 	// Download Endpoints
-	Download(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error)
+	Download(context.Context, *DownloadRequest) (*DownloadResponse, error)
 	CancelDownload(context.Context, *CancelDownloadRequest) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Version(context.Context, *VersionRequest) (*VersionResponse, error)
@@ -379,7 +379,7 @@ func (UnimplementedAgentServer) UploadManifest(context.Context, *UploadManifestR
 func (UnimplementedAgentServer) CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelUpload not implemented")
 }
-func (UnimplementedAgentServer) Download(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error) {
+func (UnimplementedAgentServer) Download(context.Context, *DownloadRequest) (*DownloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Download not implemented")
 }
 func (UnimplementedAgentServer) CancelDownload(context.Context, *CancelDownloadRequest) (*SimpleStatusResponse, error) {
@@ -630,7 +630,7 @@ func _Agent_CancelUpload_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _Agent_Download_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DownloadFileRequest)
+	in := new(DownloadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -642,7 +642,7 @@ func _Agent_Download_Handler(srv interface{}, ctx context.Context, dec func(inte
 		FullMethod: "/v1.Agent/Download",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).Download(ctx, req.(*DownloadFileRequest))
+		return srv.(AgentServer).Download(ctx, req.(*DownloadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

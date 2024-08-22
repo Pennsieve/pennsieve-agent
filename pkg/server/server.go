@@ -45,7 +45,7 @@ type uploadSession struct {
 }
 
 type downloadSession struct {
-	packageId string
+	id        string
 	cancelFnc context.CancelFunc
 }
 

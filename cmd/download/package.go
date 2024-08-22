@@ -22,9 +22,14 @@ var PackageCmd = &cobra.Command{
 
 		getPresignedUrl, _ := cmd.Flags().GetBool("presigned")
 
-		req := api.DownloadFileRequest{
+		req := api.DownloadPackageRequest{
 			PackageId:       packageId,
 			GetPresignedUrl: getPresignedUrl,
+		}
+
+		downloadReq := api.DownloadRequest{
+			Type: api.DownloadRequest_PACKAGE,
+			Data: &api.DownloadRequest_Package{Package: &req},
 		}
 
 		port := viper.GetString("agent.port")
@@ -36,7 +41,7 @@ var PackageCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := api.NewAgentClient(conn)
-		downloadResponse, err := client.Download(context.Background(), &req)
+		downloadResponse, err := client.Download(context.Background(), &downloadReq)
 		if err != nil {
 			fmt.Println(err)
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Download command: %v", err))

@@ -24,7 +24,7 @@ var CancelCmd = &cobra.Command{
 		cancelAll := false
 
 		req := api.CancelDownloadRequest{
-			PackageId: selectedPackage,
+			Id:        &selectedPackage,
 			CancelAll: cancelAll,
 		}
 

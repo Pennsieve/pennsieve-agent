@@ -21,7 +21,7 @@ service Agent {
 	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
 	// Download Endpoints
-	rpc Download(DownloadFileRequest) returns (DownloadFileResponse) {}
+	rpc Download(DownloadRequest) returns (DownloadResponse) {}
 	rpc CancelDownload(CancelDownloadRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
@@ -123,7 +123,7 @@ message CancelUploadRequest {
 }
 
 message CancelDownloadRequest {
-	string package_id = 1;
+	optional string id = 1;
 	bool cancel_all = 2;
 }
 
@@ -325,12 +325,31 @@ message Credentials {
 	string profile = 1;
 }
 
-message DownloadFileRequest {
+message DownloadRequest {
+
+	enum DownloadType {
+		PACKAGE = 0;
+		DATASET = 1;
+	}
+
+	DownloadType type = 1;
+
+	oneof data {
+		DownloadDatasetRequest dataset = 9;
+		DownloadPackageRequest package = 10;
+	}
+}
+
+message DownloadDatasetRequest {
+	string dataset_id = 1;
+}
+
+message DownloadPackageRequest {
 	string package_id = 1;
 	bool get_presigned_url = 2;
 }
 
-message DownloadFileResponse {
+message DownloadResponse {
 	enum ResponseType {
 		PRESIGNED_URL = 0;
 		DOWNLOAD = 1;
