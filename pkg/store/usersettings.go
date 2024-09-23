@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -41,7 +42,7 @@ func (s *userSettingsStore) Get() (*UserSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	var allConfigs []UserSettings
 	for rows.Next() {
 		var currentConfig UserSettings
@@ -62,13 +63,19 @@ func (s *userSettingsStore) Get() (*UserSettings, error) {
 // CreateNewUserSettings creates or replaces existing user-settings row in config.
 func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*UserSettings, error) {
 	userSettings := &UserSettings{}
-	statement, _ := s.db.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
-	_, err := statement.Exec(data.UserId, data.Profile)
+	statement, err := s.db.Prepare("INSERT INTO user_settings (user_id, profile) VALUES (?, ?)")
 	if err != nil {
-		log.Error("Unable to create user_record", err.Error())
+		log.Error("Error preparing statement for creating user settings:", err)
 		return nil, err
 	}
-
+	defer statement.Close() //
+	
+	_, err = statement.Exec(data.UserId, data.Profile)
+	if err != nil {
+		log.Error("Unable to create user settings:", err)
+		return nil, err
+	}
+	
 	userSettings.UserId = data.UserId
 	userSettings.Profile = data.Profile
 
@@ -83,7 +90,7 @@ func (s *userSettingsStore) UpdateActiveDataset(datasetId string) error {
 		log.Warn("Unable to update ActiveDataset in database")
 		return err
 	}
-
+	defer statement.Close()
 	_, err = statement.Exec(datasetId)
 	if err != nil {
 		log.Warn("Unable to update ActiveDataset in database")

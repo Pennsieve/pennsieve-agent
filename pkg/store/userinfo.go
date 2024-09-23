@@ -3,9 +3,10 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 /*
@@ -73,8 +74,14 @@ func (s *userInfoStore) CreateNewUserInfo(data UserInfoParams) (*UserInfo, error
 	user := &UserInfo{}
 
 	var updatedAt = time.Now().UTC()
-	statement, _ := s.db.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
+	statement, err := s.db.Prepare("INSERT INTO user_record (id, name, session_token, refresh_token, profile, " +
 		"token_expire, id_token, environment, organization_id, organization_name, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		log.Error("Error preparing statement for creating new user info:", err)
+		return nil, err
+	}
+	defer statement.Close() 
+	
 	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.RefreshToken, data.Profile,
 		data.TokenExpire, data.IdToken, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
 	if err == nil {
@@ -124,20 +131,23 @@ func (s *userInfoStore) GetUserInfo(id string, profile string) (*UserInfo, error
 
 func (s *userInfoStore) GetAll() ([]UserInfo, error) {
 	rows, err := s.db.Query("SELECT * FROM user_record")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() 
 	var allUsers []UserInfo
-	if err == nil {
-		for rows.Next() {
-			var currentUser UserInfo
-			_ = rows.Scan(
-				&currentUser.InnerId, &currentUser.Id, &currentUser.Name, &currentUser.SessionToken, &currentUser.RefreshToken,
-				&currentUser.TokenExpire, &currentUser.IdToken,
-				&currentUser.Profile, &currentUser.Environment, &currentUser.OrganizationId, &currentUser.OrganizationName,
-				&currentUser.UpdatedAt)
-			allUsers = append(allUsers, currentUser)
-		}
-		return allUsers, err
+
+	for rows.Next() {
+		var currentUser UserInfo
+		_ = rows.Scan(
+			&currentUser.InnerId, &currentUser.Id, &currentUser.Name, &currentUser.SessionToken, &currentUser.RefreshToken,
+			&currentUser.TokenExpire, &currentUser.IdToken,
+			&currentUser.Profile, &currentUser.Environment, &currentUser.OrganizationId, &currentUser.OrganizationName,
+			&currentUser.UpdatedAt)
+		allUsers = append(allUsers, currentUser)
 	}
 	return allUsers, err
+	
 }
 
 func (s *userInfoStore) UpdateTokenForUser(userId string, credentials *pennsieve.APISession) error {
@@ -148,7 +158,7 @@ func (s *userInfoStore) UpdateTokenForUser(userId string, credentials *pennsieve
 		fmt.Println(err)
 		return err
 	}
-
+	defer statement.Close()
 	_, err = statement.Exec(credentials.Token, credentials.RefreshToken, credentials.Expiration, credentials.IdToken, userId)
 	if err != nil {
 		fmt.Sprintln("Unable to update Sessiontoken in database")
@@ -164,7 +174,7 @@ func (s *userInfoStore) DeleteUserForProfile(profile string) error {
 		fmt.Println(err)
 		return err
 	}
-
+	defer statement.Close()
 	_, err = statement.Exec(profile)
 	if err != nil {
 		fmt.Sprintf("Unable to delete userInfo for profile: %s\n", profile)

@@ -3,9 +3,10 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 type Manifest struct {
@@ -108,6 +109,7 @@ func (s *manifestStore) GetAll() ([]Manifest, error) {
 		}
 		return allSessions, err
 	}
+	rows.Close()
 	return allSessions, err
 }
 
@@ -163,13 +165,13 @@ func (s *manifestStore) Remove(manifestId int32) error {
 
 // SetManifestNodeId updates the manifest Node ID in the Manifest object and Database
 func (s *manifestStore) SetManifestNodeId(manifestId int32, nodeId string) error {
-
 	statement, err := s.db.Prepare(
 		"UPDATE manifests SET node_id = ? WHERE id = ?")
 	if err != nil {
 		log.Error(err)
 		return err
 	}
+	defer statement.Close()  
 
 	_, err = statement.Exec(nodeId, manifestId)
 	if err != nil {

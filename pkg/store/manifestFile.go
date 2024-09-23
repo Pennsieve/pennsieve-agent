@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	log "github.com/sirupsen/logrus"
-	"strings"
-	"time"
 )
 
 type ManifestFile struct {
@@ -63,7 +64,7 @@ func (s *manifestFileStore) Get(manifestId int32, limit int32, offset int32) ([]
 	if err != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	var status string
 	var allRecords []ManifestFile
 	for rows.Next() {
@@ -109,6 +110,7 @@ func (s *manifestFileStore) GetByStatus(manifestId int32, statusArray []manifest
 		log.Error("Error getting rows from Manifest Files:", err)
 		return nil, err
 	}
+	defer rows.Close()
 
 	var st string
 	var allRecords []ManifestFile
@@ -200,6 +202,7 @@ func (s *manifestFileStore) SetStatus(status manifestFile.Status, uploadId strin
 		return err
 	}
 
+	defer statement.Close()
 	_, err = statement.Exec(status.String(), uploadId)
 	if err != nil {
 		fmt.Sprintln("Unable to update manifest file status. Here is why: ", err)
@@ -300,7 +303,7 @@ func (s *manifestFileStore) SyncResponseStatusUpdate2(manifestId int32, failedFi
 	if err != nil {
 		log.Fatalln("ERROR: ", err)
 	}
-	//defer stmt.Close()
+	defer stmt.Close()
 
 	log.Debug(stmt)
 
@@ -365,31 +368,37 @@ func (s *manifestFileStore) SyncResponseStatusUpdate2(manifestId int32, failedFi
 
 // RemoveFromManifest removes files from local manifest by path.
 func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath string) error {
+	pathLikeExpr := removePath + "%"
+	initiatedStatus := manifestFile.Local.String()
 
-	pathLikeExpr := fmt.Sprintf("'%s%%'", removePath)
-	initatedStatus := manifestFile.Local.String()
-	queryStr := fmt.Sprintf("DELETE FROM manifest_files WHERE manifest_id = %d "+
-		"AND source_path LIKE %s and status = '%s';", manifestId, pathLikeExpr, initatedStatus)
-
-	log.Debug(queryStr)
-
-	_, err := s.db.Exec(queryStr)
+	// 使用参数化查询避免SQL注入
+	stmt, err := s.db.Prepare("DELETE FROM manifest_files WHERE manifest_id = ? AND source_path LIKE ? AND status = ?")
 	if err != nil {
+		log.Println("Error in RemoveFromManifest (DELETE):", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(manifestId, pathLikeExpr, initiatedStatus)
+	if err != nil {
+		log.Println("Error executing RemoveFromManifest (DELETE):", err)
 		return err
 	}
 
+
 	syncStatus := manifestFile.Registered.String()
 	removeStatus := manifestFile.Removed.String()
-	queryStr2 := fmt.Sprintf("UPDATE manifest_files SET status = '%s' WHERE manifest_id = %d "+
-		"AND source_path LIKE %s and status = '%s';", removeStatus, manifestId, pathLikeExpr, syncStatus)
 
-	_, err = s.db.Exec(queryStr2)
+	queryStr2 := "UPDATE manifest_files SET status = ? WHERE manifest_id = ? AND source_path LIKE ? AND status = ?"
+	_, err = s.db.Exec(queryStr2, removeStatus, manifestId, pathLikeExpr, syncStatus)
 	if err != nil {
+		log.Println("Error executing RemoveFromManifest (UPDATE):", err)
 		return err
 	}
 
 	return nil
 }
+
 
 // ResetStatusForManifest resets all files to status = LOCAL
 func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
@@ -397,15 +406,18 @@ func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 	currentTime := time.Now()
 
 	initiatedStatusStr := manifestFile.Local.String()
-	sqlStatement := fmt.Sprintf("UPDATE manifest_files SET status = '%s', updated_at = %d WHERE manifest_id = %d",
-		initiatedStatusStr, currentTime.Unix(), manifestId)
+	stmt, error := s.db.Prepare("UPDATE manifest_files SET status = ?, updated_at = ? WHERE manifest_id = ?")
+	if error != nil {
+		log.Println("the error is here:ResetStatusForManifest" + "here is why" + error.Error())
+		return error
+	}
 
-	log.Debug(sqlStatement)
-	// format all vals at once
-	_, err := s.db.Exec(sqlStatement)
+	defer stmt.Close()
+
+	_, err := stmt.Exec(initiatedStatusStr, currentTime.Unix(), manifestId)
 	if err != nil {
-		log.Error(err)
-		return err
+		log.Println("the error is here:ResetStatusForManifest in second if statement" + "here is why" + error.Error())
+		return error
 	}
 
 	return nil
@@ -458,6 +470,8 @@ func (s *manifestFileStore) ManifestFilesToChannel(ctx context.Context, manifest
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	defer rows.Close()
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
