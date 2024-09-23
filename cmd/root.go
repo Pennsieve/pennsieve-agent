@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/download"
+	"github.com/pennsieve/pennsieve-agent/cmd/fetch"
 	"os"
 	"path/filepath"
 
@@ -74,6 +75,7 @@ func init() {
 	rootCmd.AddCommand(version.VersionCmd)
 	rootCmd.AddCommand(account.AccountCmd)
 	rootCmd.AddCommand(download.DownloadCmd)
+	rootCmd.AddCommand(fetch.FetchCmd)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file (default is $HOME/.pennsieve/config.ini)")

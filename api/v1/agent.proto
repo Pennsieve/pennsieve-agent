@@ -343,6 +343,7 @@ message DownloadRequest {
 message DownloadDatasetRequest {
 	string dataset_id = 1;
 	string target_folder = 2;
+	bool fetch_only = 3;
 }
 
 message DownloadPackageRequest {

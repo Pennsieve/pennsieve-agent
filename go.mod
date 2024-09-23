@@ -4,9 +4,9 @@ go 1.22.0
 
 toolchain go1.22.2
 
-replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
+//replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 
-replace github.com/pennsieve/pennsieve-go-core => ../pennsieve-go-core
+//replace github.com/pennsieve/pennsieve-go-core => ../pennsieve-go-core
 
 //replace github.com/pennsieve/pennsieve-go-api => ../pennsieve-go-api
 
@@ -19,9 +19,9 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.3.0
 	github.com/mattn/go-sqlite3 v1.14.12
-	github.com/pennsieve/pennsieve-go v1.3.6
+	github.com/pennsieve/pennsieve-go v1.3.7
 	github.com/pennsieve/pennsieve-go-api v1.3.1
-	github.com/pennsieve/pennsieve-go-core v1.11.0
+	github.com/pennsieve/pennsieve-go-core v1.11.1
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0

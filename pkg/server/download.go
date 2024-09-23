@@ -117,38 +117,60 @@ func (s *server) Download(ctx context.Context, req *api.DownloadRequest) (*api.D
 			return nil, err
 		}
 
-		// Go routines for downloading data in parallel
-		nrWorkers := 5
-		walker := make(chan models.ManifestDTO, nrWorkers)
-		results := make(chan int, nrWorkers)
-		var downloadWg sync.WaitGroup
-
-		go func() {
-			defer close(walker)
+		// Depending on Fetch vs Download, either download all the files or create
+		// empty files instead
+		if requestData.FetchOnly {
 			for _, file := range data.Files {
-				walker <- file
+
+				err := os.MkdirAll(path.Join(requestData.TargetFolder, file.Path), os.ModePerm)
+				if err != nil {
+					log.Errorf("Failed to create target path: %v", err)
+					continue
+				}
+
+				fileLocation := path.Join(requestData.TargetFolder, file.Path, file.FileName.String)
+
+				err = touchFile(fileLocation)
+				if err != nil {
+					log.Errorf("Failed to create target file: %v", err)
+					continue
+				}
+
 			}
-		}()
 
-		for w := 0; w < nrWorkers; w++ {
-			downloadWg.Add(1)
-			log.Println("Starting donwload worker: ", w)
+		} else {
+			// Go routines for downloading data in parallel
+			nrWorkers := 5
+			walker := make(chan models.ManifestDTO, nrWorkers)
+			results := make(chan int, nrWorkers)
+			var downloadWg sync.WaitGroup
 
-			w := w
 			go func() {
-				defer func() {
-					log.Println("Closing download worker: ", w)
-					downloadWg.Done()
-				}()
-
-				s.downloadWorker(ctx, w, walker, results, requestData.TargetFolder)
-
+				defer close(walker)
+				for _, file := range data.Files {
+					walker <- file
+				}
 			}()
 
+			for w := 0; w < nrWorkers; w++ {
+				downloadWg.Add(1)
+				log.Println("Starting donwload worker: ", w)
+
+				w := w
+				go func() {
+					defer func() {
+						log.Println("Closing download worker: ", w)
+						downloadWg.Done()
+					}()
+
+					s.downloadWorker(ctx, w, walker, results, requestData.TargetFolder)
+
+				}()
+
+			}
+
+			downloadWg.Wait()
 		}
-
-		downloadWg.Wait()
-
 	}
 
 	resp := &api.DownloadResponse{
@@ -158,6 +180,14 @@ func (s *server) Download(ctx context.Context, req *api.DownloadRequest) (*api.D
 	}
 
 	return resp, nil
+}
+
+func touchFile(name string) error {
+	file, err := os.OpenFile(name, os.O_RDONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }
 
 func (s *server) downloadWorker(ctx context.Context, workerId int,

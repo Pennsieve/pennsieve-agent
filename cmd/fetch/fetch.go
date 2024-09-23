@@ -1,4 +1,4 @@
-package download
+package fetch
 
 import (
 	"context"
@@ -12,11 +12,26 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var DatasetCmd = &cobra.Command{
-	Use:   "dataset [dataset-id] [target-folder]",
-	Short: "Download dataset.",
-	Long:  `Download dataset to the selected folder. A new dataset folder will be created in the selected target folder.`,
-	Args:  cobra.MinimumNArgs(2),
+var FetchCmd = &cobra.Command{
+	Use:   "fetch [dataset_id] [target_path]",
+	Short: "Fetch the dataset and create folder structure.",
+	Long: `
+  The fetch command creates a folder that is associated with a 
+  Pennsieve dataset. Subfolders and files will be created within
+  the target folder to match the dataset structure on the platfom.
+  
+  In contrast to the download command, the files will NOT be 
+  downloaded to the local machine, but instead, an empty file 
+  representing the file on Pennsieve will be created. Use the "sync" 
+  command to download specific files, or folders to your local
+  machine.
+
+  Using "fetch" and "sync" allows for users to efficiently map 
+  Pennsieve datasets to their local machines without requiring
+  to download each file in the dataset. This saves space, and costs
+  associated with downloading the entire dataset.
+  `,
+	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		datasetId := args[0]
 
@@ -33,7 +48,7 @@ var DatasetCmd = &cobra.Command{
 		req := api.DownloadDatasetRequest{
 			DatasetId:    datasetId,
 			TargetFolder: absPath,
-			FetchOnly:    false,
+			FetchOnly:    true,
 		}
 
 		downloadReq := api.DownloadRequest{
@@ -53,12 +68,12 @@ var DatasetCmd = &cobra.Command{
 		downloadResponse, err := client.Download(context.Background(), &downloadReq)
 		if err != nil {
 			fmt.Println(err)
-			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Download command: %v", err))
+			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Fetch command: %v", err))
 			return
 		}
 		fmt.Println(downloadResponse)
 		if downloadResponse.Status == "Success" {
-			fmt.Println("Requested Download of dataset: ", datasetId)
+			fmt.Println("Requested Fetch of dataset: ", datasetId)
 		} else {
 			fmt.Println("Unable to request download command: ", downloadResponse.Status)
 			log.Errorf("Unable to request download command: %v", downloadResponse.Status)
@@ -67,4 +82,5 @@ var DatasetCmd = &cobra.Command{
 }
 
 func init() {
+
 }
