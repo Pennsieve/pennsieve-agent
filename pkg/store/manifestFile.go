@@ -406,22 +406,23 @@ func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 	currentTime := time.Now()
 
 	initiatedStatusStr := manifestFile.Local.String()
-	stmt, error := s.db.Prepare("UPDATE manifest_files SET status = ?, updated_at = ? WHERE manifest_id = ?")
-	if error != nil {
-		log.Println("the error is here:ResetStatusForManifest" + "here is why" + error.Error())
-		return error
+	stmt, err := s.db.Prepare("UPDATE manifest_files SET status = ?, updated_at = ? WHERE manifest_id = ?")
+	if err != nil {
+		log.Println("the error is here: ResetStatusForManifest - here is why: " + err.Error())
+		return err
 	}
 
 	defer stmt.Close()
 
-	_, err := stmt.Exec(initiatedStatusStr, currentTime.Unix(), manifestId)
+	_, err = stmt.Exec(initiatedStatusStr, currentTime.Unix(), manifestId)
 	if err != nil {
-		log.Println("the error is here:ResetStatusForManifest in second if statement" + "here is why" + error.Error())
-		return error
+		log.Println("the error is here: ResetStatusForManifest in second if statement - here is why: " + err.Error())
+		return err
 	}
 
 	return nil
 }
+
 
 // GetNumberOfRowsForStatus returns the number of rows in a manifest that do (not) have a specific status
 func (s *manifestFileStore) GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error) {

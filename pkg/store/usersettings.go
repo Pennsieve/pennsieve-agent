@@ -68,7 +68,7 @@ func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*Use
 		log.Error("Error preparing statement for creating user settings:", err)
 		return nil, err
 	}
-	defer statement.Close() //
+	defer statement.Close() 
 	
 	_, err = statement.Exec(data.UserId, data.Profile)
 	if err != nil {
