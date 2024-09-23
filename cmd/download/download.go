@@ -5,13 +5,13 @@ import (
 )
 
 var DownloadCmd = &cobra.Command{
-	Use:   "download [flags] [PACKAGE_ID]",
-	Short: "Downloads a file.",
-	Long:  `Use this function to download a file.`,
-
-	Run: func(cmd *cobra.Command, args []string) {
-		PackageCmd.Run(cmd, args)
-	},
+	Use:   "download [command] [...Args]",
+	Short: "Download a package or dataset.",
+	Long: `
+  You can download packages and datasets using one of the 
+  respective subcommands. Files will be downloaded by the 
+  agent in the background and you can check progress by running 
+  the agent subscriber.`,
 }
 
 func init() {
@@ -20,5 +20,6 @@ func init() {
 		false, "Return presigned url (default false) ")
 
 	DownloadCmd.AddCommand(PackageCmd)
+	DownloadCmd.AddCommand(DatasetCmd)
 	DownloadCmd.AddCommand(CancelCmd)
 }

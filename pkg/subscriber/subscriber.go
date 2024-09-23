@@ -6,8 +6,8 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/vbauerster/mpb/v5"
-	"github.com/vbauerster/mpb/v5/decor"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"time"
@@ -88,7 +88,8 @@ func (c *subscriberClient) Start(types []api.SubscribeResponse_MessageType, stop
 	trackers := make(map[int32]barInfo)
 	downloadTrackers := make(map[string]barInfo)
 	pw := mpb.New(
-		mpb.PopCompletedMode())
+		mpb.PopCompletedMode(),
+	)
 
 	var syncBar *mpb.Bar
 
@@ -127,7 +128,7 @@ func (c *subscriberClient) Start(types []api.SubscribeResponse_MessageType, stop
 					if t, ok := trackers[r.WorkerId]; ok {
 						if t.fileId == r.FileId {
 							t.bar.SetCurrent(r.GetCurrent())
-							t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
+							//t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
 						} else {
 							// In this case the previous upload was completed and should have been popped.
 							c.addBar(pw, r, trackers)
@@ -210,20 +211,21 @@ func (c *subscriberClient) Start(types []api.SubscribeResponse_MessageType, stop
 				case api.SubscribeResponse_DownloadStatusResponse_INIT:
 				case api.SubscribeResponse_DownloadStatusResponse_IN_PROGRESS:
 					// Get/Create Tracker
-					if t, ok := downloadTrackers[r.FileId]; ok {
-						if t.fileId == r.FileId {
-							t.bar.SetCurrent(r.GetCurrent())
-							t.bar.SetPriority(int(100 / (float32(r.Current) / float32(r.Total))))
-						} else {
-							// In this case the previous upload was completed and should have been popped.
-							c.addDownloadBar(pw, r, downloadTrackers)
-						}
 
+					if t, ok := downloadTrackers[r.FileId]; ok {
+						if t.bar.Current() < r.GetCurrent() {
+							t.bar.SetCurrent(r.GetCurrent())
+						}
 					} else {
 						// initialization of new worker progress bar.
-						c.addDownloadBar(pw, r, downloadTrackers)
+						bar := c.getDownloadBar(pw, r)
+						downloadTrackers[r.FileId] = bar
 					}
 				case api.SubscribeResponse_DownloadStatusResponse_COMPLETE:
+					if t, ok := downloadTrackers[r.FileId]; ok {
+						t.bar.SetCurrent(r.GetTotal())
+					}
+
 					if stopOnComplete.Enable && contains(stopOnComplete.OnType, api.SubscribeResponse_DOWNLOAD_STATUS) {
 						_ = c.unsubscribe()
 						return
@@ -249,10 +251,10 @@ func contains(s []api.SubscribeResponse_MessageType, str api.SubscribeResponse_M
 	return false
 }
 
-// addBar adds a progress bar to the trackers map
-func (c *subscriberClient) addDownloadBar(pw *mpb.Progress, r *api.SubscribeResponse_DownloadStatusResponse, trackers map[string]barInfo) {
+// getDownloadBar adds a progress bar to the trackers map
+func (c *subscriberClient) getDownloadBar(pw *mpb.Progress, r *api.SubscribeResponse_DownloadStatusResponse) barInfo {
 	newBar := pw.AddBar(r.GetTotal(),
-		mpb.BarFillerClearOnComplete(),
+		mpb.BarFillerOnComplete(""),
 		mpb.PrependDecorators(
 			decor.Name(r.GetFileId()),
 			decor.NewPercentage("% .1f", decor.WCSyncSpace),
@@ -265,16 +267,16 @@ func (c *subscriberClient) addDownloadBar(pw *mpb.Progress, r *api.SubscribeResp
 		fileId: r.GetFileId(),
 	}
 
-	trackers[r.FileId] = info
+	return info
 }
 
 // addBar adds a progress bar to the trackers map
 func (c *subscriberClient) addBar(pw *mpb.Progress, r *api.SubscribeResponse_UploadResponse, trackers map[int32]barInfo) {
 	newBar := pw.AddBar(r.GetTotal(),
-		mpb.BarFillerClearOnComplete(),
+		mpb.BarFillerOnComplete(""),
 		mpb.PrependDecorators(
 			decor.Name(r.GetFileId()),
-			decor.Percentage(decor.WCSyncSpace),
+			decor.NewPercentage("% .1f", decor.WCSyncSpace),
 		),
 	)
 	newBar.SetCurrent(r.GetCurrent())
