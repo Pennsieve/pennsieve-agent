@@ -371,7 +371,7 @@ func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath stri
 	pathLikeExpr := removePath + "%"
 	initiatedStatus := manifestFile.Local.String()
 
-	// 使用参数化查询避免SQL注入
+
 	stmt, err := s.db.Prepare("DELETE FROM manifest_files WHERE manifest_id = ? AND source_path LIKE ? AND status = ?")
 	if err != nil {
 		log.Println("Error in RemoveFromManifest (DELETE):", err)
