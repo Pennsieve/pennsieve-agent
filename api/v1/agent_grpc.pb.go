@@ -38,6 +38,8 @@ type AgentClient interface {
 	// Download Endpoints
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (*DownloadResponse, error)
 	CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
@@ -175,6 +177,24 @@ func (c *agentClient) Download(ctx context.Context, in *DownloadRequest, opts ..
 func (c *agentClient) CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/v1.Agent/CancelDownload", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Fetch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Pull", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +343,8 @@ type AgentServer interface {
 	// Download Endpoints
 	Download(context.Context, *DownloadRequest) (*DownloadResponse, error)
 	CancelDownload(context.Context, *CancelDownloadRequest) (*SimpleStatusResponse, error)
+	Fetch(context.Context, *FetchRequest) (*SimpleStatusResponse, error)
+	Pull(context.Context, *PullRequest) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Version(context.Context, *VersionRequest) (*VersionResponse, error)
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
@@ -384,6 +406,12 @@ func (UnimplementedAgentServer) Download(context.Context, *DownloadRequest) (*Do
 }
 func (UnimplementedAgentServer) CancelDownload(context.Context, *CancelDownloadRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelDownload not implemented")
+}
+func (UnimplementedAgentServer) Fetch(context.Context, *FetchRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Fetch not implemented")
+}
+func (UnimplementedAgentServer) Pull(context.Context, *PullRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Pull not implemented")
 }
 func (UnimplementedAgentServer) Version(context.Context, *VersionRequest) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
@@ -665,6 +693,42 @@ func _Agent_CancelDownload_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_Fetch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Fetch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Agent/Fetch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Fetch(ctx, req.(*FetchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_Pull_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PullRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Pull(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Agent/Pull",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Pull(ctx, req.(*PullRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Agent_Version_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VersionRequest)
 	if err := dec(in); err != nil {
@@ -924,6 +988,14 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelDownload",
 			Handler:    _Agent_CancelDownload_Handler,
+		},
+		{
+			MethodName: "Fetch",
+			Handler:    _Agent_Fetch_Handler,
+		},
+		{
+			MethodName: "Pull",
+			Handler:    _Agent_Pull_Handler,
 		},
 		{
 			MethodName: "Version",

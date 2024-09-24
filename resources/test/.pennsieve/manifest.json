@@ -1,0 +1,44 @@
+{
+    "manifestCreatedOn": "Tue Sep 24 18:26:28 2024",
+    "datasetId": 1,
+    "datasetNodeId": "N:dataset:1234",
+    "name": "test",
+    "description": "N/A",
+    "license": "N/A",
+    "contributors": [],
+    "tags": [],
+    "files": [
+        {
+            "sourcePackageId": "N:package:1111",
+            "sourcePackageName": "file_1.txt",
+            "name": "file_1.txt",
+            "path": "",
+            "size": 10,
+            "checksum": "{\"checksum\": \"c7dabb9945bd24ae8e5d95539c0988fa39aaef9ce5e387907ce99a608bf069d3\", \"chunkSize\": 5242880}"
+        },
+        {
+            "sourcePackageId": "N:package:2222",
+            "sourcePackageName": "test-file-2",
+            "name": "test-file-2",
+            "path": "folder_1",
+            "size": 10,
+            "checksum": "{\"checksum\": \"889d53b272c862c1ee5937e71395bea6734648bfd29093637c73725a56587710\", \"chunkSize\": 5242880}"
+        },
+        {
+            "sourcePackageId": "N:package:3333",
+            "sourcePackageName": "test-file-3",
+            "name": "test-file-3",
+            "path": "folder_1",
+            "size": 10,
+            "checksum": "{\"checksum\": \"81127506a728bd005226f11ad1a5fce7aaf0c84ffd92d2bce81cd8f4ffa3fa23\", \"chunkSize\": 5242880}"
+        },
+        {
+            "sourcePackageId": "N:package:4444",
+            "sourcePackageName": "test-file-4",
+            "name": "test-file-4",
+            "path": "folder_1/folder_2",
+            "size": 10,
+            "checksum": "{\"checksum\": \"87fccf03c73f3516e2be689aacb1b86b608ef0222f200efb04faef4952f0a449\", \"chunkSize\": 5242880}"
+        }
+    ]
+}

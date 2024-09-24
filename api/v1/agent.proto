@@ -23,6 +23,8 @@ service Agent {
 	// Download Endpoints
 	rpc Download(DownloadRequest) returns (DownloadResponse) {}
 	rpc CancelDownload(CancelDownloadRequest) returns (SimpleStatusResponse) {}
+	rpc Fetch(FetchRequest) returns (SimpleStatusResponse) {}
+	rpc Pull(PullRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
 	rpc Version(VersionRequest) returns (VersionResponse) {}
@@ -44,6 +46,10 @@ service Agent {
 
 	// Account Endpoints
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
+}
+
+message PullRequest {
+	string path = 1;
 }
 
 message SubscribeRequest {
@@ -325,6 +331,11 @@ message Credentials {
 	string profile = 1;
 }
 
+message FetchRequest {
+	string dataset_id = 1;
+	string target_folder = 2;
+}
+
 message DownloadRequest {
 
 	enum DownloadType {
@@ -343,7 +354,6 @@ message DownloadRequest {
 message DownloadDatasetRequest {
 	string dataset_id = 1;
 	string target_folder = 2;
-	bool fetch_only = 3;
 }
 
 message DownloadPackageRequest {

@@ -33,7 +33,6 @@ var DatasetCmd = &cobra.Command{
 		req := api.DownloadDatasetRequest{
 			DatasetId:    datasetId,
 			TargetFolder: absPath,
-			FetchOnly:    false,
 		}
 
 		downloadReq := api.DownloadRequest{

@@ -14,7 +14,7 @@ import (
 
 var FetchCmd = &cobra.Command{
 	Use:   "fetch [dataset_id] [target_path]",
-	Short: "Fetch the dataset and create folder structure.",
+	Short: "Map a Pennsieve Dataset to a local folder.",
 	Long: `
   The fetch command creates a folder that is associated with a 
   Pennsieve dataset. Subfolders and files will be created within
@@ -45,15 +45,9 @@ var FetchCmd = &cobra.Command{
 			return
 		}
 
-		req := api.DownloadDatasetRequest{
+		fetchRequest := api.FetchRequest{
 			DatasetId:    datasetId,
 			TargetFolder: absPath,
-			FetchOnly:    true,
-		}
-
-		downloadReq := api.DownloadRequest{
-			Type: api.DownloadRequest_DATASET,
-			Data: &api.DownloadRequest_Dataset{Dataset: &req},
 		}
 
 		port := viper.GetString("agent.port")
@@ -65,18 +59,17 @@ var FetchCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := api.NewAgentClient(conn)
-		downloadResponse, err := client.Download(context.Background(), &downloadReq)
+		fetchResponse, err := client.Fetch(context.Background(), &fetchRequest)
 		if err != nil {
 			fmt.Println(err)
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Fetch command: %v", err))
 			return
 		}
-		fmt.Println(downloadResponse)
-		if downloadResponse.Status == "Success" {
+		if fetchResponse.Status == "Success" {
 			fmt.Println("Requested Fetch of dataset: ", datasetId)
 		} else {
-			fmt.Println("Unable to request download command: ", downloadResponse.Status)
-			log.Errorf("Unable to request download command: %v", downloadResponse.Status)
+			fmt.Println("Unable to request download command: ", fetchResponse.Status)
+			log.Errorf("Unable to request download command: %v", fetchResponse.Status)
 		}
 	},
 }
