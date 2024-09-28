@@ -1,4 +1,4 @@
-package pull
+package _map
 
 import (
 	"context"
@@ -16,6 +16,9 @@ var PullCmd = &cobra.Command{
 	Use:   "pull [target_path]",
 	Short: "Pull files from the server into a mapped Pennsieve Dataset.",
 	Long: `
+  [BETA] This feature is in Beta mode and is currently still undergoing
+  testing and optimization.
+
   The "pull" command downloads files from the Pennsieve platform 
   in Pennsieve managed folders on your local machine. If you have
   mapped a Pennsieve dataset to a local folder using the "fetch" 

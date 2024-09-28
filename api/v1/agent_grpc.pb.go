@@ -35,11 +35,12 @@ type AgentClient interface {
 	// Upload Endpoints
 	UploadManifest(ctx context.Context, in *UploadManifestRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	CancelUpload(ctx context.Context, in *CancelUploadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
-	// Download Endpoints
+	// Download and Map Endpoints
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (*DownloadResponse, error)
 	CancelDownload(ctx context.Context, in *CancelDownloadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
-	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	Map(ctx context.Context, in *MapRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	GetMapDiff(ctx context.Context, in *MapDiffRequest, opts ...grpc.CallOption) (*MapDiffResponse, error)
 	// Server Endpoints
 	Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
@@ -183,9 +184,9 @@ func (c *agentClient) CancelDownload(ctx context.Context, in *CancelDownloadRequ
 	return out, nil
 }
 
-func (c *agentClient) Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+func (c *agentClient) Map(ctx context.Context, in *MapRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
-	err := c.cc.Invoke(ctx, "/v1.Agent/Fetch", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Map", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +196,15 @@ func (c *agentClient) Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.
 func (c *agentClient) Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
 	out := new(SimpleStatusResponse)
 	err := c.cc.Invoke(ctx, "/v1.Agent/Pull", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) GetMapDiff(ctx context.Context, in *MapDiffRequest, opts ...grpc.CallOption) (*MapDiffResponse, error) {
+	out := new(MapDiffResponse)
+	err := c.cc.Invoke(ctx, "/v1.Agent/GetMapDiff", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -340,11 +350,12 @@ type AgentServer interface {
 	// Upload Endpoints
 	UploadManifest(context.Context, *UploadManifestRequest) (*SimpleStatusResponse, error)
 	CancelUpload(context.Context, *CancelUploadRequest) (*SimpleStatusResponse, error)
-	// Download Endpoints
+	// Download and Map Endpoints
 	Download(context.Context, *DownloadRequest) (*DownloadResponse, error)
 	CancelDownload(context.Context, *CancelDownloadRequest) (*SimpleStatusResponse, error)
-	Fetch(context.Context, *FetchRequest) (*SimpleStatusResponse, error)
+	Map(context.Context, *MapRequest) (*SimpleStatusResponse, error)
 	Pull(context.Context, *PullRequest) (*SimpleStatusResponse, error)
+	GetMapDiff(context.Context, *MapDiffRequest) (*MapDiffResponse, error)
 	// Server Endpoints
 	Version(context.Context, *VersionRequest) (*VersionResponse, error)
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
@@ -407,11 +418,14 @@ func (UnimplementedAgentServer) Download(context.Context, *DownloadRequest) (*Do
 func (UnimplementedAgentServer) CancelDownload(context.Context, *CancelDownloadRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelDownload not implemented")
 }
-func (UnimplementedAgentServer) Fetch(context.Context, *FetchRequest) (*SimpleStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Fetch not implemented")
+func (UnimplementedAgentServer) Map(context.Context, *MapRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Map not implemented")
 }
 func (UnimplementedAgentServer) Pull(context.Context, *PullRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Pull not implemented")
+}
+func (UnimplementedAgentServer) GetMapDiff(context.Context, *MapDiffRequest) (*MapDiffResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMapDiff not implemented")
 }
 func (UnimplementedAgentServer) Version(context.Context, *VersionRequest) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
@@ -693,20 +707,20 @@ func _Agent_CancelDownload_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_Fetch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FetchRequest)
+func _Agent_Map_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MapRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).Fetch(ctx, in)
+		return srv.(AgentServer).Map(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/v1.Agent/Fetch",
+		FullMethod: "/v1.Agent/Map",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).Fetch(ctx, req.(*FetchRequest))
+		return srv.(AgentServer).Map(ctx, req.(*MapRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -725,6 +739,24 @@ func _Agent_Pull_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentServer).Pull(ctx, req.(*PullRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_GetMapDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MapDiffRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetMapDiff(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Agent/GetMapDiff",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetMapDiff(ctx, req.(*MapDiffRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -990,12 +1022,16 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_CancelDownload_Handler,
 		},
 		{
-			MethodName: "Fetch",
-			Handler:    _Agent_Fetch_Handler,
+			MethodName: "Map",
+			Handler:    _Agent_Map_Handler,
 		},
 		{
 			MethodName: "Pull",
 			Handler:    _Agent_Pull_Handler,
+		},
+		{
+			MethodName: "GetMapDiff",
+			Handler:    _Agent_GetMapDiff_Handler,
 		},
 		{
 			MethodName: "Version",

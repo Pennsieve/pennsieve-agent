@@ -20,11 +20,12 @@ service Agent {
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
 	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
-	// Download Endpoints
+	// Download and Map Endpoints
 	rpc Download(DownloadRequest) returns (DownloadResponse) {}
 	rpc CancelDownload(CancelDownloadRequest) returns (SimpleStatusResponse) {}
-	rpc Fetch(FetchRequest) returns (SimpleStatusResponse) {}
+	rpc Map(MapRequest) returns (SimpleStatusResponse) {}
 	rpc Pull(PullRequest) returns (SimpleStatusResponse) {}
+	rpc GetMapDiff(MapDiffRequest) returns (MapDiffResponse) {}
 
 	// Server Endpoints
 	rpc Version(VersionRequest) returns (VersionResponse) {}
@@ -331,7 +332,7 @@ message Credentials {
 	string profile = 1;
 }
 
-message FetchRequest {
+message MapRequest {
 	string dataset_id = 1;
 	string target_folder = 2;
 }
@@ -370,4 +371,32 @@ message DownloadResponse {
 	ResponseType type = 1;
 	string status = 2;
 	repeated string url = 3;
+}
+
+message MapDiffRequest {
+	string path = 1;
+}
+
+message fileInfo {
+	string package_id = 1;
+	string path = 2;
+	string name = 3;
+	string message = 4;
+}
+
+message packageStatus {
+	enum StatusType {
+		ADDED = 0;
+		RENAMED = 1;
+		DELETED = 2;
+		CHANGED = 3;
+		MOVED = 4;
+	}
+
+	fileInfo content = 1;
+	StatusType changeType = 2;
+}
+
+message MapDiffResponse {
+	repeated packageStatus files = 1;
 }

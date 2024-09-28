@@ -1,4 +1,4 @@
-package fetch
+package _map
 
 import (
 	"context"
@@ -12,10 +12,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var FetchCmd = &cobra.Command{
-	Use:   "fetch [dataset_id] [target_path]",
+var MapCmd = &cobra.Command{
+	Use:   "map [dataset_id] [target_path]",
 	Short: "Map a Pennsieve Dataset to a local folder.",
 	Long: `
+  [BETA] This feature is in Beta mode and is currently still undergoing
+  testing and optimization.
+
   The fetch command creates a folder that is associated with a 
   Pennsieve dataset. Subfolders and files will be created within
   the target folder to match the dataset structure on the platfom.
@@ -30,7 +33,7 @@ var FetchCmd = &cobra.Command{
   Pennsieve datasets to their local machines without requiring
   to download each file in the dataset. This saves space, and costs
   associated with downloading the entire dataset.
-  `,
+`,
 	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		datasetId := args[0]
@@ -45,7 +48,7 @@ var FetchCmd = &cobra.Command{
 			return
 		}
 
-		fetchRequest := api.FetchRequest{
+		fetchRequest := api.MapRequest{
 			DatasetId:    datasetId,
 			TargetFolder: absPath,
 		}
@@ -59,7 +62,7 @@ var FetchCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := api.NewAgentClient(conn)
-		fetchResponse, err := client.Fetch(context.Background(), &fetchRequest)
+		fetchResponse, err := client.Map(context.Background(), &fetchRequest)
 		if err != nil {
 			fmt.Println(err)
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Fetch command: %v", err))
@@ -75,5 +78,9 @@ var FetchCmd = &cobra.Command{
 }
 
 func init() {
+	MapCmd.AddCommand(FetchCmd)
+	MapCmd.AddCommand(PullCmd)
+	MapCmd.AddCommand(DiffCmd)
+	MapCmd.AddCommand(PushCmd)
 
 }

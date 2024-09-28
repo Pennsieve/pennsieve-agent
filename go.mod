@@ -21,7 +21,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/pennsieve/pennsieve-go v1.3.7
 	github.com/pennsieve/pennsieve-go-api v1.3.1
-	github.com/pennsieve/pennsieve-go-core v1.11.1
+	github.com/pennsieve/pennsieve-go-core v1.11.2
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0

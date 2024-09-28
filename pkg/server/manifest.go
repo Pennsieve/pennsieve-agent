@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
@@ -16,7 +17,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -207,7 +207,7 @@ func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifest
 
 }
 
-//SyncManifest synchronizes the state of the manifest between local and cloud server.
+// SyncManifest synchronizes the state of the manifest between local and cloud server.
 func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
 
 	/*
@@ -631,7 +631,7 @@ func (s *server) addUploadRecords(paths []string, localBasePath string, targetBa
 func recordsFromPaths(paths []string, localBasePath string, targetBasePath string, manifestId int32) []store.ManifestFileParams {
 	var records []store.ManifestFileParams
 	for _, row := range paths {
-		if len(localBasePath) > 0 && pathIsDirectory(localBasePath) {
+		if len(localBasePath) > 0 && shared.PathIsDirectory(localBasePath) {
 			// localBasePath was provided, and it is a folder/directory
 			fileName, targetPath := fileTargetPath(row, localBasePath, targetBasePath)
 			newRecord := store.ManifestFileParams{
@@ -656,24 +656,6 @@ func recordsFromPaths(paths []string, localBasePath string, targetBasePath strin
 	}
 
 	return records
-}
-
-func pathIsDirectory(path string) bool {
-	result := false
-	// get file info for path
-	fi, err := os.Stat(path)
-	if err != nil {
-		log.Fatal("Error in checking whether path is a directory: ", err)
-	} else {
-		// check file info mode to determine if path is a directory or a file
-		switch mode := fi.Mode(); {
-		case mode.IsDir():
-			result = true
-		case mode.IsRegular():
-			result = false
-		}
-	}
-	return result
 }
 
 func fileTargetPath(file string, basePath string, targetBasePath string) (string, string) {
