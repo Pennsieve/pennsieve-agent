@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"regexp"
 )
 
 func ReadStateFile(stateFileLocation string) (*models2.MapState, error) {
@@ -73,22 +74,27 @@ func ReadWorkspaceManifest(manifestLocation string) (*models.WorkspaceManifest, 
 
 func ReadFileIDFromFile(location string) (string, error) {
 
-	log.Info(location)
-	fi, err := os.Stat(location)
+	f, err := os.Open(location)
 	if err != nil {
 		return "", err
 	}
 
-	if fi.Size() > 1024 {
-		return "", errors.New("file size too large for expected file")
-	}
+	defer f.Close()
 
-	b, err := os.ReadFile(location)
+	var header [36]byte
+	_, err = io.ReadFull(f, header[:])
 	if err != nil {
 		return "", err
 	}
 
-	idStr := string(b)
+	idStr := string(header[:])
+
+	r := regexp.MustCompile(`[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}`)
+	res := r.FindStringSubmatch(idStr)
+
+	if res == nil {
+		return "", errors.New("invalid file id")
+	}
 
 	return idStr, nil
 }

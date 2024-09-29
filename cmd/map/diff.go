@@ -52,12 +52,28 @@ var DiffCmd = &cobra.Command{
 		t.AppendHeader(table.Row{"Path", "File Name", "Update"})
 		for _, s := range statusResponse.Files {
 			const maxLength = 100
-			t.AppendRow([]interface{}{s.Content.Path, s.Content.Name, s.ChangeType.String()})
+			t.AppendRow([]interface{}{s.Content.Path, s.Content.Name, s.ChangeType})
 		}
 
 		t.Render()
 
 	},
+}
+
+func statusArrayToString(statusArr []api.PackageStatus_StatusType) string {
+
+	result := statusArr[0].String()
+	if len(statusArr) > 1 {
+		for i, _ := range statusArr {
+			if i == 0 {
+				continue
+			}
+			result += "\\" + statusArr[i].String()
+		}
+	}
+
+	return result
+
 }
 
 func init() {

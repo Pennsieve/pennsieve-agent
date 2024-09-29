@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func (s *server) GetMapDiff(ctx context.Context, req *api.MapDiffRequest) (*api.MapDiffResponse, error) {
+func (s *server) GetMapDiff(_ context.Context, req *api.MapDiffRequest) (*api.MapDiffResponse, error) {
 
 	// Check if the provided path is part of a mapped dataset
 	datasetRoot, found, err := findMappedDatasetRoot(req.Path)
@@ -36,25 +36,140 @@ func (s *server) GetMapDiff(ctx context.Context, req *api.MapDiffRequest) (*api.
 	}
 
 	result, err := compareManifestToFolder(datasetRoot, manifest.Files, files)
+
+	log.Debug(result)
+
 	if err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	// Map result into response
+	var response api.MapDiffResponse
+	for _, r := range result {
+
+		content := api.FileInfo{}
+		switch r.Type {
+		case api.PackageStatus_MOVED_RENAMED:
+			fallthrough
+		case api.PackageStatus_ADDED:
+			fallthrough
+		case api.PackageStatus_RENAMED:
+			fallthrough
+		case api.PackageStatus_MOVED:
+			content = api.FileInfo{
+				PackageId: r.Old.PackageNodeId,
+				Path:      r.New.Path,
+				Name:      r.New.FileName,
+				Message:   "",
+			}
+		case api.PackageStatus_DELETED:
+			content = api.FileInfo{
+				PackageId: r.Old.PackageNodeId,
+				Path:      r.Old.Path,
+				Name:      r.Old.FileName,
+				Message:   "",
+			}
+		case api.PackageStatus_CHANGED:
+			content = api.FileInfo{
+				PackageId: r.Changed.from.PackageNodeId,
+				Path:      r.Changed.from.Path,
+				Name:      r.Changed.from.PackageName,
+				Message:   "",
+			}
+
+		}
+
+		record := api.PackageStatus{
+			Content:    &content,
+			ChangeType: r.Type,
+		}
+
+		response.Files = append(response.Files, &record)
+
+	}
+
+	return &response, nil
 }
 
-type folderManifestFile struct {
+// CrcSize is the length of the buffer that is used to calculate the CRC32 for the files.
+// Files are considered the same if files match for the length of the buffer.
+// This is only tested for new files and compared to other files in manifest that are considered deleted.
+const CrcSize = 1024 * 1024
+
+type crcOrFileId struct {
+	hasFileId bool
+	FileId    string
+	Crc32     uint32
+}
+
+type folderFile struct {
+	FileName string
+	Path     string
+	Size     int64
+}
+
+type addedFile struct {
+	FileName  string
+	Path      string
+	Size      int64
+	hasFileId bool
+	Crc32     uint32
+	FileId    string
+}
+
+type deletedFile struct {
 	PackageNodeId string
-	FileId        string
 	FileName      string
 	Path          string
 	Size          int64
-	Crc32         uint32
+	FileId        string
+}
+
+type changedFile struct {
+	Size  int64
+	Crc32 uint32
+	from  models.ManifestDTO
 }
 
 type renamedMovedFile struct {
-	Old folderManifestFile
-	New folderManifestFile
+	Type api.PackageStatus_StatusType
+	Old  deletedFile
+	New  addedFile
+}
+
+type diffResult struct {
+	Type     api.PackageStatus_StatusType
+	FilePath string
+	Old      deletedFile
+	New      addedFile
+	Changed  changedFile
+}
+
+func getFileIdOrCrc32(path string, maxBytes int) (*crcOrFileId, error) {
+
+	// Try to read file id from file
+	fileId, err := shared.ReadFileIDFromFile(path)
+	if err != nil {
+		// Return CRC
+		crc32, err := shared.GetFileCrc32(path, maxBytes)
+		if err != nil {
+			return nil, errors.New("cannot get file crc32 or fileID")
+		}
+
+		return &crcOrFileId{
+			hasFileId: false,
+			FileId:    "",
+			Crc32:     crc32,
+		}, nil
+
+	}
+
+	return &crcOrFileId{
+		hasFileId: true,
+		FileId:    fileId,
+		Crc32:     0,
+	}, nil
+
 }
 
 func stringInSlice(a string, list []string) bool {
@@ -66,14 +181,14 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func createFolderManifest(datasetRoot string) ([]folderManifestFile, error) {
+func createFolderManifest(datasetRoot string) ([]folderFile, error) {
 
 	skipFiles := []string{
 		".DS_Store",
 		".pennsieve_package",
 	}
 
-	var files []folderManifestFile
+	var files []folderFile
 	err := filepath.WalkDir(datasetRoot, func(p string, d os.DirEntry, err error) error {
 
 		_, f := path.Split(p)
@@ -103,12 +218,10 @@ func createFolderManifest(datasetRoot string) ([]folderManifestFile, error) {
 			cleanDir = ""
 		}
 
-		curFile := folderManifestFile{
-			PackageNodeId: "",
-			FileId:        "",
-			FileName:      fileName,
-			Path:          cleanDir,
-			Size:          info.Size(),
+		curFile := folderFile{
+			FileName: fileName,
+			Path:     cleanDir,
+			Size:     info.Size(),
 		}
 
 		files = append(files, curFile)
@@ -121,12 +234,12 @@ func createFolderManifest(datasetRoot string) ([]folderManifestFile, error) {
 
 // compareManifestToFolder returns a list of files that are ADDED, CHANGED, MOVED, RENAMED or DELETED
 // since fetching the dataset from the Pennsieve server (compare to the manifest.json file)
-func compareManifestToFolder(datasetRoot string, manifest []models.ManifestDTO, files []folderManifestFile) (*api.MapDiffResponse, error) {
+func compareManifestToFolder(datasetRoot string, manifest []models.ManifestDTO, files []folderFile) ([]diffResult, error) {
 
-	var result = api.MapDiffResponse{}
-	var addedFiles []folderManifestFile
-	var deletedFiles []folderManifestFile
-	var changedFiles []folderManifestFile
+	//var result = api.MapDiffResponse{}
+	var addedFiles []addedFile
+	var deletedFiles []deletedFile
+	var changedFiles []changedFile
 
 	// Read State File which is used to determine if files are synced with server
 	datasetState, err := shared.ReadStateFile(path.Join(datasetRoot, ".pennsieve", "state.json"))
@@ -153,7 +266,7 @@ FindAdded:
 						continue
 					}
 
-					// If the size is the same as the expected size, the file is downloadeded
+					// If the size is the same as the expected size, the file is downloaded
 					// and is in the expected place. No action needed.
 					if fi.Size() == m.Size.Int64 {
 						continue FindAdded
@@ -164,10 +277,21 @@ FindAdded:
 					// file, or that the file has not been downloaded yet.
 					// If it is local --> something changed as file-size changed
 					for _, s := range datasetState.Files {
-						if s.Path == fPathFull && s.IsLocal {
+						if s.Path == fPath && s.IsLocal {
 
 							// File is different size at the same location and file is local
-							changedFiles = append(changedFiles, f)
+							crc32, err := shared.GetFileCrc32(fPath, CrcSize)
+							if err != nil {
+								log.Error("Cannot get crc32 for changed file: ", fPath)
+							}
+
+							log.Debug("FIND CHANGED FILE")
+
+							changedFiles = append(changedFiles, changedFile{
+								Size:  fi.Size(),
+								Crc32: crc32,
+								from:  m,
+							})
 							continue FindAdded
 						}
 					}
@@ -175,14 +299,28 @@ FindAdded:
 					// At this point, we have a file with expected name,
 					// at the expected location, with an unknown size as file represents remote file.
 					// We assume this represents the same file as the remote file. Let's check.
-					// In the small chance that we have a file with expected name but we cannot read the
+					// In the small chance that we have a file with expected name, but we cannot read the
 					// FileID, we know that this is an added file that has replaced the expected file with
 					// that name.
 
-					fileId, err := shared.ReadFileIDFromFile(fPathFull)
-					if fileId != m.FileNodeId.String || err != nil {
+					crcOrFileInfo, err := getFileIdOrCrc32(fPathFull, CrcSize)
+					if err != nil {
+						return nil, err
+					}
+
+					if crcOrFileInfo.FileId != m.FileNodeId.String {
 						log.Info("Cannot find file ", err)
-						addedFiles = append(addedFiles, f)
+
+						addedF := addedFile{
+							FileName:  f.FileName,
+							Path:      f.Path,
+							Size:      f.Size,
+							hasFileId: crcOrFileInfo.hasFileId,
+							Crc32:     crcOrFileInfo.Crc32,
+							FileId:    crcOrFileInfo.FileId,
+						}
+
+						addedFiles = append(addedFiles, addedF)
 					}
 
 					// File represents the expected remote file on Pennsieve.
@@ -193,10 +331,23 @@ FindAdded:
 		}
 
 		// Getting CRC32 for each added file. This will be used to figure out
-		// if the file was moved, renamed or truly was added to the datset.
-		// The CRC32 could be of the "empty" file so we need to check later,
-		f.Crc32, _ = shared.GetFileCrc32(fPath, 1024*1024)
-		addedFiles = append(addedFiles, f)
+		// if the file was moved, renamed or truly was added to the dataset.
+		// The CRC32 could be of the "empty" file, so we need to check later,
+		crcOrFileInfo, err := getFileIdOrCrc32(fPathFull, CrcSize)
+		if err != nil {
+			return nil, err
+		}
+
+		addedF := addedFile{
+			FileName:  f.FileName,
+			Path:      f.Path,
+			Size:      f.Size,
+			hasFileId: crcOrFileInfo.hasFileId,
+			Crc32:     crcOrFileInfo.Crc32,
+			FileId:    crcOrFileInfo.FileId,
+		}
+
+		addedFiles = append(addedFiles, addedF)
 	}
 
 	// Iterate over manifest and find files that are deleted
@@ -211,14 +362,15 @@ FindDeleted:
 				}
 			}
 
+			log.Info("DELETED: ", mPath, "  :  ", m.FileName)
+
 			// File in manifest is not present in the actual folder structure
-			deletedFiles = append(deletedFiles, folderManifestFile{
+			deletedFiles = append(deletedFiles, deletedFile{
 				PackageNodeId: m.PackageNodeId,
 				FileId:        m.FileNodeId.String,
 				FileName:      m.PackageName,
 				Path:          m.Path,
 				Size:          m.Size.Int64,
-				Crc32:         0,
 			})
 		}
 	}
@@ -233,8 +385,14 @@ FindDeleted:
 
 FindMovedRenamed:
 	for _, fAdded := range addedFiles {
+		log.Debug("FILE:  ", fAdded.Path, "/", fAdded.FileName)
+
 		for _, fDeleted := range deletedFiles {
+			log.Debug("DELETE:  ", fDeleted.Path, "/", fDeleted.FileName)
+
 			if fAdded.Path == fDeleted.Path {
+
+				log.Debug("SAME PATH BETWEEN ADDED AND DELETED: ", fDeleted.Path)
 				// At this point, we have a pair of added/deleted files at in the same folder.
 				// The added and deleted files have different names (as otherwise, it would have registered as Changed,
 				// or Unchanged in 'FindAdded').
@@ -246,58 +404,62 @@ FindMovedRenamed:
 					log.Error("Something went wrong as file should not have been marked as deleted or added.")
 				}
 
-				// Check state to see if added file is locally available
-				// If so, we can match on file-size, if not, we match on file-id
-				if fileIsLocalAndNotMoved(fAdded.Path, *datasetState) {
+				// Check the state to see if the deleted entry was locally available.
+				// If so, we can check to see if there is a match by file-size.
+				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+string(os.PathSeparator))
+				if fileIsLocalAndNotMoved(path.Join(relLocation, fDeleted.FileName), *datasetState) {
+					log.Debug("FileLocalAndNotMoved: ", relLocation)
 
 					// If the file size is the same, we assume that this is a renamed file.
 					if fAdded.Size == fDeleted.Size {
 						renamedFiles = append(renamedFiles, renamedMovedFile{
-							Old: fDeleted,
-							New: fAdded,
+							Type: api.PackageStatus_RENAMED,
+							Old:  fDeleted,
+							New:  fAdded,
 						})
 						continue FindMovedRenamed
 					}
+
 				} else {
-					// File is not local, or is a local file that has been moved.
+					// File is not local
+					log.Debug("File not local")
 
 					// Try to read the fileID from the file. If this fails, we probably have a moved file.
 					fileID, err := shared.ReadFileIDFromFile(path.Join(datasetRoot, fAdded.Path, fAdded.FileName))
 
 					if err != nil {
+						// In this case, we have a file that was marked as added,
+						// and a file that was marked as deleted
+						// they are in the same folder
+						// the actual file is not a pulled file
+						// the actual file does not contain a file ID
+						// therefore, there is no action between ADDED and DELETED entries.
 
-						// We failed to get the fileID from the file. Now, let's get the CRC32 and see if we can
-						// match this against known downloaded files in the DatasetState.
-						//crc, err := shared.GetFileCrc32(path.Join(datasetRoot, fAdded.Path, fAdded.FileName), 1024*1024)
-						//if err != nil {
-						//	log.Error("Unable to read ID from file", fAdded.Path)
-						//	continue
-						//}
+						log.Warn("Cannot get file id that was expected at location ", err)
+						continue
 
-						for _, stateFile := range datasetState.Files {
-							if stateFile.Crc32 == fAdded.Crc32 && stateFile.Path == fDeleted.Path {
-								renamedFiles = append(renamedFiles, renamedMovedFile{
-									Old: fDeleted,
-									New: fAdded,
-								})
-								continue FindMovedRenamed
-							}
-						}
-					} else if fileID == fDeleted.FileId {
+					}
+
+					if fileID == fDeleted.FileId {
 						// The file was renamed
 						renamedFiles = append(renamedFiles, renamedMovedFile{
-							Old: fDeleted,
-							New: fAdded,
+							Type: api.PackageStatus_RENAMED,
+							Old:  fDeleted,
+							New:  fAdded,
 						})
 
 						continue FindMovedRenamed
 					}
-
 				}
 
-			} else if fAdded.FileName == fDeleted.FileName {
+				continue
+			}
+
+			if fAdded.FileName == fDeleted.FileName {
 				// At this point, we have a pair of files with the same name
 				// but different location.
+
+				log.Debug("FILENAME SAME -- LOCATION DIFFERENT")
 
 				if fAdded.Path == fDeleted.Path {
 					log.Error("Something went wrong as file should not have been marked as deleted or added.")
@@ -305,13 +467,15 @@ FindMovedRenamed:
 
 				// Check state to see if added file is locally available
 				// If so, we can match on file-size, if not, we match on file-id
-				local := fileIsLocalAndNotMoved(fAdded.Path, *datasetState)
+				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+string(os.PathSeparator))
+				local := fileIsLocalAndNotMoved(path.Join(relLocation, fAdded.FileName), *datasetState)
 				if local {
 					if fAdded.Size == fDeleted.Size {
 						// The file was moved
 						movedFiles = append(movedFiles, renamedMovedFile{
-							Old: fDeleted,
-							New: fAdded,
+							Type: api.PackageStatus_MOVED,
+							Old:  fDeleted,
+							New:  fAdded,
 						})
 
 						continue FindMovedRenamed
@@ -324,17 +488,18 @@ FindMovedRenamed:
 						// it is not found in the state file. Need to check the CRC against the
 						// pulled files.
 
-						crc, err := shared.GetFileCrc32(path.Join(datasetRoot, fAdded.Path, fAdded.FileName), 1024*1024)
+						crc, err := shared.GetFileCrc32(path.Join(datasetRoot, fAdded.Path, fAdded.FileName), CrcSize)
 						if err != nil {
 							log.Error("Unable to read ID from file", fAdded.Path)
 							continue FindMovedRenamed
 						}
 
 						for _, m := range datasetState.Files {
-							if m.Crc32 == crc {
+							if m.Crc32 == crc && fDeleted.Path == m.Path {
 								movedFiles = append(movedFiles, renamedMovedFile{
-									Old: fDeleted,
-									New: fAdded,
+									Type: api.PackageStatus_MOVED,
+									Old:  fDeleted,
+									New:  fAdded,
 								})
 								continue FindMovedRenamed
 							}
@@ -344,10 +509,11 @@ FindMovedRenamed:
 					}
 
 					if fileID == fDeleted.FileId {
-						// The file was renamed
+						// The file was moved
 						movedFiles = append(movedFiles, renamedMovedFile{
-							Old: fDeleted,
-							New: fAdded,
+							Type: api.PackageStatus_MOVED,
+							Old:  fDeleted,
+							New:  fAdded,
 						})
 
 						continue FindMovedRenamed
@@ -357,30 +523,41 @@ FindMovedRenamed:
 
 			} else {
 				// At this point we have a file with different names and different location
+				// Potentially a RENAMED/MOVED combo.
 				// We want to check the CRC to determine if these
 				// files are most likely the same.
 
-				crc, err := shared.GetFileCrc32(path.Join(datasetRoot, fAdded.Path, fAdded.FileName), 1024*1024)
-				if err != nil {
-					log.Error("Unable to read ID from file", fAdded.Path)
-					continue FindMovedRenamed
-				}
-				//
-				for _, m := range datasetState.Files {
-					if m.Crc32 == crc {
-						log.Info("MOVED: ", fAdded.Path)
+				log.Debug("POTENTIAL RENAME/MOVE combo: ", fAdded.Path, "/", fAdded.FileName)
+
+				// If the added file has a fileId (not local), then compare fileId to deleted entries
+				// If the added file has a crc32 (local), then compare to state to get packageID and
+				// then deleted based on package ID.
+				if fAdded.hasFileId {
+					if fAdded.FileId == fDeleted.FileId {
 						movedFiles = append(movedFiles, renamedMovedFile{
-							Old: fDeleted,
-							New: fAdded,
+							Type: api.PackageStatus_MOVED_RENAMED,
+							Old:  fDeleted,
+							New:  fAdded,
 						})
 						continue FindMovedRenamed
 					}
+				} else {
+					for _, m := range datasetState.Files {
+						if m.Crc32 == fAdded.Crc32 && fDeleted.FileId == m.FileId {
+							movedFiles = append(movedFiles, renamedMovedFile{
+								Type: api.PackageStatus_MOVED_RENAMED,
+								Old:  fDeleted,
+								New:  fAdded,
+							})
+							continue FindMovedRenamed
+						}
+					}
 				}
-
 			}
 		}
 	}
 
+	var difResults []diffResult
 	// Now create resulting map.
 MergeStep1:
 	// FIND ADDED
@@ -390,15 +567,13 @@ MergeStep1:
 			// If a renamed file matches the current added file,
 			// then add to result as a renamed file.
 			if rFile.New == aFile {
-				result.Files = append(result.Files, &api.PackageStatus{
-					Content: &api.FileInfo{
-						PackageId: aFile.PackageNodeId,
-						Path:      aFile.Path,
-						Name:      aFile.FileName,
-						Message:   "",
-					},
-					ChangeType: api.PackageStatus_RENAMED,
-				})
+				d := diffResult{
+					FilePath: path.Join(rFile.New.Path, rFile.New.FileName),
+					Type:     rFile.Type,
+					Old:      rFile.Old,
+					New:      rFile.New,
+				}
+				difResults = append(difResults, d)
 				continue MergeStep1
 			}
 		}
@@ -408,30 +583,27 @@ MergeStep1:
 			// If a moved file matches the current added File,
 			// add the added file as a moved file.
 			if mFile.New == aFile {
-				result.Files = append(result.Files, &api.PackageStatus{
-					Content: &api.FileInfo{
-						PackageId: aFile.PackageNodeId,
-						Path:      aFile.Path,
-						Name:      aFile.FileName,
-						Message:   "",
-					},
-					ChangeType: api.PackageStatus_MOVED,
-				})
+				r := diffResult{
+					FilePath: path.Join(mFile.New.Path, mFile.New.FileName),
+					Type:     mFile.Type,
+					Old:      mFile.Old,
+					New:      mFile.New,
+				}
+
+				difResults = append(difResults, r)
 				continue MergeStep1
 			}
 		}
 
 		// If the current added file is not renamed, or moved
 		// then add as an added file.
-		result.Files = append(result.Files, &api.PackageStatus{
-			Content: &api.FileInfo{
-				PackageId: aFile.PackageNodeId,
-				Path:      aFile.Path,
-				Name:      aFile.FileName,
-				Message:   "",
-			},
-			ChangeType: api.PackageStatus_ADDED,
-		})
+		r := diffResult{
+			FilePath: path.Join(aFile.Path, aFile.FileName),
+			Type:     api.PackageStatus_ADDED,
+			New:      aFile,
+		}
+
+		difResults = append(difResults, r)
 	}
 
 MergeStep2:
@@ -453,38 +625,34 @@ MergeStep2:
 		}
 
 		// Add other deleted files as deleted.
-		result.Files = append(result.Files, &api.PackageStatus{
-			Content: &api.FileInfo{
-				PackageId: dFile.PackageNodeId,
-				Path:      dFile.Path,
-				Name:      dFile.FileName,
-				Message:   "",
-			},
-			ChangeType: api.PackageStatus_DELETED,
-		})
+		r := diffResult{
+			FilePath: path.Join(dFile.Path, dFile.FileName),
+			Type:     api.PackageStatus_DELETED,
+			Old:      dFile,
+		}
+
+		difResults = append(difResults, r)
 	}
 
 	// FIND CHANGED
-	for _, dFile := range changedFiles {
+	for _, cFile := range changedFiles {
 
-		// Add other deleted files as deleted.
-		result.Files = append(result.Files, &api.PackageStatus{
-			Content: &api.FileInfo{
-				PackageId: dFile.PackageNodeId,
-				Path:      dFile.Path,
-				Name:      dFile.FileName,
-				Message:   "",
-			},
-			ChangeType: api.PackageStatus_CHANGED,
-		})
+		r := diffResult{
+			FilePath: path.Join(cFile.from.Path, cFile.from.FileName.String),
+			Type:     api.PackageStatus_CHANGED,
+			Changed:  cFile,
+		}
+
+		difResults = append(difResults, r)
 	}
 
-	return &result, nil
+	return difResults, nil
 }
 
 func fileIsLocalAndNotMoved(filePath string, state models2.MapState) bool {
 
 	for _, f := range state.Files {
+		log.Debug("LOCAL_NOT_MOVED: ", f.Path, "   ", filePath)
 		if f.Path == filePath && f.IsLocal {
 			return true
 		}

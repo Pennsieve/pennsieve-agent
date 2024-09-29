@@ -16,6 +16,7 @@ type MapState struct {
 }
 
 type MapStateRecord struct {
+	FileId   string    `json:"fileId"`
 	Path     string    `json:"path"`
 	PullTime time.Time `json:"pullTime"`
 	IsLocal  bool      `json:"isLocal"`

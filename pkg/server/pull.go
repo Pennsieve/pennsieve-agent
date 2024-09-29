@@ -92,9 +92,11 @@ func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleSta
 					}
 				}
 
+				relLocation := strings.TrimPrefix(pkg.Location, datasetRoot+string(os.PathSeparator))
+
 				// First time we pull the file --> create new record in mapState.
 				mapState.Files = append(mapState.Files, models.MapStateRecord{
-					Path:     pkg.Location,
+					Path:     relLocation,
 					PullTime: time.Now(),
 					IsLocal:  true,
 					Crc32:    crc32,

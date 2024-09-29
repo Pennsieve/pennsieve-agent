@@ -391,6 +391,7 @@ message packageStatus {
 		DELETED = 2;
 		CHANGED = 3;
 		MOVED = 4;
+		MOVED_RENAMED = 5;
 	}
 
 	fileInfo content = 1;
