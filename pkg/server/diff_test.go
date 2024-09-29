@@ -6,13 +6,17 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestCompareManifest(t *testing.T) {
-	datasetRoot, err := filepath.Abs(filepath.Join("..", "..", "resources", "test", "mapDataset"))
-	assert.NoError(t, err)
+
+	curDir, _ := os.Getwd()
+	root := filepath.Dir(filepath.Dir(curDir))
+
+	datasetRoot := filepath.Join(root, "resources", "test", "mapDataset")
 
 	files, _ := createFolderManifest(datasetRoot)
 
