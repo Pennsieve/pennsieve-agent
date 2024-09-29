@@ -153,7 +153,7 @@ func getFileIdOrCrc32(path string, maxBytes int) (*crcOrFileId, error) {
 		// Return CRC
 		crc32, err := shared.GetFileCrc32(path, maxBytes)
 		if err != nil {
-			return nil, errors.New("cannot get file crc32 or fileID")
+			return nil, err
 		}
 
 		return &crcOrFileId{
