@@ -11,6 +11,7 @@
         {
             "sourcePackageId": "N:package:1111",
             "sourcePackageName": "file_1.txt",
+            "fileId": "1111",
             "name": "file_1.txt",
             "path": "",
             "size": 10,
@@ -19,6 +20,7 @@
         {
             "sourcePackageId": "N:package:2222",
             "sourcePackageName": "file_2.txt",
+            "fileId": "2222",
             "name": "file_2.txt",
             "path": "folder_1",
             "size": 10,
@@ -27,6 +29,7 @@
         {
             "sourcePackageId": "N:package:3333",
             "sourcePackageName": "file_3.txt",
+            "fileId": "3333",
             "name": "file_3.txt",
             "path": "folder_1",
             "size": 10,
@@ -35,6 +38,7 @@
         {
             "sourcePackageId": "N:package:4444",
             "sourcePackageName": "file_4.txt",
+            "fileId": "4444",
             "name": "file_4.txt",
             "path": "folder_1/folder_2",
             "size": 10,
