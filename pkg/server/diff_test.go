@@ -16,7 +16,7 @@ func TestCompareManifest(t *testing.T) {
 
 	files, _ := createFolderManifest(datasetRoot)
 
-	manifestLoc, _ := filepath.Abs(filepath.Join("..", "..", "resources", "test", "mapDataset", ".pennsieve", "manifest.json"))
+	manifestLoc, _ := filepath.Abs(filepath.Join("resources", "test", "mapDataset", ".pennsieve", "manifest.json"))
 
 	manifest, err := shared.ReadWorkspaceManifest(manifestLoc)
 	assert.NoError(t, err)
