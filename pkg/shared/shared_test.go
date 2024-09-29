@@ -14,7 +14,7 @@ func TestCrCCheck(t *testing.T) {
 	assert.Equal(t, uint32(0xa1dc9897), crc)
 
 	// Check that crc is idempotent
-	crc, err = GetFileCrc32("../../resources/test/pulltest/.pennsieve/manifest.json", nrBytes)
+	crc, err = GetFileCrc32("../../resources/test/pullTest/.pennsieve/manifest.json", nrBytes)
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(0xa1dc9897), crc)
 
