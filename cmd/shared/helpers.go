@@ -33,7 +33,7 @@ func GetAbsolutePath(folderStr string) (string, error) {
 			return "", err
 		}
 
-		folder = path.Join(prefix, folder)
+		folder = filepath.Join(prefix, folder)
 	}
 
 	return folder, nil

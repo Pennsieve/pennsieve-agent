@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -31,14 +32,14 @@ func (s *server) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatu
 	}
 
 	// Create folder (and include hidden .pennsieve folder for manifest)
-	err = os.MkdirAll(path.Join(req.TargetFolder, ".pennsieve"), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(req.TargetFolder, ".pennsieve"), os.ModePerm)
 	if err != nil {
 		log.Errorf("Failed to create target path: %v", err)
 		return nil, err
 	}
 
 	// Download Manifest to hidden .pennsieve folder in targetpath
-	manifestLocation := path.Join(req.TargetFolder, ".pennsieve", "manifest.json")
+	manifestLocation := filepath.Join(req.TargetFolder, ".pennsieve", "manifest.json")
 	_, err = s.downloadFileFromPresignedUrl(ctx, manifestResponse.URL, manifestLocation, uuid.New().String())
 	if err != nil {
 		log.Errorf("Download failed: %v", err)
@@ -59,7 +60,7 @@ func (s *server) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatu
 	}
 
 	stateJson, _ := json.MarshalIndent(state, "", "  ")
-	stateFileLocation := path.Join(req.TargetFolder, ".pennsieve", "state.json")
+	stateFileLocation := filepath.Join(req.TargetFolder, ".pennsieve", "state.json")
 	err = os.WriteFile(stateFileLocation, stateJson, 0644)
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (s *server) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatu
 
 	for _, file := range data.Files {
 
-		fileLocation := path.Join(req.TargetFolder, file.Path, file.PackageName)
+		fileLocation := filepath.Join(req.TargetFolder, file.Path, file.PackageName)
 
 		err := os.MkdirAll(path.Dir(fileLocation), os.ModePerm)
 		if err != nil {

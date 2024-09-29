@@ -13,7 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -88,14 +88,14 @@ func (s *server) Download(ctx context.Context, req *api.DownloadRequest) (*api.D
 		}
 
 		// Create folder (and include hidden .pennsieve folder for manifest)
-		err = os.MkdirAll(path.Join(requestData.TargetFolder, ".pennsieve"), os.ModePerm)
+		err = os.MkdirAll(filepath.Join(requestData.TargetFolder, ".pennsieve"), os.ModePerm)
 		if err != nil {
 			log.Errorf("Failed to create target path: %v", err)
 			return nil, err
 		}
 
 		// Download Manifest to hidden .pennsieve folder in target path
-		manifestLocation := path.Join(requestData.TargetFolder, ".pennsieve", "manifest.json")
+		manifestLocation := filepath.Join(requestData.TargetFolder, ".pennsieve", "manifest.json")
 		_, err = s.downloadFileFromPresignedUrl(ctx, manifestResponse.URL, manifestLocation, uuid.New().String())
 		if err != nil {
 			log.Errorf("Download failed: %v", err)
@@ -174,7 +174,7 @@ func (s *server) downloadWorker(ctx context.Context, workerId int,
 ) {
 
 	for record := range jobs {
-		err := os.MkdirAll(path.Join(targetFolder, record.Path), os.ModePerm)
+		err := os.MkdirAll(filepath.Join(targetFolder, record.Path), os.ModePerm)
 
 		res, err := s.client.Package.GetPresignedUrl(ctx, record.PackageNodeId, false)
 		if err != nil {
@@ -195,7 +195,7 @@ func (s *server) downloadWorker(ctx context.Context, workerId int,
 			log.Error("Cannot find file in returned presigned url array")
 		}
 
-		fileLocation := path.Join(targetFolder, record.FileName.String)
+		fileLocation := filepath.Join(targetFolder, record.FileName.String)
 		_, err = s.downloadFileFromPresignedUrl(ctx, preURL, fileLocation, record.PackageNodeId)
 		if err != nil {
 			log.Errorf("Download failed: %v", err)
@@ -245,7 +245,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 	start := time.Now().UnixMilli()
 
 	prefix, err := os.UserHomeDir()
-	tempPath := path.Join(prefix, ".pennsieve", fmt.Sprintf(".%s_download", uuid.NewString()))
+	tempPath := filepath.Join(prefix, ".pennsieve", fmt.Sprintf(".%s_download", uuid.NewString()))
 
 	ctx, cancelFnc := context.WithCancel(context.Background())
 	session := downloadSession{
