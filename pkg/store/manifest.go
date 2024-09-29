@@ -3,9 +3,10 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 type Manifest struct {
@@ -78,37 +79,55 @@ func (s *manifestStore) Get(id int32) (*Manifest, error) {
 
 // GetAll returns all rows in the Upload Record Table
 func (s *manifestStore) GetAll() ([]Manifest, error) {
+	
 	rows, err := s.db.Query("SELECT * FROM manifests;")
-	var allSessions []Manifest
-	if err == nil {
-		for rows.Next() {
-			var statusStr string
-			var currentRecord Manifest
-			err = rows.Scan(
-				&currentRecord.Id,
-				&currentRecord.NodeId,
-				&currentRecord.UserId,
-				&currentRecord.UserName,
-				&currentRecord.OrganizationId,
-				&currentRecord.OrganizationName,
-				&currentRecord.DatasetId,
-				&currentRecord.DatasetName,
-				&statusStr,
-				&currentRecord.CreatedAt,
-				&currentRecord.UpdatedAt)
-
-			var m manifest.Status
-			currentRecord.Status = m.ManifestStatusMap(statusStr)
-
-			if err != nil {
-				log.Error("ERROR: ", err)
-			}
-
-			allSessions = append(allSessions, currentRecord)
-		}
-		return allSessions, err
+	if err != nil {
+		return nil, err
 	}
-	return allSessions, err
+	
+	defer rows.Close()
+
+	var allSessions []Manifest
+
+	
+	for rows.Next() {
+		var statusStr string
+		var currentRecord Manifest
+
+		
+		err := rows.Scan(
+			&currentRecord.Id,
+			&currentRecord.NodeId,
+			&currentRecord.UserId,
+			&currentRecord.UserName,
+			&currentRecord.OrganizationId,
+			&currentRecord.OrganizationName,
+			&currentRecord.DatasetId,
+			&currentRecord.DatasetName,
+			&statusStr,
+			&currentRecord.CreatedAt,
+			&currentRecord.UpdatedAt,
+		)
+		if err != nil {
+			log.Error("ERROR: ", err)
+			return nil, err
+		}
+
+		
+		var m manifest.Status
+		currentRecord.Status = m.ManifestStatusMap(statusStr)
+
+		
+		allSessions = append(allSessions, currentRecord)
+	}
+
+	
+	if err = rows.Err(); err != nil {
+		log.Error("ERROR: ", err)
+		return nil, err
+	}
+
+	return allSessions, nil
 }
 
 // Add adds multiple rows to the UploadRecords database.
@@ -163,13 +182,13 @@ func (s *manifestStore) Remove(manifestId int32) error {
 
 // SetManifestNodeId updates the manifest Node ID in the Manifest object and Database
 func (s *manifestStore) SetManifestNodeId(manifestId int32, nodeId string) error {
-
 	statement, err := s.db.Prepare(
 		"UPDATE manifests SET node_id = ? WHERE id = ?")
 	if err != nil {
 		log.Error(err)
 		return err
 	}
+	defer statement.Close()  
 
 	_, err = statement.Exec(nodeId, manifestId)
 	if err != nil {
