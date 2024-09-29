@@ -2,7 +2,12 @@
 ![Version](https://img.shields.io/github/v/release/Pennsieve/pennsieve-agent?include_prereleases)
 
 # pennsieve-agent
-Second iteration of the Pennsieve Agent
+The Pennsieve Agent is an installable application that runs on the user's local 
+machine. It manages interactions with the Pennsieve client and is a dependency
+for the Python client and Command Line Interface.
+
+By installing the Pennsieve Agent, users automatically install the Command Line
+Interface (CLI). The Python client needs to be installed separately.
 
 
 ## Features
