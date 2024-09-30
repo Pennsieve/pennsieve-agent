@@ -282,9 +282,11 @@ FindAdded:
 						if s.Path == fPath && s.IsLocal {
 
 							// File is different size at the same location and file is local
-							crc32, err := shared.GetFileCrc32(fPath, CrcSize)
+							crc32, err := shared.GetFileCrc32(fPathFull, CrcSize)
 							if err != nil {
+								log.Error(err)
 								log.Error("Cannot get crc32 for changed file: ", fPath)
+								continue
 							}
 
 							log.Warn("FIND CHANGED FILE")
