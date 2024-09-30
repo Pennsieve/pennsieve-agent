@@ -9,6 +9,7 @@ import (
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -191,7 +192,7 @@ func createFolderManifest(datasetRoot string) ([]folderFile, error) {
 	}
 
 	var files []folderFile
-	err := filepath.WalkDir(datasetRoot, func(p string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(filepath.FromSlash(datasetRoot), func(p string, d os.DirEntry, err error) error {
 
 		_, f := filepath.Split(p)
 		if f == ".pennsieve" {
@@ -238,10 +239,12 @@ func createFolderManifest(datasetRoot string) ([]folderFile, error) {
 // since fetching the dataset from the Pennsieve server (compare to the manifest.json file)
 func compareManifestToFolder(datasetRoot string, manifest []models.ManifestDTO, files []folderFile) ([]diffResult, error) {
 
-	//var result = api.MapDiffResponse{}
 	var addedFiles []addedFile
 	var deletedFiles []deletedFile
 	var changedFiles []changedFile
+
+	// Just in case the input is not operating system correct.
+	datasetRoot = filepath.FromSlash(datasetRoot)
 
 	// Read State File which is used to determine if files are synced with server
 	datasetState, err := shared.ReadStateFile(filepath.Join(datasetRoot, ".pennsieve", "state.json"))
@@ -252,11 +255,11 @@ func compareManifestToFolder(datasetRoot string, manifest []models.ManifestDTO, 
 	// Iterate over folder and find files that are added
 FindAdded:
 	for _, f := range files {
-		fPath := filepath.ToSlash(filepath.Join(f.Path, f.FileName))
-		fPathFull := filepath.ToSlash(filepath.Join(datasetRoot, fPath))
+		fPath := path.Join(f.Path, f.FileName)     // uses slash as path divider
+		fPathFull := path.Join(datasetRoot, fPath) // uses slash as path divider
 		for _, m := range manifest {
 			if m.FileName.Valid {
-				mPath := filepath.Join(m.Path, m.PackageName)
+				mPath := path.Join(m.Path, m.PackageName)
 				if fPath == mPath {
 					// At this point, we have a file with the expected name at a location,
 					// we will check the expected size to see if something changed.
@@ -358,9 +361,9 @@ FindAdded:
 FindDeleted:
 	for _, m := range manifest {
 		if m.FileName.Valid {
-			mPath := filepath.Join(m.Path, m.PackageName)
+			mPath := path.Join(m.Path, m.PackageName)
 			for _, f := range files {
-				fPath := filepath.ToSlash(filepath.Join(f.Path, f.FileName))
+				fPath := path.Join(f.Path, f.FileName)
 				if fPath == mPath {
 					continue FindDeleted
 				}
@@ -417,10 +420,10 @@ FindMovedRenamed:
 
 				// Check the state to see if the deleted entry was locally available.
 				// If so, we can check to see if there is a match by file-size.
-				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+string(os.PathSeparator))
+				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+"/")
 				log.Info("Relative location: ", relLocation)
 				log.Info()
-				if fileIsLocalAndNotMoved(filepath.Join(relLocation, fDeleted.FileName), *datasetState) {
+				if fileIsLocalAndNotMoved(path.Join(relLocation, fDeleted.FileName), *datasetState) {
 					log.Warn("FileLocalAndNotMoved: ", relLocation)
 
 					// If the file size is the same, we assume that this is a renamed file.
@@ -440,9 +443,9 @@ FindMovedRenamed:
 					log.Warn("File not local")
 
 					// Try to read the fileID from the file. If this fails, we probably have a moved file.
-					log.Info("read from id: ", filepath.Join(datasetRoot, fAdded.Path, fAdded.FileName))
+					log.Info("read from id: ", path.Join(datasetRoot, fAdded.Path, fAdded.FileName))
 
-					fileID, err := shared.ReadFileIDFromFile(filepath.Join(datasetRoot, fAdded.Path, fAdded.FileName))
+					fileID, err := shared.ReadFileIDFromFile(path.Join(datasetRoot, fAdded.Path, fAdded.FileName))
 
 					if err != nil {
 						// In this case, we have a file that was marked as added,
@@ -485,8 +488,8 @@ FindMovedRenamed:
 
 				// Check state to see if added file is locally available
 				// If so, we can match on file-size, if not, we match on file-id
-				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+string(os.PathSeparator))
-				local := fileIsLocalAndNotMoved(filepath.Join(relLocation, fAdded.FileName), *datasetState)
+				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+"/")
+				local := fileIsLocalAndNotMoved(path.Join(relLocation, fAdded.FileName), *datasetState)
 				if local {
 					if fAdded.Size == fDeleted.Size {
 						// The file was moved
@@ -500,14 +503,14 @@ FindMovedRenamed:
 						continue FindMovedRenamed
 					}
 				} else {
-					fileID, err := shared.ReadFileIDFromFile(filepath.Join(datasetRoot, fAdded.Path, fAdded.FileName))
+					fileID, err := shared.ReadFileIDFromFile(path.Join(datasetRoot, fAdded.Path, fAdded.FileName))
 
 					if err != nil {
 						// Likely the file is actually downloaded and moved, which is why
 						// it is not found in the state file. Need to check the CRC against the
 						// pulled files.
 
-						crc, err := shared.GetFileCrc32(filepath.Join(datasetRoot, fAdded.Path, fAdded.FileName), CrcSize)
+						crc, err := shared.GetFileCrc32(path.Join(datasetRoot, fAdded.Path, fAdded.FileName), CrcSize)
 						if err != nil {
 							log.Error("Unable to read ID from file", fAdded.Path)
 							continue FindMovedRenamed
@@ -593,7 +596,7 @@ MergeStep1:
 			// then add to result as a renamed file.
 			if rFile.New == aFile {
 				d := diffResult{
-					FilePath: filepath.Join(rFile.New.Path, rFile.New.FileName),
+					FilePath: path.Join(rFile.New.Path, rFile.New.FileName),
 					Type:     rFile.Type,
 					Old:      rFile.Old,
 					New:      rFile.New,
@@ -609,7 +612,7 @@ MergeStep1:
 			// add the added file as a moved file.
 			if mFile.New == aFile {
 				r := diffResult{
-					FilePath: filepath.Join(mFile.New.Path, mFile.New.FileName),
+					FilePath: path.Join(mFile.New.Path, mFile.New.FileName),
 					Type:     mFile.Type,
 					Old:      mFile.Old,
 					New:      mFile.New,
@@ -623,7 +626,7 @@ MergeStep1:
 		// If the current added file is not renamed, or moved
 		// then add as an added file.
 		r := diffResult{
-			FilePath: filepath.Join(aFile.Path, aFile.FileName),
+			FilePath: path.Join(aFile.Path, aFile.FileName),
 			Type:     api.PackageStatus_ADDED,
 			New:      aFile,
 		}
@@ -636,7 +639,7 @@ MergeStep1:
 
 		if !dFile.hasMatched {
 			r := diffResult{
-				FilePath: filepath.Join(dFile.Path, dFile.FileName),
+				FilePath: path.Join(dFile.Path, dFile.FileName),
 				Type:     api.PackageStatus_DELETED,
 				Old:      dFile,
 			}
@@ -650,7 +653,7 @@ MergeStep1:
 	for _, cFile := range changedFiles {
 
 		r := diffResult{
-			FilePath: filepath.Join(cFile.from.Path, cFile.from.FileName.String),
+			FilePath: path.Join(cFile.from.Path, cFile.from.FileName.String),
 			Type:     api.PackageStatus_CHANGED,
 			Changed:  cFile,
 		}
@@ -668,7 +671,7 @@ func fileIsLocalAndNotMoved(filePath string, state models2.MapState) bool {
 
 	for _, f := range state.Files {
 		log.Warn("LOCAL_NOT_MOVED: ", f.Path, "   ", filePath)
-		if f.Path == filepath.ToSlash(filePath) && f.IsLocal {
+		if f.Path == filePath && f.IsLocal {
 			return true
 		}
 	}

@@ -15,8 +15,11 @@ import (
 
 func ReadStateFile(stateFileLocation string) (*models2.MapState, error) {
 
+	// just in case input is not correct for operating system.
+	stateFileLocation = filepath.FromSlash(stateFileLocation)
+
 	// Now read in manifest
-	manifestFile, err := os.Open(filepath.FromSlash(stateFileLocation))
+	manifestFile, err := os.Open(stateFileLocation)
 	if err != nil {
 		fmt.Printf("failed to open manifest file: %s, error: %v", stateFileLocation, err)
 		return nil, err
