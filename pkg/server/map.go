@@ -9,7 +9,6 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	log "github.com/sirupsen/logrus"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 )
@@ -70,7 +69,7 @@ func (s *server) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatu
 
 		fileLocation := filepath.Join(req.TargetFolder, file.Path, file.PackageName)
 
-		err := os.MkdirAll(path.Dir(fileLocation), os.ModePerm)
+		err := os.MkdirAll(filepath.Dir(fileLocation), os.ModePerm)
 		if err != nil {
 			log.Errorf("Failed to create target path: %v", err)
 			continue

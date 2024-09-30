@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/stretchr/testify/assert"
-	"path"
 	"path/filepath"
 	"testing"
 )
@@ -12,7 +11,7 @@ func TestFindMappedDatasetRoot(t *testing.T) {
 	root, found, err := findMappedDatasetRoot(filepath.Join("..", "..", "resources", "test", "pullTest", "folder_1", "folder_2"))
 	assert.NoError(t, err)
 	assert.True(t, found)
-	_, lastPathName := path.Split(root)
+	_, lastPathName := filepath.Split(root)
 	assert.Equal(t, "pullTest", lastPathName,
 		"Should find the manifest file in root folder when starting in subfolder in mapped dataset.")
 

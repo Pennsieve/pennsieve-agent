@@ -4,7 +4,6 @@ package shared
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -14,7 +13,7 @@ import (
 // GetAbsolutePath returns an absolute path based on a partial patial path provided
 func GetAbsolutePath(folderStr string) (string, error) {
 
-	folder := path.Clean(folderStr) // removing '/' adn '//' and '.' and '..'
+	folder := filepath.Clean(folderStr) // removing '/' adn '//' and '.' and '..'
 	if !strings.HasPrefix(folder, string(os.PathSeparator)) {
 
 		// If the user provides an absolute path, then use that,
