@@ -252,8 +252,8 @@ func compareManifestToFolder(datasetRoot string, manifest []models.ManifestDTO, 
 	// Iterate over folder and find files that are added
 FindAdded:
 	for _, f := range files {
-		fPath := filepath.Join(f.Path, f.FileName)
-		fPathFull := filepath.Join(datasetRoot, fPath)
+		fPath := filepath.ToSlash(filepath.Join(f.Path, f.FileName))
+		fPathFull := filepath.ToSlash(filepath.Join(datasetRoot, fPath))
 		for _, m := range manifest {
 			if m.FileName.Valid {
 				mPath := filepath.Join(m.Path, m.PackageName)
@@ -262,7 +262,7 @@ FindAdded:
 					// we will check the expected size to see if something changed.
 					// If the size of the file is the same as expected, we assume the file
 					// is untouched.
-					fi, err := os.Stat(fPathFull)
+					fi, err := os.Stat(filepath.FromSlash(fPathFull))
 					if err != nil {
 						log.Error("Cannot stat file ", fPath)
 						continue
@@ -360,7 +360,7 @@ FindDeleted:
 		if m.FileName.Valid {
 			mPath := filepath.Join(m.Path, m.PackageName)
 			for _, f := range files {
-				fPath := filepath.Join(f.Path, f.FileName)
+				fPath := filepath.ToSlash(filepath.Join(f.Path, f.FileName))
 				if fPath == mPath {
 					continue FindDeleted
 				}
