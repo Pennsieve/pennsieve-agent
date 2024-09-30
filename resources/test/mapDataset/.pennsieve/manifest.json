@@ -115,6 +115,15 @@
             "path": "folder_2",
             "size": 100,
             "checksum": ""
+        },
+        {
+            "packageId": "N:package:eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            "packageName": "file_14_deleted.txt",
+            "fileId": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            "fileName": "file_13.txt",
+            "path": "folder_2",
+            "size": 100,
+            "checksum": ""
         }
     ]
 }

@@ -631,32 +631,19 @@ MergeStep1:
 		difResults = append(difResults, r)
 	}
 
-MergeStep2:
 	// FIND DELETED
 	for _, dFile := range deletedFiles {
 
-		// Exclude deleted files that are listed in renamed
-		for _, rFile := range renamedFiles {
-			if rFile.Old == dFile {
-				continue MergeStep2
+		if !dFile.hasMatched {
+			r := diffResult{
+				FilePath: filepath.Join(dFile.Path, dFile.FileName),
+				Type:     api.PackageStatus_DELETED,
+				Old:      dFile,
 			}
+
+			difResults = append(difResults, r)
 		}
 
-		// Exclude deleted files that are listed in moved
-		for _, mFile := range movedFiles {
-			if mFile.Old == dFile {
-				continue MergeStep2
-			}
-		}
-
-		// Add other deleted files as deleted.
-		r := diffResult{
-			FilePath: filepath.Join(dFile.Path, dFile.FileName),
-			Type:     api.PackageStatus_DELETED,
-			Old:      dFile,
-		}
-
-		difResults = append(difResults, r)
 	}
 
 	// FIND CHANGED
@@ -681,7 +668,7 @@ func fileIsLocalAndNotMoved(filePath string, state models2.MapState) bool {
 
 	for _, f := range state.Files {
 		log.Warn("LOCAL_NOT_MOVED: ", f.Path, "   ", filePath)
-		if f.Path == filePath && f.IsLocal {
+		if f.Path == filepath.ToSlash(filePath) && f.IsLocal {
 			return true
 		}
 	}

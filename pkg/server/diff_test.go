@@ -26,7 +26,7 @@ func TestCompareManifest(t *testing.T) {
 	result, err := compareManifestToFolder(datasetRoot, manifest.Files, files)
 	assert.NoError(t, err)
 
-	assert.Len(t, result, 8, "Expect 8 results to have changes compared to original manifest.")
+	assert.Len(t, result, 9, "Expect 8 results to have changes compared to original manifest.")
 
 	count := 0
 	for _, f := range result {
@@ -74,9 +74,14 @@ func TestCompareManifest(t *testing.T) {
 			assert.Equal(t, f.Changed.from.Size, models.NullInt{NullInt64: sql.NullInt64{Valid: true, Int64: 35}})
 			assert.Equal(t, f.Changed.Size, int64(44))
 			count++
+		case filepath.Join("folder_2", "file_14_deleted.txt"):
+			assert.Equal(t, api.PackageStatus_DELETED, f.Type)
+			count++
+
 		}
+
 	}
 
-	assert.Equal(t, 8, count, "Expect each case statement in switch to be called once.")
+	assert.Equal(t, 9, count, "Expect each case statement in switch to be called once.")
 
 }
