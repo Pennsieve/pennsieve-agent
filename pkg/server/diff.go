@@ -30,7 +30,7 @@ func (s *server) GetMapDiff(_ context.Context, req *api.MapDiffRequest) (*api.Ma
 		return nil, err
 	}
 
-	manifest, err := shared.ReadWorkspaceManifest(path.Join(datasetRoot, ".pennsieve", "manifest.json"))
+	manifest, err := shared.ReadWorkspaceManifest(filepath.Join(datasetRoot, ".pennsieve", "manifest.json"))
 	if err != nil {
 		return nil, err
 	}
