@@ -7,6 +7,7 @@ import (
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"path"
 	"path/filepath"
 	"testing"
 )
@@ -42,7 +43,7 @@ func TestCompareManifest(t *testing.T) {
 			count++
 		case filepath.Join("folder_1", "folder_1_1", "file_5_moved.txt"):
 			assert.Equal(t, api.PackageStatus_MOVED, f.Type)
-			assert.Equal(t, f.New.Path, filepath.Join("folder_1", "folder_1_1"))
+			assert.Equal(t, f.New.Path, path.Join("folder_1", "folder_1_1"))
 			assert.Equal(t, f.Old.Path, "folder_1")
 			count++
 		case filepath.Join("folder_2", "file_7_downloaded_renamed.txt"):
@@ -54,19 +55,19 @@ func TestCompareManifest(t *testing.T) {
 			assert.Equal(t, api.PackageStatus_MOVED_RENAMED, f.Type)
 			assert.Equal(t, f.New.FileName, "file_12_downloaded_moved_renamed.txt")
 			assert.Equal(t, f.Old.FileName, "file_12_downloaded.txt")
-			assert.Equal(t, f.New.Path, filepath.Join("folder_2", "folder_2_1"))
+			assert.Equal(t, f.New.Path, path.Join("folder_2", "folder_2_1"))
 			assert.Equal(t, f.Old.Path, "folder_2")
 			count++
 		case filepath.Join("folder_2", "folder_2_1", "file_13_moved_renamed.txt"):
 			assert.Equal(t, api.PackageStatus_MOVED_RENAMED, f.Type)
 			assert.Equal(t, f.New.FileName, "file_13_moved_renamed.txt")
 			assert.Equal(t, f.Old.FileName, "file_13.txt")
-			assert.Equal(t, f.New.Path, filepath.Join("folder_2", "folder_2_1"))
+			assert.Equal(t, f.New.Path, path.Join("folder_2", "folder_2_1"))
 			assert.Equal(t, f.Old.Path, "folder_2")
 			count++
 		case filepath.Join("folder_2", "folder_2_1", "file_8_downloaded_moved.txt"):
 			assert.Equal(t, api.PackageStatus_MOVED, f.Type)
-			assert.Equal(t, f.New.Path, filepath.Join("folder_2", "folder_2_1"))
+			assert.Equal(t, f.New.Path, path.Join("folder_2", "folder_2_1"))
 			assert.Equal(t, f.Old.Path, "folder_2")
 			count++
 		case filepath.Join("folder_2", "file_9_downloaded_changed.txt"):
