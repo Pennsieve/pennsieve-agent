@@ -9,13 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 )
 
 func ReadStateFile(stateFileLocation string) (*models2.MapState, error) {
 
 	// Now read in manifest
-	manifestFile, err := os.Open(stateFileLocation)
+	manifestFile, err := os.Open(filepath.FromSlash(stateFileLocation))
 	if err != nil {
 		fmt.Printf("failed to open manifest file: %s, error: %v", stateFileLocation, err)
 		return nil, err
@@ -45,7 +46,7 @@ func ReadStateFile(stateFileLocation string) (*models2.MapState, error) {
 func ReadWorkspaceManifest(manifestLocation string) (*models.WorkspaceManifest, error) {
 
 	// Now read in manifest
-	manifestFile, err := os.Open(manifestLocation)
+	manifestFile, err := os.Open(filepath.FromSlash(manifestLocation))
 	if err != nil {
 		fmt.Printf("failed to open manifest file: %s, error: %v", manifestLocation, err)
 		return nil, err
@@ -74,7 +75,7 @@ func ReadWorkspaceManifest(manifestLocation string) (*models.WorkspaceManifest, 
 
 func ReadFileIDFromFile(location string) (string, error) {
 
-	f, err := os.Open(location)
+	f, err := os.Open(filepath.FromSlash(location))
 	if err != nil {
 		return "", err
 	}

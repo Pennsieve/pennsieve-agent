@@ -102,7 +102,7 @@ func (s *server) Download(ctx context.Context, req *api.DownloadRequest) (*api.D
 		}
 
 		// Now read in manifest
-		manifestFile, err := os.Open(manifestLocation)
+		manifestFile, err := os.Open(filepath.FromSlash(manifestLocation))
 		if err != nil {
 			fmt.Printf("failed to open manifest file: %s, error: %v", manifestLocation, err)
 			return nil, err

@@ -222,7 +222,7 @@ func createFolderManifest(datasetRoot string) ([]folderFile, error) {
 
 		curFile := folderFile{
 			FileName: fileName,
-			Path:     cleanDir,
+			Path:     filepath.ToSlash(cleanDir),
 			Size:     info.Size(),
 		}
 

@@ -4,6 +4,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hash/crc32"
 	"os"
+	"path/filepath"
 )
 
 func PathIsDirectory(path string) bool {
@@ -26,7 +27,7 @@ func PathIsDirectory(path string) bool {
 
 func GetFileCrc32(path string, maxBytes int) (uint32, error) {
 
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.FromSlash(path))
 	defer f.Close()
 	if err != nil {
 		log.Error("Error in opening file in GETFILECRC32: ", err)
