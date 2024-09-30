@@ -11,6 +11,7 @@ jobs:
   build:
     env:
       GOPROXY: "https://proxy.golang.org"
+      LOG_LEVEL: "Debug"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
