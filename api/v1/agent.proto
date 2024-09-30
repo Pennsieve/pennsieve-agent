@@ -20,6 +20,13 @@ service Agent {
 	rpc UploadManifest(UploadManifestRequest) returns (SimpleStatusResponse) {}
 	rpc CancelUpload(CancelUploadRequest) returns (SimpleStatusResponse) {}
 
+	// Download and Map Endpoints
+	rpc Download(DownloadRequest) returns (DownloadResponse) {}
+	rpc CancelDownload(CancelDownloadRequest) returns (SimpleStatusResponse) {}
+	rpc Map(MapRequest) returns (SimpleStatusResponse) {}
+	rpc Pull(PullRequest) returns (SimpleStatusResponse) {}
+	rpc GetMapDiff(MapDiffRequest) returns (MapDiffResponse) {}
+
 	// Server Endpoints
 	rpc Version(VersionRequest) returns (VersionResponse) {}
 	rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
@@ -42,6 +49,10 @@ service Agent {
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
 }
 
+message PullRequest {
+	string path = 1;
+}
+
 message SubscribeRequest {
 	int32 id = 1;
 }
@@ -50,6 +61,7 @@ message SubscribeResponse {
 	message EventResponse {
 		string details = 1;
 	}
+
 	message UploadResponse {
 		string file_id = 1;
 		int64 total = 2;
@@ -63,6 +75,20 @@ message SubscribeResponse {
 			COMPLETE = 2;
 		}
 	}
+
+	message DownloadStatusResponse {
+		string file_id = 1;
+		int64 total = 2;
+		int64 current = 3;
+		DownloadStatus status = 4;
+
+		enum DownloadStatus{
+			INIT = 0;
+			IN_PROGRESS = 1;
+			COMPLETE = 2;
+		}
+	}
+
 	message SyncResponse {
 		enum SyncStatus{
 			INIT = 0;
@@ -81,12 +107,16 @@ message SubscribeResponse {
 		UPLOAD_STATUS = 1;	// Upload Status Message
 		UPLOAD_CANCEL = 2; // Upload was cancelled
 		SYNC_STATUS = 3; // Sync Status message
+		DOWNLOAD_STATUS = 4; // Download Status Message
+		DOWNLOAD_CANCEL = 5; // Download was cancelled
 	}
 	MessageType type = 8;
 	oneof message_data {
 		UploadResponse upload_status = 9;
 		EventResponse event_info = 10;
 		SyncResponse sync_status = 11;
+		DownloadStatusResponse download_status = 12;
+
 	}
 }
 
@@ -96,6 +126,11 @@ message SimpleStatusResponse {
 
 message CancelUploadRequest {
 	int32 manifest_id = 1;
+	bool cancel_all = 2;
+}
+
+message CancelDownloadRequest {
+	optional string id = 1;
 	bool cancel_all = 2;
 }
 
@@ -295,4 +330,74 @@ message Account {
 
 message Credentials {
 	string profile = 1;
+}
+
+message MapRequest {
+	string dataset_id = 1;
+	string target_folder = 2;
+}
+
+message DownloadRequest {
+
+	enum DownloadType {
+		PACKAGE = 0;
+		DATASET = 1;
+	}
+
+	DownloadType type = 1;
+
+	oneof data {
+		DownloadDatasetRequest dataset = 9;
+		DownloadPackageRequest package = 10;
+	}
+}
+
+message DownloadDatasetRequest {
+	string dataset_id = 1;
+	string target_folder = 2;
+}
+
+message DownloadPackageRequest {
+	string package_id = 1;
+	bool get_presigned_url = 2;
+}
+
+message DownloadResponse {
+	enum ResponseType {
+		PRESIGNED_URL = 0;
+		DOWNLOAD = 1;
+	}
+
+	ResponseType type = 1;
+	string status = 2;
+	repeated string url = 3;
+}
+
+message MapDiffRequest {
+	string path = 1;
+}
+
+message fileInfo {
+	string package_id = 1;
+	string path = 2;
+	string name = 3;
+	string message = 4;
+}
+
+message packageStatus {
+	enum StatusType {
+		ADDED = 0;
+		RENAMED = 1;
+		DELETED = 2;
+		CHANGED = 3;
+		MOVED = 4;
+		MOVED_RENAMED = 5;
+	}
+
+	fileInfo content = 1;
+	StatusType changeType = 2;
+}
+
+message MapDiffResponse {
+	repeated packageStatus files = 1;
 }

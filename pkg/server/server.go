@@ -27,9 +27,10 @@ var Version = "development"
 
 type server struct {
 	pb.UnimplementedAgentServer
-	subscribers    sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFncs     sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
-	syncCancelFncs sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
+	subscribers        sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs         sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+	syncCancelFncs     sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
+	downloadCancelFncs sync.Map // downloadCancelFncs is a map that holds cancel functions for download routines.
 
 	client *pennsieve.Client
 
@@ -41,6 +42,11 @@ type server struct {
 type uploadSession struct {
 	manifestId int32
 	cancelFnc  context.CancelFunc
+}
+
+type downloadSession struct {
+	id        string
+	cancelFnc context.CancelFunc
 }
 
 type sub struct {

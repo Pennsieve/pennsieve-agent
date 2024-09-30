@@ -1,0 +1,48 @@
+{
+  "lastFetch": "2024-09-27T19:35:24.002418-04:00",
+  "lastPull": "2024-09-27T19:35:24.002418-04:00",
+  "files": [
+    {
+      "fileId": "66666666-6666-6666-6666-666666666666",
+      "path": "folder_2/file_6_downloaded.txt",
+      "pullTime": "2024-09-27T21:34:51.754881-04:00",
+      "isLocal": true,
+      "crc32": 0
+    },
+    {
+      "fileId": "77777777-7777-7777-7777-777777777777",
+      "path": "folder_2/file_7_downloaded.txt",
+      "pullTime": "2024-09-27T21:45:08.69588-04:00",
+      "isLocal": true,
+      "crc32": 2550032306
+    },
+    {
+      "fileId": "88888888-8888-8888-8888-888888888888",
+      "path": "folder_2/file_8_downloaded_moved.txt",
+      "pullTime": "2024-09-27T21:45:08.69588-04:00",
+      "isLocal": true,
+      "crc32": 2203941981
+    },
+    {
+      "fileId": "99999999-9999-9999-9999-999999999999",
+      "path": "folder_2/file_9_downloaded_changed.txt",
+      "pullTime": "2024-09-27T21:45:08.69588-04:00",
+      "isLocal": true,
+      "crc32": 0
+    },
+    {
+      "fileId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "path": "file_11_downloaded.txt",
+      "pullTime": "2024-09-27T21:45:08.69588-04:00",
+      "isLocal": true,
+      "crc32": 2550032306
+    },
+    {
+      "fileId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "path": "folder_2/file_12_downloaded.txt",
+      "pullTime": "2024-09-27T21:45:08.69588-04:00",
+      "isLocal": true,
+      "crc32": 3295785123
+    }
+  ]
+}
