@@ -391,7 +391,7 @@ FindMovedRenamed:
 	for _, fAdded := range addedFiles {
 		log.Warn("FILE:  ", fAdded.Path, "/", fAdded.FileName)
 
-		for _, fDeleted := range deletedFiles {
+		for deletedIndex, fDeleted := range deletedFiles {
 
 			// Skip any files in the deleted array if they have previously been matched
 			if fDeleted.hasMatched {
@@ -425,13 +425,13 @@ FindMovedRenamed:
 
 					// If the file size is the same, we assume that this is a renamed file.
 					if fAdded.Size == fDeleted.Size {
+						deletedFiles[deletedIndex].hasMatched = true
 						renamedFiles = append(renamedFiles, renamedMovedFile{
 							Type: api.PackageStatus_RENAMED,
-							Old:  fDeleted,
+							Old:  deletedFiles[deletedIndex],
 							New:  fAdded,
 						})
 
-						fDeleted.hasMatched = true
 						continue FindMovedRenamed
 					}
 
@@ -459,9 +459,10 @@ FindMovedRenamed:
 
 					if fileID == fDeleted.FileId {
 						// The file was renamed
+						deletedFiles[deletedIndex].hasMatched = true
 						renamedFiles = append(renamedFiles, renamedMovedFile{
 							Type: api.PackageStatus_RENAMED,
-							Old:  fDeleted,
+							Old:  deletedFiles[deletedIndex],
 							New:  fAdded,
 						})
 
@@ -489,9 +490,10 @@ FindMovedRenamed:
 				if local {
 					if fAdded.Size == fDeleted.Size {
 						// The file was moved
+						deletedFiles[deletedIndex].hasMatched = true
 						movedFiles = append(movedFiles, renamedMovedFile{
 							Type: api.PackageStatus_MOVED,
-							Old:  fDeleted,
+							Old:  deletedFiles[deletedIndex],
 							New:  fAdded,
 						})
 
@@ -513,11 +515,13 @@ FindMovedRenamed:
 
 						for _, m := range datasetState.Files {
 							if m.Crc32 == crc && fDeleted.Path == m.Path {
+								deletedFiles[deletedIndex].hasMatched = true
 								movedFiles = append(movedFiles, renamedMovedFile{
 									Type: api.PackageStatus_MOVED,
-									Old:  fDeleted,
+									Old:  deletedFiles[deletedIndex],
 									New:  fAdded,
 								})
+
 								continue FindMovedRenamed
 							}
 
@@ -527,9 +531,10 @@ FindMovedRenamed:
 
 					if fileID == fDeleted.FileId {
 						// The file was moved
+						deletedFiles[deletedIndex].hasMatched = true
 						movedFiles = append(movedFiles, renamedMovedFile{
 							Type: api.PackageStatus_MOVED,
-							Old:  fDeleted,
+							Old:  deletedFiles[deletedIndex],
 							New:  fAdded,
 						})
 
@@ -551,19 +556,22 @@ FindMovedRenamed:
 				// then deleted based on package ID.
 				if fAdded.hasFileId {
 					if fAdded.FileId == fDeleted.FileId {
+						deletedFiles[deletedIndex].hasMatched = true
 						movedFiles = append(movedFiles, renamedMovedFile{
 							Type: api.PackageStatus_MOVED_RENAMED,
-							Old:  fDeleted,
+							Old:  deletedFiles[deletedIndex],
 							New:  fAdded,
 						})
+
 						continue FindMovedRenamed
 					}
 				} else {
 					for _, m := range datasetState.Files {
 						if m.Crc32 == fAdded.Crc32 && fDeleted.FileId == m.FileId {
+							deletedFiles[deletedIndex].hasMatched = true
 							movedFiles = append(movedFiles, renamedMovedFile{
 								Type: api.PackageStatus_MOVED_RENAMED,
-								Old:  fDeleted,
+								Old:  deletedFiles[deletedIndex],
 								New:  fAdded,
 							})
 							continue FindMovedRenamed
