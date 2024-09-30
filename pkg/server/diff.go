@@ -122,6 +122,7 @@ type deletedFile struct {
 	Path          string
 	Size          int64
 	FileId        string
+	hasMatched    bool // Boolean indicating whether deleted file matched
 }
 
 type changedFile struct {
@@ -151,6 +152,7 @@ func getFileIdOrCrc32(path string, maxBytes int) (*crcOrFileId, error) {
 	if err != nil {
 		// Return CRC
 		crc32, err := shared.GetFileCrc32(path, maxBytes)
+		log.Info("GOT CRC32: ", crc32)
 		if err != nil {
 			return nil, err
 		}
@@ -162,6 +164,7 @@ func getFileIdOrCrc32(path string, maxBytes int) (*crcOrFileId, error) {
 		}, nil
 
 	}
+	log.Info("GOT FILEID: ", fileId)
 
 	return &crcOrFileId{
 		hasFileId: true,
@@ -387,6 +390,13 @@ FindMovedRenamed:
 		log.Warn("FILE:  ", fAdded.Path, "/", fAdded.FileName)
 
 		for _, fDeleted := range deletedFiles {
+
+			// Skip any files in the deleted array if they have previously been matched
+			if fDeleted.hasMatched {
+				log.Info("SKIP MATCHED DELETED FILE")
+				continue
+			}
+
 			log.Warn("DELETE:  ", fDeleted.Path, "/", fDeleted.FileName)
 
 			if fAdded.Path == fDeleted.Path {
@@ -418,6 +428,8 @@ FindMovedRenamed:
 							Old:  fDeleted,
 							New:  fAdded,
 						})
+
+						fDeleted.hasMatched = true
 						continue FindMovedRenamed
 					}
 
