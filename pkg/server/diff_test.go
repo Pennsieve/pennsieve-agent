@@ -13,7 +13,8 @@ import (
 
 func TestCompareManifest(t *testing.T) {
 
-	root := filepath.Dir(filepath.Dir("."))
+	absPath, _ := filepath.Abs(".")
+	root := filepath.Dir(filepath.Dir(absPath))
 	datasetRoot := filepath.Join(root, "resources", "test", "mapDataset")
 
 	log.Info(datasetRoot)
