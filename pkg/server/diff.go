@@ -304,11 +304,11 @@ FindAdded:
 
 					crcOrFileInfo, err := getFileIdOrCrc32(fPathFull, CrcSize)
 					if err != nil {
+						log.Info("Cannot find file ", err)
 						return nil, err
 					}
 
 					if crcOrFileInfo.FileId != m.FileNodeId.String {
-						log.Info("Cannot find file ", err)
 
 						addedF := addedFile{
 							FileName:  f.FileName,
@@ -406,6 +406,7 @@ FindMovedRenamed:
 				// Check the state to see if the deleted entry was locally available.
 				// If so, we can check to see if there is a match by file-size.
 				relLocation := strings.TrimPrefix(fDeleted.Path, datasetRoot+string(os.PathSeparator))
+				log.Info("Relative location: ", relLocation)
 				if fileIsLocalAndNotMoved(filepath.Join(relLocation, fDeleted.FileName), *datasetState) {
 					log.Debug("FileLocalAndNotMoved: ", relLocation)
 
@@ -424,6 +425,8 @@ FindMovedRenamed:
 					log.Debug("File not local")
 
 					// Try to read the fileID from the file. If this fails, we probably have a moved file.
+					log.Info("read from id: ", filepath.Join(datasetRoot, fAdded.Path, fAdded.FileName))
+
 					fileID, err := shared.ReadFileIDFromFile(filepath.Join(datasetRoot, fAdded.Path, fAdded.FileName))
 
 					if err != nil {
