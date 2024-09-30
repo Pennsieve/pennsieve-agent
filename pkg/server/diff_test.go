@@ -5,6 +5,7 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -18,9 +19,10 @@ func TestCompareManifest(t *testing.T) {
 
 	datasetRoot := filepath.Join(root, "resources", "test", "mapDataset")
 
+	log.Info(datasetRoot)
 	files, _ := createFolderManifest(datasetRoot)
 
-	manifestLoc, _ := filepath.Abs(filepath.Join("resources", "test", "mapDataset", ".pennsieve", "manifest.json"))
+	manifestLoc := filepath.Join(datasetRoot, ".pennsieve", "manifest.json")
 
 	manifest, err := shared.ReadWorkspaceManifest(manifestLoc)
 	assert.NoError(t, err)
