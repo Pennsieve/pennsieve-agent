@@ -74,7 +74,7 @@ jobs:
       PS_PATH: /opt/pennsieve
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install dependencies
         id: install-deps
         run: |
@@ -96,9 +96,9 @@ jobs:
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21.5'
+          go-version: '1.22.0'
       - name: Install dependencies
         run: |
           go version
@@ -170,9 +170,9 @@ jobs:
         run: |
           echo "::debug:: RELEASE: [${{ needs.read-tag.outputs.tag }}]"
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21.5'
+          go-version: '1.22.0'
       - name: Install dependencies
         run: |
           go version
@@ -220,7 +220,7 @@ jobs:
       ARCH: "arm64"
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
       - name: Install dependencies
         id: install-deps
         run: |
@@ -241,9 +241,9 @@ jobs:
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21.5'
+          go-version: '1.22.0'
       - name: Install dependencies
         run: |
           go version
@@ -343,7 +343,7 @@ jobs:
       ARCH: "x86_64"
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install dependencies
         id: install-deps
         run: |
@@ -364,9 +364,9 @@ jobs:
           echo "VERSION = $VERSION"
           echo "::set-output name=version::$VERSION"
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21.5'
+          go-version: '1.22.0'
       - name: Install dependencies
         run: |
           go version
