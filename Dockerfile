@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.20.1-alpine3.16
+FROM golang:1.22.7-alpine3.20
 WORKDIR /go/src/github.com/pennsieve/pennsieve-agent/
 COPY go.mod .
 COPY go.sum .
@@ -10,7 +10,7 @@ RUN go install github.com/mattn/go-sqlite3
 COPY . .
 RUN CGO_ENABLED=1 go build -a -installsuffix cgo -o pennsieve .
 
-FROM alpine:3.16
+FROM alpine:3.20
 WORKDIR /root/
 RUN apk update && apk upgrade
 RUN apk add --no-cache sqlite

@@ -1,8 +1,6 @@
 module github.com/pennsieve/pennsieve-agent
 
-go 1.22.0
-
-toolchain go1.22.2
+go 1.22.7
 
 //replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 
