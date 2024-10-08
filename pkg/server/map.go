@@ -92,8 +92,8 @@ func (s *server) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatu
 // This is used as the 'empty' representation of a file on Pennsieve.
 func touchFile(name string, fileUUID string) error {
 
-	// If the file doesn't exist, create it, or append to the file
-	f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// If the file doesn't exist, create it, or replace the content of the file
+	f, err := os.OpenFile(name, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}

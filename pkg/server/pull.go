@@ -14,9 +14,10 @@ import (
 	"time"
 )
 
-type packageRecord struct {
+type FileRecord struct {
 	PackageId string
 	Location  string
+	FileId    string
 }
 
 func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleStatusResponse, error) {
@@ -32,12 +33,15 @@ func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleSta
 	}
 
 	// find packageIds associated with the provided path.
-	var packages []packageRecord
+	var packageFiles []FileRecord
 	workspaceManifest, err := shared.ReadWorkspaceManifest(filepath.Join(datasetRoot, ".pennsieve", "manifest.json"))
 	if err != nil {
 		return nil, err
 	}
 
+	// Iterate over all files in the Workspace manifest.
+	// If the entry is a file, and the path matches the requested path, or file,
+	// Then add to package array for downloading.
 	for _, f := range workspaceManifest.Files {
 		if f.FileName.Valid {
 
@@ -46,21 +50,22 @@ func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleSta
 			curFile := filepath.Join(datasetRoot, f.Path, f.FileName.String)
 			curFolder := filepath.Join(datasetRoot, f.Path)
 			if curFile == req.Path || curFolder == req.Path {
-				packages = append(packages, packageRecord{
+				packageFiles = append(packageFiles, FileRecord{
 					PackageId: f.PackageNodeId,
 					Location:  curFile,
+					FileId:    f.FileNodeId.String,
 				})
 			}
 		}
 	}
 
-	// Iterate over packages and download files.
+	// Iterate over packageFiles and download files.
 	// Run this in a goroutine to prevent blocking of the agent.
 	go func() {
 		// Open the state file so we can update as needed
 		mapState, _ := shared.ReadStateFile(filepath.Join(datasetRoot, ".pennsieve", "state.json"))
 
-		for _, pkg := range packages {
+		for _, pkg := range packageFiles {
 			client := s.client
 			res, err := client.Package.GetPresignedUrl(context.Background(), pkg.PackageId, false)
 			if err != nil {
@@ -96,6 +101,7 @@ func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleSta
 				// First time we pull the file --> create new record in mapState.
 				mapState.Files = append(mapState.Files, models.MapStateRecord{
 					Path:     filepath.ToSlash(relLocation),
+					FileId:   pkg.FileId,
 					PullTime: time.Now(),
 					IsLocal:  true,
 					Crc32:    crc32,

@@ -82,5 +82,6 @@ func init() {
 	MapCmd.AddCommand(PullCmd)
 	MapCmd.AddCommand(DiffCmd)
 	MapCmd.AddCommand(PushCmd)
+	MapCmd.AddCommand(UnloadCmd)
 
 }
