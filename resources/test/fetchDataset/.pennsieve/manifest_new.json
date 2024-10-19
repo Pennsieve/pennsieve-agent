@@ -1,0 +1,48 @@
+{
+    "manifestCreatedOn": "Tue Sep 24 18:26:28 2024",
+    "datasetId": 1,
+    "datasetNodeId": "N:dataset:1234",
+    "name": "test",
+    "description": "N/A",
+    "license": "N/A",
+    "contributors": [],
+    "tags": [],
+    "files": [
+        {
+            "packageId": "N:package:11111111-1111-1111-1111-111111111111",
+            "packageName": "file_1.txt",
+            "fileId": "11111111-1111-1111-1111-111111111111",
+            "fileName": "file_1.txt",
+            "path": "",
+            "size": 100,
+            "checksum": ""
+        },
+        {
+            "packageId": "N:package:22222222-2222-2222-2222-222222222222",
+            "packageName": "file_2.txt",
+            "fileId": "22222222-2222-2222-2222-222222222222",
+            "fileName": "file_2.txt",
+            "path": "folder_1",
+            "size": 100,
+            "checksum": ""
+        },
+        {
+            "packageId": "N:package:33333333-3333-3333-3333-333333333333",
+            "packageName": "file_3.txt",
+            "fileId": "33333333-3333-3333-3333-333333333333",
+            "fileName": "file_3.txt",
+            "path": "folder_1",
+            "size": 100,
+            "checksum": ""
+        },
+        {
+            "packageId": "N:package:55555555-5555-5555-5555-555555555555",
+            "packageName": "file_5.txt",
+            "fileId": "55555555-5555-5555-5555-555555555555",
+            "fileName": "file_5.txt",
+            "path": "folder_1",
+            "size": 100,
+            "checksum": ""
+        }
+    ]
+}

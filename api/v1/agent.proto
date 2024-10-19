@@ -27,6 +27,7 @@ service Agent {
 	rpc Pull(PullRequest) returns (SimpleStatusResponse) {}
 	rpc GetMapDiff(MapDiffRequest) returns (MapDiffResponse) {}
 	rpc Unload(UnloadRequest) returns (SimpleStatusResponse) {}
+	rpc Fetch(FetchRequest) returns (SimpleStatusResponse) {}
 
 	// Server Endpoints
 	rpc Version(VersionRequest) returns (VersionResponse) {}
@@ -55,6 +56,10 @@ message PullRequest {
 }
 
 message UnloadRequest {
+	string path = 1;
+}
+
+message FetchRequest {
 	string path = 1;
 }
 

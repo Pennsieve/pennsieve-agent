@@ -42,6 +42,7 @@ type AgentClient interface {
 	Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	GetMapDiff(ctx context.Context, in *MapDiffRequest, opts ...grpc.CallOption) (*MapDiffResponse, error)
 	Unload(ctx context.Context, in *UnloadRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
+	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (Agent_SubscribeClient, error)
@@ -221,6 +222,15 @@ func (c *agentClient) Unload(ctx context.Context, in *UnloadRequest, opts ...grp
 	return out, nil
 }
 
+func (c *agentClient) Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
+	err := c.cc.Invoke(ctx, "/v1.Agent/Fetch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentClient) Version(ctx context.Context, in *VersionRequest, opts ...grpc.CallOption) (*VersionResponse, error) {
 	out := new(VersionResponse)
 	err := c.cc.Invoke(ctx, "/v1.Agent/Version", in, out, opts...)
@@ -367,6 +377,7 @@ type AgentServer interface {
 	Pull(context.Context, *PullRequest) (*SimpleStatusResponse, error)
 	GetMapDiff(context.Context, *MapDiffRequest) (*MapDiffResponse, error)
 	Unload(context.Context, *UnloadRequest) (*SimpleStatusResponse, error)
+	Fetch(context.Context, *FetchRequest) (*SimpleStatusResponse, error)
 	// Server Endpoints
 	Version(context.Context, *VersionRequest) (*VersionResponse, error)
 	Subscribe(*SubscribeRequest, Agent_SubscribeServer) error
@@ -440,6 +451,9 @@ func (UnimplementedAgentServer) GetMapDiff(context.Context, *MapDiffRequest) (*M
 }
 func (UnimplementedAgentServer) Unload(context.Context, *UnloadRequest) (*SimpleStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unload not implemented")
+}
+func (UnimplementedAgentServer) Fetch(context.Context, *FetchRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Fetch not implemented")
 }
 func (UnimplementedAgentServer) Version(context.Context, *VersionRequest) (*VersionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Version not implemented")
@@ -793,6 +807,24 @@ func _Agent_Unload_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_Fetch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Fetch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Agent/Fetch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Fetch(ctx, req.(*FetchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Agent_Version_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VersionRequest)
 	if err := dec(in); err != nil {
@@ -1068,6 +1100,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Unload",
 			Handler:    _Agent_Unload_Handler,
+		},
+		{
+			MethodName: "Fetch",
+			Handler:    _Agent_Fetch_Handler,
 		},
 		{
 			MethodName: "Version",
