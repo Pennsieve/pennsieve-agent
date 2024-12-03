@@ -16,15 +16,31 @@ import (
 type AWSRoleManager struct {
 	AccountId string
 	Profile   string
+	RoleName  string
 }
 
-func NewAWSRoleManager(pennsieveAccountId string, profile string) account.Registration {
-	return &AWSRoleManager{AccountId: pennsieveAccountId, Profile: profile}
+func NewAWSRoleManager(pennsieveAccountId string, profile string, roleName string) account.Registration {
+	return &AWSRoleManager{AccountId: pennsieveAccountId, Profile: profile, RoleName: roleName}
+}
+
+func (r *AWSRoleManager) GetAccountId() (string, error) {
+	cmd := exec.Command("aws",
+		"--profile", r.Profile,
+		"sts", "get-caller-identity",
+		"--query", "Account",
+		"--output", "text")
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	err := cmd.Run()
+	if err != nil {
+		return "", errors.New(errb.String())
+	}
+
+	return strings.TrimSpace(outb.String()), nil
 }
 
 func (r *AWSRoleManager) Create() ([]byte, error) {
-	roleName := fmt.Sprintf("ROLE-%s", r.AccountId)
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Println("error getting home directory:", err)
@@ -78,16 +94,16 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 	cmd := exec.Command("aws",
 		"--profile", r.Profile,
 		"iam", "create-role",
-		"--role-name", roleName,
+		"--role-name", r.RoleName,
 		"--assume-role-policy-document", fmt.Sprintf("file://%s", trustPolicyFileLocation))
 	var outb, errb bytes.Buffer
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	err = cmd.Run()
 	if err != nil {
-		log.Println(errb.String())
 		if strings.Contains(errb.String(), "EntityAlreadyExists") {
-			return nil, errors.New("role already exists")
+			log.Println("role already exists")
+			return nil, nil
 		}
 		return nil, errors.New(errb.String())
 	}
@@ -98,7 +114,7 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 		"--profile", r.Profile,
 		"iam", "put-role-policy",
 		"--policy-name", policyName,
-		"--role-name", roleName,
+		"--role-name", r.RoleName,
 		"--policy-document", fmt.Sprintf("file://%s", permissionPolicyFileLocation))
 	var poutb, perrb bytes.Buffer
 	permissionsCmd.Stdout = &poutb
