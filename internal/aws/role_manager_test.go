@@ -9,8 +9,9 @@ import (
 func TestRoleManager(t *testing.T) {
 	accountId := "someAccountId"
 	profile := "someProfile"
+	roleName := "someRoleName"
 
-	roleManager := NewAWSRoleManager(accountId, profile)
+	roleManager := NewAWSRoleManager(accountId, profile, roleName)
 
 	_, err := roleManager.Create()
 	assert.Error(t, err)

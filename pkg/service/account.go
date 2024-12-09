@@ -2,8 +2,7 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"strings"
+	"fmt"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/internal/aws"
@@ -42,33 +41,25 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 		return nil, err
 	}
 
-	//registration
-	registration := aws.NewAWSRoleManager(pennsieveAccountId, profile)
-	data, err := registration.Create()
+	roleName := fmt.Sprintf("ROLE-%s", pennsieveAccountId)
+	registration := aws.NewAWSRoleManager(pennsieveAccountId, profile, roleName)
+
+	// Get External AccountId
+	externalAccountId, err := registration.GetAccountId()
 	if err != nil {
 		return nil, err
 	}
 
-	awsRole := aws.AWSRole{}
-	err = json.Unmarshal(data, &awsRole)
+	// registration
+	_, err = registration.Create()
 	if err != nil {
 		return nil, err
 	}
 
-	externalAccountId := extractAccountId(awsRole.Role.Arn)
-	_, err = a.PostAccounts(externalAccountId, accountType, awsRole.Role.RoleName, "")
+	_, err = a.PostAccounts(externalAccountId, accountType, roleName, "")
 	if err != nil {
 		return nil, err
 	}
 
 	return &api.RegisterResponse{AccountId: externalAccountId}, nil
-}
-
-func extractAccountId(roleArn string) string {
-	parts := strings.Split(roleArn, ":")
-
-	if len(parts) < 6 {
-		return ""
-	}
-	return parts[4]
 }
