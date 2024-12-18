@@ -293,7 +293,13 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 		return 0, err
 	}
 
-	err = os.Rename(tempPath, targetLocation)
+	err = deviceSafeRename(tempPath, targetLocation)
+
+	// Catch the error, read in the data from tempPath and write to targetLocation
+	if err != nil {
+		log.Fatal("Moving file failed")
+		log.Fatal(err)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -354,4 +360,19 @@ func (s *server) updateDownloadSubscribers(total int64, current int64, name stri
 	for _, id := range unsubscribe {
 		s.subscribers.Delete(id)
 	}
+}
+
+// If the source and destination are on different file systems this will cause
+// an invalid cross-link device error using os.Rename. Instead, open the file
+// and then write it out
+func deviceSafeRename(tempPath string, targetLocation string) error {
+	byteData, err := os.ReadFile(tempPath)
+	if err != nil {
+		log.Error(err)
+	}
+	err = os.WriteFile(targetLocation, byteData, 0644)
+	if err != nil {
+		log.Error(err)
+	}
+	return err
 }
