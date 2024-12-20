@@ -295,7 +295,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 
 	err = fileSystemSafeRename(tempPath, targetLocation)
 	if err != nil {
-		log.Fatal(fmt.Errorf("moving file failed: %w", err))
+		return 0, err
 	}
 
 	s.updateDownloadSubscribers(resp.ContentLength, resp.ContentLength, targetLocation, api.SubscribeResponse_DownloadStatusResponse_COMPLETE)
