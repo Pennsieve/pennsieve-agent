@@ -294,10 +294,8 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 	}
 
 	err = fileSystemSafeRename(tempPath, targetLocation)
-
-	// Catch the error, read in the data from tempPath and write to targetLocation
 	if err != nil {
-		log.Fatal("Moving file failed: %v", err)
+		log.Fatal(fmt.Errorf("moving file failed: %w", err))
 	}
 
 	s.updateDownloadSubscribers(resp.ContentLength, resp.ContentLength, targetLocation, api.SubscribeResponse_DownloadStatusResponse_COMPLETE)
@@ -374,7 +372,7 @@ func fileSystemSafeRename(tempPath string, targetLocation string) error {
 
 	// Copy successful, dont error on temp file delete failure
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to remove temp file: %v", err))
+		log.Error(fmt.Errorf("Failed to remove temp file %s: %w", tempPath, err))
 	}
 	return nil
 }
