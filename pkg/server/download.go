@@ -356,23 +356,39 @@ func (s *server) updateDownloadSubscribers(total int64, current int64, name stri
 	}
 }
 
-// If the source and destination are on different file systems this will cause
-// an invalid cross-link device error using os.Rename. Instead, open the file
-// and then write it out
 func fileSystemSafeRename(tempPath string, targetLocation string) error {
-	byteData, err := os.ReadFile(tempPath)
+	srcFile, err := os.Open(tempPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open temp file: %w", err)
 	}
-	err = os.WriteFile(targetLocation, byteData, 0644)
-	if err != nil {
-		return err
-	}
-	err = os.Remove(tempPath)
+	defer func(srcFile *os.File) {
+		err := srcFile.Close()
+		if err != nil {
 
-	// Copy successful, dont error on temp file delete failure
+		}
+	}(srcFile)
+
+	destFile, err := os.Create(targetLocation)
 	if err != nil {
-		log.Error(fmt.Errorf("Failed to remove temp file %s: %w", tempPath, err))
+		return fmt.Errorf("failed to create target file: %w", err)
 	}
+	defer func(destFile *os.File) {
+		err := destFile.Close()
+		if err != nil {
+
+		}
+	}(destFile)
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy data: %w", err)
+	}
+
+	err = os.Remove(tempPath)
+	if err != nil {
+		// Copy successful, don't error if temp file delete fails
+		log.Warnf("Warning: Failed to remove temp file %s: %v\n", tempPath, err)
+	}
+
 	return nil
 }
