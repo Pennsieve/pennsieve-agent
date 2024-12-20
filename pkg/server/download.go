@@ -359,29 +359,29 @@ func (s *server) updateDownloadSubscribers(total int64, current int64, name stri
 func fileSystemSafeRename(tempPath string, targetLocation string) error {
 	srcFile, err := os.Open(tempPath)
 	if err != nil {
-		return fmt.Errorf("failed to open temp file: %w", err)
+		return fmt.Errorf("failed to open temp file: %w\n", err)
 	}
 	defer func(srcFile *os.File) {
 		err := srcFile.Close()
 		if err != nil {
-
+			log.Warnf("Failed to close source file: %v\n", err)
 		}
 	}(srcFile)
 
 	destFile, err := os.Create(targetLocation)
 	if err != nil {
-		return fmt.Errorf("failed to create target file: %w", err)
+		return fmt.Errorf("failed to create target file: %w\n", err)
 	}
 	defer func(destFile *os.File) {
 		err := destFile.Close()
 		if err != nil {
-
+			log.Warnf("Failed to close destination file: %v\n", err)
 		}
 	}(destFile)
 
 	_, err = io.Copy(destFile, srcFile)
 	if err != nil {
-		return fmt.Errorf("failed to copy data: %w", err)
+		return fmt.Errorf("failed to copy data: %w\n", err)
 	}
 
 	err = os.Remove(tempPath)
