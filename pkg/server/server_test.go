@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt"
+	"github.com/golang-migrate/migrate/v4"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/authentication"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/organization"
@@ -74,7 +74,18 @@ func (suite *ServerTestSuite) SetupSuite() {
 	if err != nil {
 		suite.FailNow("could not open database", "%s", err)
 	}
-	migrations.Run(db)
+	m, err := migrate.New(
+		"file://db/migrations",
+		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
+	)
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	if err := m.Up(); err != nil {
+		suite.T().Fatal(err)
+	}
+
+	//migrations.Run(db)
 	err = db.Ping()
 	if err != nil {
 		suite.T().Fatal(err)

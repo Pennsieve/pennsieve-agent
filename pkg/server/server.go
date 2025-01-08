@@ -6,11 +6,15 @@ package server
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"sync"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/service"
@@ -199,6 +203,24 @@ func StartAgent() error {
 	GRPCServer = grpc.NewServer()
 
 	db, err := config.InitializeDB()
+
+	// Run Migrations if needed
+	dbPath := viper.GetString("agent.db_path")
+	m, err := migrate.New(
+		"file://db/migrations",
+		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := m.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			log.Info("No change in database schema: ", err)
+		} else {
+			log.Fatal(err)
+		}
+	}
+
 	if err != nil {
 		fmt.Println("Error initializing DB --", err)
 	}

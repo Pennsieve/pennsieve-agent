@@ -129,3 +129,12 @@ We are using the [logrus](https://github.com/sirupsen/logrus) library for loggin
 We are using the [testify](https://github.com/stretchr/testify) package for unit testing Golang code. 
 
 The goal is to keep testing simple and effective. There is no need to make testing itself complex. 
+
+
+## Database Migrations
+The Pennsieve-Agent leverages golang-migrate for the local sqlite3 database migrations.
+
+To create a new migration file, use the following command in the terminal
+```shell
+migrate create -ext sql -dir db/migrations -seq create_or_import_tables
+```

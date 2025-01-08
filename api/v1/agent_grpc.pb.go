@@ -53,10 +53,12 @@ type AgentClient interface {
 	ReAuthenticate(ctx context.Context, in *ReAuthenticateRequest, opts ...grpc.CallOption) (*UserResponse, error)
 	// Datasets Endpoints
 	UseDataset(ctx context.Context, in *UseDatasetRequest, opts ...grpc.CallOption) (*UseDatasetResponse, error)
-	//Workflow Endpoints
+	// Workflow Endpoints
 	StartWorkflow(ctx context.Context, in *StartWorkflowRequest, opts ...grpc.CallOption) (*WorkflowResponse, error)
 	// Account Endpoints
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	// Timeseries Endpoints
+	GetTimeseriesRangeForChannels(ctx context.Context, in *GetTimeseriesRangeRequest, opts ...grpc.CallOption) (Agent_GetTimeseriesRangeForChannelsClient, error)
 }
 
 type agentClient struct {
@@ -333,6 +335,38 @@ func (c *agentClient) Register(ctx context.Context, in *RegisterRequest, opts ..
 	return out, nil
 }
 
+func (c *agentClient) GetTimeseriesRangeForChannels(ctx context.Context, in *GetTimeseriesRangeRequest, opts ...grpc.CallOption) (Agent_GetTimeseriesRangeForChannelsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Agent_ServiceDesc.Streams[1], "/v1.Agent/GetTimeseriesRangeForChannels", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &agentGetTimeseriesRangeForChannelsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Agent_GetTimeseriesRangeForChannelsClient interface {
+	Recv() (*GetTimeseriesRangeResponse, error)
+	grpc.ClientStream
+}
+
+type agentGetTimeseriesRangeForChannelsClient struct {
+	grpc.ClientStream
+}
+
+func (x *agentGetTimeseriesRangeForChannelsClient) Recv() (*GetTimeseriesRangeResponse, error) {
+	m := new(GetTimeseriesRangeResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
@@ -368,10 +402,12 @@ type AgentServer interface {
 	ReAuthenticate(context.Context, *ReAuthenticateRequest) (*UserResponse, error)
 	// Datasets Endpoints
 	UseDataset(context.Context, *UseDatasetRequest) (*UseDatasetResponse, error)
-	//Workflow Endpoints
+	// Workflow Endpoints
 	StartWorkflow(context.Context, *StartWorkflowRequest) (*WorkflowResponse, error)
 	// Account Endpoints
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	// Timeseries Endpoints
+	GetTimeseriesRangeForChannels(*GetTimeseriesRangeRequest, Agent_GetTimeseriesRangeForChannelsServer) error
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -459,6 +495,9 @@ func (UnimplementedAgentServer) StartWorkflow(context.Context, *StartWorkflowReq
 }
 func (UnimplementedAgentServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
+}
+func (UnimplementedAgentServer) GetTimeseriesRangeForChannels(*GetTimeseriesRangeRequest, Agent_GetTimeseriesRangeForChannelsServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetTimeseriesRangeForChannels not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -962,6 +1001,27 @@ func _Agent_Register_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_GetTimeseriesRangeForChannels_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetTimeseriesRangeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AgentServer).GetTimeseriesRangeForChannels(m, &agentGetTimeseriesRangeForChannelsServer{stream})
+}
+
+type Agent_GetTimeseriesRangeForChannelsServer interface {
+	Send(*GetTimeseriesRangeResponse) error
+	grpc.ServerStream
+}
+
+type agentGetTimeseriesRangeForChannelsServer struct {
+	grpc.ServerStream
+}
+
+func (x *agentGetTimeseriesRangeForChannelsServer) Send(m *GetTimeseriesRangeResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1078,6 +1138,11 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Subscribe",
 			Handler:       _Agent_Subscribe_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetTimeseriesRangeForChannels",
+			Handler:       _Agent_GetTimeseriesRangeForChannels_Handler,
 			ServerStreams: true,
 		},
 	},

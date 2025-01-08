@@ -3,8 +3,8 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/migrations"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,8 +30,19 @@ func run(m *testing.M) (code int, err error) {
 	// 4. truncate the test db tables
 	home, err := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_test.db")
+
+	mig, err := migrate.New(
+		"file://db/migrations",
+		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
+	)
+	if err != nil {
+		return 1, err
+	}
+	if err := mig.Up(); err != nil {
+		return 1, err
+	}
+
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
-	migrations.Run(db)
 
 	db.Exec("")
 

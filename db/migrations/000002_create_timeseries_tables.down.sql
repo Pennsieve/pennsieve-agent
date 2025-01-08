@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS ts_range;
+
+DROP TABLE IF EXISTS ts_channel;
+
