@@ -2,7 +2,7 @@ package store
 
 import (
 	"database/sql"
-
+	"fmt"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,6 +55,7 @@ func (s *userSettingsStore) Get() (*UserSettings, error) {
 	if len(allConfigs) > 0 {
 		return &allConfigs[0], err
 	} else {
+		fmt.Println("hello session")
 		return nil, &NoClientSessionError{}
 	}
 
@@ -68,14 +69,14 @@ func (s *userSettingsStore) CreateNewUserSettings(data UserSettingsParams) (*Use
 		log.Error("Error preparing statement for creating user settings:", err)
 		return nil, err
 	}
-	defer statement.Close() 
-	
+	defer statement.Close()
+
 	_, err = statement.Exec(data.UserId, data.Profile)
 	if err != nil {
 		log.Error("Unable to create user settings:", err)
 		return nil, err
 	}
-	
+
 	userSettings.UserId = data.UserId
 	userSettings.Profile = data.Profile
 

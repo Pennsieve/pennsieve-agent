@@ -105,6 +105,7 @@ func initViper() error {
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
+	viper.SetDefault("migration.path", "file://db/migrations")
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
 	if len(workers) > 0 {

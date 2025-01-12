@@ -1,4 +1,4 @@
-.PHONY: compile
+.PHONY: compile, test, compile_python, release
 
 compile:
 	@echo "Compiling GRPC definitions"
@@ -7,6 +7,9 @@ compile:
 compile_python:
 	@echo "Compiling GRPC definitions for Python"
 	python -m grpc_tools.protoc --python_out=build/gen/ -I. --grpc_python_out=build/gen api/v1/agent.proto
+
+test:
+	go test -v ./...
 
 release:
 	@ echo ""

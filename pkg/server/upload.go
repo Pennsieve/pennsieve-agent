@@ -32,7 +32,7 @@ type record struct {
 	status     string
 }
 
-//type recordWalk chan record
+// type recordWalk chan record
 type syncResult chan []manifestFile.FileStatusDTO
 
 // ----------------------------------------------
@@ -78,7 +78,7 @@ func (s *server) UploadManifest(ctx context.Context,
 	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
 
 	var m *store.Manifest
-	m, err := s.Manifest.GetManifest(request.ManifestId)
+	m, err := s.ManifestService().GetManifest(request.ManifestId)
 	if err != nil {
 		log.Fatalln("Cannot get Manifest based on ID.")
 		return nil, err
@@ -114,7 +114,7 @@ func (s *server) UploadManifest(ctx context.Context,
 				// This should return a list of files that have recently been finalized and then set the status of
 				// those files to "Verified" on the server.
 				log.Println("Verifying status for manifest: ", m.Id)
-				s.Manifest.VerifyFinalizedStatus(m)
+				s.ManifestService().VerifyFinalizedStatus(m)
 
 			}
 		}
@@ -177,7 +177,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 			manifestFile.Registered,
 		}
 
-		s.Manifest.ManifestFilesToChannel(ctx, m.Id, requestStatus, walker)
+		s.ManifestService().ManifestFilesToChannel(ctx, m.Id, requestStatus, walker)
 
 	}()
 
@@ -364,7 +364,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			log.Fatalln("Could not close file.")
 		}
 
-		err = s.Manifest.SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
+		err = s.ManifestService().SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
 		if err != nil {
 			log.Fatalln("Could not update status of file. Here is why: ", err)
 		}

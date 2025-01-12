@@ -6,13 +6,11 @@ package server
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"sync"
 
-	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
@@ -29,6 +27,19 @@ var GRPCServer *grpc.Server
 
 var Version = "development"
 
+type AgentServer interface {
+	SqliteDB() *sql.DB
+	TimeseriesStore() store.TimeseriesStore
+	TimeseriesService() service.TimeseriesService
+	PennsieveClient() (*pennsieve.Client, error)
+	UserSettingsStore() store.UserSettingsStore
+	UserInfoStore() store.UserInfoStore
+	ManifestStore() store.ManifestStore
+	ManifestService() *service.ManifestService
+	UserService() *service.UserService
+	AccountService() *service.AccountService
+}
+
 type server struct {
 	pb.UnimplementedAgentServer
 	subscribers        sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
@@ -36,11 +47,139 @@ type server struct {
 	syncCancelFncs     sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
 	downloadCancelFncs sync.Map // downloadCancelFncs is a map that holds cancel functions for download routines.
 
-	client *pennsieve.Client
+	client   *pennsieve.Client
+	sqliteDB *sql.DB
 
-	Manifest *service.ManifestService
-	User     *service.UserService
-	Account  *service.AccountService
+	timeseriesStore   store.TimeseriesStore
+	userInfoStore     store.UserInfoStore
+	userSettingsStore store.UserSettingsStore
+	manifestStore     store.ManifestStore
+	manifestFileStore store.ManifestFileStore
+
+	manifest          *service.ManifestService
+	user              *service.UserService
+	account           *service.AccountService
+	timeseriesService service.TimeseriesService
+}
+
+func newServer() (*server, error) {
+	return &server{}, nil
+}
+
+func (s *server) ManifestStore() store.ManifestStore {
+	if s.manifestStore == nil {
+		st := store.NewManifestStore(s.SqliteDB())
+		s.manifestStore = st
+	}
+
+	return s.manifestStore
+}
+func (s *server) ManifestFileStore() store.ManifestFileStore {
+	if s.manifestFileStore == nil {
+		st := store.NewManifestFileStore(s.SqliteDB())
+		s.manifestFileStore = st
+	}
+
+	return s.manifestFileStore
+}
+
+func (s *server) UserSettingsStore() store.UserSettingsStore {
+	if s.userSettingsStore == nil {
+		st := store.NewUserSettingsStore(s.SqliteDB())
+		s.userSettingsStore = st
+	}
+
+	return s.userSettingsStore
+}
+func (s *server) UserInfoStore() store.UserInfoStore {
+	if s.userInfoStore == nil {
+		st := store.NewUserInfoStore(s.SqliteDB())
+		s.userInfoStore = st
+	}
+
+	return s.userInfoStore
+}
+func (s *server) TimeseriesStore() store.TimeseriesStore {
+	if s.timeseriesStore == nil {
+		s.timeseriesStore = store.NewTimeseriesStore(s.SqliteDB())
+	}
+	return s.timeseriesStore
+}
+
+func (s *server) PennsieveClient() (*pennsieve.Client, error) {
+	if s.client == nil {
+		client, err := config.InitPennsieveClient(s.UserSettingsStore(), s.UserInfoStore())
+		if err != nil {
+			return nil, err
+		}
+		s.client = client
+	}
+
+	return s.client, nil
+}
+func (s *server) SqliteDB() *sql.DB {
+	if s.sqliteDB == nil {
+		db, err := config.InitializeDB()
+		if err != nil {
+			log.Fatal(err)
+		}
+		s.sqliteDB = db
+	}
+	return s.sqliteDB
+}
+
+func (s *server) AccountService() *service.AccountService {
+	if s.account == nil {
+		client, _ := s.PennsieveClient()
+		s.account = service.NewAccountService(
+			client,
+		)
+	}
+
+	return s.account
+}
+
+func (s *server) UserService() *service.UserService {
+	if s.user == nil {
+		client, err := s.PennsieveClient()
+		if err != nil {
+			log.Error(err)
+		}
+
+		s.user = service.NewUserService(
+			s.UserInfoStore(),
+			s.UserSettingsStore(),
+			client,
+		)
+	}
+
+	return s.user
+}
+func (s *server) ManifestService() *service.ManifestService {
+	if s.manifest == nil {
+		client, err := s.PennsieveClient()
+		if err != nil {
+			log.Error(err)
+		}
+
+		s.manifest = service.NewManifestService(
+			s.ManifestStore(),
+			s.ManifestFileStore(),
+			client,
+		)
+	}
+
+	return s.manifest
+}
+func (s *server) TimeseriesService() service.TimeseriesService {
+	if s.timeseriesService == nil {
+		s.timeseriesService = service.NewTimeseriesService(
+			s.TimeseriesStore(),
+			s.client,
+		)
+	}
+
+	return s.timeseriesService
 }
 
 type uploadSession struct {
@@ -202,29 +341,10 @@ func StartAgent() error {
 	// Create new server
 	GRPCServer = grpc.NewServer()
 
-	db, err := config.InitializeDB()
-
-	// Run Migrations if needed
-	dbPath := viper.GetString("agent.db_path")
-	m, err := migrate.New(
-		"file://db/migrations",
-		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := m.Up(); err != nil {
-		if errors.Is(err, migrate.ErrNoChange) {
-			log.Info("No change in database schema: ", err)
-		} else {
-			log.Fatal(err)
-		}
-	}
-
 	if err != nil {
 		fmt.Println("Error initializing DB --", err)
 	}
-	server, err := newServer(db)
+	server, err := newServer()
 	if err != nil {
 		return err
 	}
@@ -264,28 +384,4 @@ func SetupLogger() {
 		log.Fatalln(err)
 	}
 	log.SetOutput(logFileLocation)
-}
-
-func newServer(db *sql.DB) (*server, error) {
-	manifestStore := store.NewManifestStore(db)
-	manifestFileStore := store.NewManifestFileStore(db)
-
-	userInfoStore := store.NewUserInfoStore(db)
-	userSettingsStore := store.NewUserSettingsStore(db)
-
-	client, err := config.InitPennsieveClient(userSettingsStore, userInfoStore)
-	if err != nil {
-		return &server{}, err
-	}
-	server := server{}
-	server.Manifest = service.NewManifestService(manifestStore, manifestFileStore)
-	server.User = service.NewUserService(userInfoStore, userSettingsStore)
-
-	server.client = client
-	server.Manifest.SetPennsieveClient(client)
-	server.User.SetPennsieveClient(client)
-
-	server.Account = service.NewAccountService(client)
-
-	return &server, nil
 }

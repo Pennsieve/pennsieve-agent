@@ -58,7 +58,7 @@ func (s *manifestStore) Get(id int32) (*Manifest, error) {
 	var statusStr string
 	res := &Manifest{}
 	err := s.db.QueryRow(fmt.Sprintf(
-		"SELECT * FROM manifests WHERE id=%d", id)).Scan(
+		`SELECT * FROM manifests WHERE id=%d`, id)).Scan(
 		&res.Id,
 		&res.NodeId,
 		&res.UserId,
@@ -79,22 +79,20 @@ func (s *manifestStore) Get(id int32) (*Manifest, error) {
 
 // GetAll returns all rows in the Upload Record Table
 func (s *manifestStore) GetAll() ([]Manifest, error) {
-	
+
 	rows, err := s.db.Query("SELECT * FROM manifests;")
 	if err != nil {
 		return nil, err
 	}
-	
+
 	defer rows.Close()
 
 	var allSessions []Manifest
 
-	
 	for rows.Next() {
 		var statusStr string
 		var currentRecord Manifest
 
-		
 		err := rows.Scan(
 			&currentRecord.Id,
 			&currentRecord.NodeId,
@@ -113,15 +111,12 @@ func (s *manifestStore) GetAll() ([]Manifest, error) {
 			return nil, err
 		}
 
-		
 		var m manifest.Status
 		currentRecord.Status = m.ManifestStatusMap(statusStr)
 
-		
 		allSessions = append(allSessions, currentRecord)
 	}
 
-	
 	if err = rows.Err(); err != nil {
 		log.Error("ERROR: ", err)
 		return nil, err
@@ -133,9 +128,9 @@ func (s *manifestStore) GetAll() ([]Manifest, error) {
 // Add adds multiple rows to the UploadRecords database.
 func (s *manifestStore) Add(params ManifestParams) (*Manifest, error) {
 
-	sqlStatement := "INSERT INTO manifests(user_id, user_name, organization_id,  " +
-		"organization_name, dataset_id, dataset_name, " +
-		"status, created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id;"
+	sqlStatement := `INSERT INTO manifests(
+                      user_id, user_name, organization_id, organization_name, 
+                      dataset_id, dataset_name, status, created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id;`
 
 	currentTime := time.Now()
 	var id int32
@@ -188,7 +183,7 @@ func (s *manifestStore) SetManifestNodeId(manifestId int32, nodeId string) error
 		log.Error(err)
 		return err
 	}
-	defer statement.Close()  
+	defer statement.Close()
 
 	_, err = statement.Exec(nodeId, manifestId)
 	if err != nil {

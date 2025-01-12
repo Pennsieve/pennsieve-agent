@@ -9,7 +9,7 @@ import (
 
 func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
 
-	activeUser, err := s.User.GetActiveUser()
+	activeUser, err := s.UserService().GetActiveUser()
 	if err != nil {
 		return nil, err
 	}
@@ -32,13 +32,17 @@ func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.U
 func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileRequest) (*pb.UserResponse, error) {
 
 	s.stopSyncTimers()
+	client, err := s.PennsieveClient()
+	if err != nil {
+		log.Error(err)
+	}
 
-	useConfig := s.client.GetAPIParams().UseConfigFile
+	useConfig := client.GetAPIParams().UseConfigFile
 	if !useConfig {
 		return nil, errors.New("SWITCH is not available when agent is running without config file")
 	}
 
-	activeUser, err := s.User.SwitchUser(request.Profile)
+	activeUser, err := s.UserService().SwitchUser(request.Profile)
 	if err != nil {
 		log.Error("Error:SwitchProfile: ", err)
 		return nil, err
@@ -63,16 +67,16 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
 
 	// Get new session and update session in server object
-	updatedSession, _ := s.User.ReAuthenticate()
+	updatedSession, _ := s.UserService().ReAuthenticate()
 
 	// Get the active user
-	activeUser, err := s.User.GetActiveUser()
+	activeUser, err := s.UserService().GetActiveUser()
 	if err != nil {
 		return nil, err
 	}
 
 	// Update session in local database
-	updatedUser, _ := s.User.UpdateTokenForUser(activeUser, updatedSession)
+	updatedUser, _ := s.UserService().UpdateTokenForUser(activeUser, updatedSession)
 
 	// Return user response
 	resp := pb.UserResponse{

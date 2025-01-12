@@ -10,7 +10,7 @@ type ChannelWithRanges struct {
 type TimeSeriesChannel struct {
 	ID             int // auto-incrementing PK
 	NodeId         string
-	PackageId      int64 // package FK
+	PackageNodeId  string
 	Name           string
 	Start          int
 	End            int
@@ -26,10 +26,10 @@ type TimeSeriesChannel struct {
 
 type TimeSeriesContinuousRange struct {
 	ID        int // auto-incrementing PK
+	NodeId    string
 	Channel   string
 	Rate      float64
 	Location  string
-	Url       string
 	StartTime uint64
 	EndTime   uint64
 }

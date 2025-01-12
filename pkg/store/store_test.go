@@ -1,10 +1,17 @@
 package store
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared/test"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,13 +20,19 @@ import (
 var db *sql.DB
 
 func TestMain(m *testing.M) {
-	// os.Exit skips defer calls
-	// so we need to call another function
+	// os.Exit skips defer calls, so we need to call another function
 	code, err := run(m)
 	if err != nil {
 		fmt.Println(err)
 	}
 	os.Exit(code)
+}
+
+// TempFileName generates a temporary filename for use in testing or whatever
+func TempFileName(prefix, suffix string) string {
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	return filepath.Join("./", prefix+hex.EncodeToString(randBytes)+suffix)
 }
 
 func run(m *testing.M) (code int, err error) {
@@ -29,22 +42,35 @@ func run(m *testing.M) (code int, err error) {
 	// 3. run our tests
 	// 4. truncate the test db tables
 	home, err := os.UserHomeDir()
-	dbPath := filepath.Join(home, ".pennsieve/pennsieve_test.db")
+	tempDbPath := filepath.Join(home, TempFileName(".pennsieve/", ".db"))
+	sqliteUrl := fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", tempDbPath)
 
 	mig, err := migrate.New(
-		"file://db/migrations",
-		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
-	)
+		"file://../../db/migrations", sqliteUrl)
+
 	if err != nil {
+		log.Fatal(err)
 		return 1, err
 	}
 	if err := mig.Up(); err != nil {
-		return 1, err
+		if errors.Is(err, migrate.ErrNoChange) {
+			log.Info("No change in database schema: ", err)
+		} else {
+			log.Fatal(err)
+		}
 	}
 
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	db, err = sql.Open("sqlite3", tempDbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	db.Exec("")
+	testDataPath := filepath.Join("..", "..", "test", "sql", "store-test-data.sql")
+	err = test.LoadTestData(db, testDataPath)
+	//if err != nil {
+	//	Error is possible as other tests might have already loaded the testdata.
+	//fmt.Println(err)
+	//}
 
 	if err != nil {
 		return -1, fmt.Errorf("could not connect to database: %w", err)
@@ -52,18 +78,21 @@ func run(m *testing.M) (code int, err error) {
 
 	// truncates all test data after the tests are run
 	defer func() {
-		for _, t := range []string{"manifests", "manifest_files", "user_info", "user_settings"} {
-			_, _ = db.Exec(fmt.Sprintf("DELETE FROM %s", t))
+		err := db.Close()
+		if err != nil {
+			return
 		}
 
-		db.Close()
+		err = os.Remove(tempDbPath)
+		if err != nil {
+			return
+		}
+
+		//for _, t := range []string{"manifests", "manifest_files", "user_info", "user_settings", "ts_channel", "ts_range"} {
+		//	_, _ = db.Exec(fmt.Sprintf("DELETE FROM %s", t))
+		//}
+
 	}()
 
 	return m.Run(), nil
 }
-
-//func TestRecordCreation(t *testing.T) {
-//
-//	store := NewManifestStore(db)
-//
-//}

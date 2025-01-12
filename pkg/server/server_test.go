@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared/test"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/authentication"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/organization"
@@ -62,6 +65,7 @@ var (
 
 type ServerTestSuite struct {
 	suite.Suite
+	dbPath        string
 	db            *sql.DB
 	mockPennsieve *MockPennsieve
 	testServer    *server
@@ -70,12 +74,13 @@ type ServerTestSuite struct {
 func (suite *ServerTestSuite) SetupSuite() {
 	dbDir := suite.T().TempDir()
 	dbPath := filepath.Join(dbDir, "pennsieve_server_test.db")
+	suite.dbPath = dbPath
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
 		suite.FailNow("could not open database", "%s", err)
 	}
 	m, err := migrate.New(
-		"file://db/migrations",
+		"file://../../db/migrations",
 		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
 	)
 	if err != nil {
@@ -85,11 +90,17 @@ func (suite *ServerTestSuite) SetupSuite() {
 		suite.T().Fatal(err)
 	}
 
-	//migrations.Run(db)
+	testDataPath := filepath.Join("..", "..", "test", "sql", "server-test-data.sql")
+	err = test.LoadTestData(db, testDataPath)
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+
 	err = db.Ping()
 	if err != nil {
 		suite.T().Fatal(err)
 	}
+
 	suite.db = db
 }
 
@@ -107,8 +118,10 @@ func (suite *ServerTestSuite) clearDatabase() {
 // Also updates config.AWSEndpoints to point to mock Cognito
 func (suite *ServerTestSuite) initConfig() {
 	// Initialize Viper
+	viper.Set("agent.db_path", suite.dbPath)
 	viper.Set("agent.useConfigFile", true)
 	viper.Set("global.default_profile", expectedUserProfiles[0].Profile.Name)
+	viper.Set("migration.path", "file://../../db/migrations")
 	for _, up := range expectedUserProfiles {
 		profile := up.Profile
 		viper.Set(profile.Name+".api_token", profile.APIToken)
@@ -136,9 +149,10 @@ func (suite *ServerTestSuite) SetupTest() {
 		}},
 		expectedUserProfiles...)
 
-	suite.clearDatabase()
+	//suite.clearDatabase()
 	suite.initConfig()
-	testServer, err := newServer(suite.db)
+	testServer, err := newServer()
+	//suite.db = testServer.SqliteDB()
 	suite.NoError(err)
 	suite.testServer = testServer
 
