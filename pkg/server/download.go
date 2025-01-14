@@ -246,6 +246,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 
 	prefix, err := os.UserHomeDir()
 	tempPath := filepath.Join(prefix, ".pennsieve", fmt.Sprintf(".%s_download", uuid.NewString()))
+	log.Infof("Temp Path: %v", tempPath)
 
 	ctx, cancelFnc := context.WithCancel(context.Background())
 	session := downloadSession{
@@ -260,7 +261,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 	if resp.StatusCode != 200 {
 		log.Infof("Error while downloading: %v", resp.StatusCode)
 		fmt.Println(" - Download cancelled")
-		_ = os.Remove(tempPath)
+		//_ = os.Remove(tempPath)
 		return 0, err
 	}
 	defer func(Body io.ReadCloser) {
@@ -270,7 +271,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 		}
 	}(resp.Body)
 
-	f, _ := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY, 0644)
+	f, _ := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY, 0644)
 	defer func(f *os.File) {
 		err := f.Close()
 		if err != nil {
@@ -289,14 +290,14 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 	if _, err = io.Copy(f, progressReader); err != nil {
 		log.Infof("Error while downloading: %v", err)
 		fmt.Println(" - Download cancelled")
-		_ = os.Remove(tempPath)
+		_ = os.Remove(targetLocation)
 		return 0, err
 	}
 
-	err = fileSystemSafeRename(tempPath, targetLocation)
-	if err != nil {
-		return 0, err
-	}
+	//err = fileSystemSafeRename(tempPath, targetLocation)
+	//if err != nil {
+	//	return 0, err
+	//}
 
 	s.updateDownloadSubscribers(resp.ContentLength, resp.ContentLength, targetLocation, api.SubscribeResponse_DownloadStatusResponse_COMPLETE)
 
