@@ -271,15 +271,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 		}
 	}(resp.Body)
 
-	if _, err := os.Stat(targetLocation); err == nil {
-		// Target exists, remove it
-		if err := os.RemoveAll(targetLocation); err != nil {
-			log.Warnf("Failed to remove existing target: %v", err)
-			return 0, err
-		}
-	}
-
-	f, _ := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY, 0644)
+	f, _ := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	defer func(f *os.File) {
 		err := f.Close()
 		if err != nil {
@@ -301,11 +293,6 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 		_ = os.Remove(targetLocation)
 		return 0, err
 	}
-
-	//err = fileSystemSafeRename(tempPath, targetLocation)
-	//if err != nil {
-	//	return 0, err
-	//}
 
 	s.updateDownloadSubscribers(resp.ContentLength, resp.ContentLength, targetLocation, api.SubscribeResponse_DownloadStatusResponse_COMPLETE)
 
@@ -363,41 +350,4 @@ func (s *server) updateDownloadSubscribers(total int64, current int64, name stri
 	for _, id := range unsubscribe {
 		s.subscribers.Delete(id)
 	}
-}
-
-func fileSystemSafeRename(tempPath string, targetLocation string) error {
-	srcFile, err := os.Open(tempPath)
-	if err != nil {
-		return fmt.Errorf("failed to open temp file: %w\n", err)
-	}
-	defer func(srcFile *os.File) {
-		err := srcFile.Close()
-		if err != nil {
-			log.Warnf("Failed to close source file: %v\n", err)
-		}
-	}(srcFile)
-
-	destFile, err := os.Create(targetLocation)
-	if err != nil {
-		return fmt.Errorf("failed to create target file: %w\n", err)
-	}
-	defer func(destFile *os.File) {
-		err := destFile.Close()
-		if err != nil {
-			log.Warnf("Failed to close destination file: %v\n", err)
-		}
-	}(destFile)
-
-	_, err = io.Copy(destFile, srcFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy data: %w\n", err)
-	}
-
-	err = os.Remove(tempPath)
-	if err != nil {
-		// Copy successful, don't error if temp file delete fails
-		log.Warnf("Warning: Failed to remove temp file %s: %v\n", tempPath, err)
-	}
-
-	return nil
 }
