@@ -293,10 +293,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 			return 0, err
 		}
 		defer func(f *os.File) {
-			err := f.Close()
-			if err != nil {
-
-			}
+			_ = f.Close()
 		}(f)
 
 		if _, writeErr := f.WriteString(downloadId); writeErr != nil {
