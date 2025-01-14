@@ -271,6 +271,14 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 		}
 	}(resp.Body)
 
+	if _, err := os.Stat(targetLocation); err == nil {
+		// Target exists, remove it
+		if err := os.RemoveAll(targetLocation); err != nil {
+			log.Warnf("Failed to remove existing target: %v", err)
+			return 0, err
+		}
+	}
+
 	f, _ := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY, 0644)
 	defer func(f *os.File) {
 		err := f.Close()
