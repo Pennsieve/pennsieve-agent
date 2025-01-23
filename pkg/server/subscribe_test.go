@@ -152,9 +152,10 @@ func (suite *ServerTestSuite) SetupTest() {
 
 	suite.clearDatabase()
 	suite.initConfig()
+	suite.Require().NoError(test.LoadTestData(suite.db, "../../test/sql/server-test-data.sql"))
+
 	testServer, err := NewAgentServer(grpc.NewServer())
 	suite.db = testServer.SqliteDB()
-	test.LoadTestData(suite.db, "../../test/sql/server-test-data.sql")
 	suite.NoError(err)
 	suite.testServer = testServer
 
