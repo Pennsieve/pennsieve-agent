@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (s *server) Register(ctx context.Context, req *api.RegisterRequest) (*api.RegisterResponse, error) {
+func (s *agentServer) Register(ctx context.Context, req *api.RegisterRequest) (*api.RegisterResponse, error) {
 	accountType := req.Account.Type.String()
 
 	switch accountType {

@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -68,7 +69,7 @@ type ServerTestSuite struct {
 	dbPath        string
 	db            *sql.DB
 	mockPennsieve *MockPennsieve
-	testServer    *server
+	testServer    *agentServer
 }
 
 func (suite *ServerTestSuite) SetupSuite() {
@@ -149,10 +150,11 @@ func (suite *ServerTestSuite) SetupTest() {
 		}},
 		expectedUserProfiles...)
 
-	//suite.clearDatabase()
+	suite.clearDatabase()
 	suite.initConfig()
-	testServer, err := newServer()
-	//suite.db = testServer.SqliteDB()
+	testServer, err := NewAgentServer(grpc.NewServer())
+	suite.db = testServer.SqliteDB()
+	test.LoadTestData(suite.db, "../../test/sql/server-test-data.sql")
 	suite.NoError(err)
 	suite.testServer = testServer
 

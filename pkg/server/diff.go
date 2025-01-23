@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func (s *server) GetMapDiff(_ context.Context, req *api.MapDiffRequest) (*api.MapDiffResponse, error) {
+func (s *agentServer) GetMapDiff(_ context.Context, req *api.MapDiffRequest) (*api.MapDiffResponse, error) {
 
 	// Check if the provided path is part of a mapped dataset
 	datasetRoot, found, err := findMappedDatasetRoot(req.Path)

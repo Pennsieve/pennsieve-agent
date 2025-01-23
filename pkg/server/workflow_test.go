@@ -10,7 +10,7 @@ import (
 )
 
 type WorkflowTestSuite struct {
-	server
+	agentServer
 	suite.Suite
 }
 

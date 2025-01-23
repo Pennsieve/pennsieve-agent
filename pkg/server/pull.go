@@ -19,7 +19,7 @@ type packageRecord struct {
 	Location  string
 }
 
-func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleStatusResponse, error) {
+func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleStatusResponse, error) {
 
 	// Check if the provided path is part of a mapped dataset
 	datasetRoot, found, err := findMappedDatasetRoot(req.Path)

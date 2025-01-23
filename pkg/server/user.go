@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
+func (s *agentServer) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.UserResponse, error) {
 
 	activeUser, err := s.UserService().GetActiveUser()
 	if err != nil {
@@ -29,9 +30,15 @@ func (s *server) GetUser(ctx context.Context, request *pb.GetUserRequest) (*pb.U
 	return &resp, nil
 }
 
-func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileRequest) (*pb.UserResponse, error) {
+func (s *agentServer) SwitchProfile(ctx context.Context, request *pb.SwitchProfileRequest) (*pb.UserResponse, error) {
 
-	s.stopSyncTimers()
+	s.syncCancelFncs.Range(func(key interface{}, value interface{}) bool {
+		fmt.Println("STOP SYNCING on ", key.(int32))
+		tmr := value.(chan struct{})
+		tmr <- struct{}{}
+		return true
+	})
+
 	client, err := s.PennsieveClient()
 	if err != nil {
 		log.Error(err)
@@ -64,7 +71,7 @@ func (s *server) SwitchProfile(ctx context.Context, request *pb.SwitchProfileReq
 }
 
 // ReAuthenticate authenticates the user and updates the server and local database to store tokens.
-func (s *server) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
+func (s *agentServer) ReAuthenticate(ctx context.Context, request *pb.ReAuthenticateRequest) (*pb.UserResponse, error) {
 
 	// Get new session and update session in server object
 	updatedSession, _ := s.UserService().ReAuthenticate()

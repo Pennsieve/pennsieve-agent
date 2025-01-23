@@ -29,7 +29,7 @@ type fileWalk chan string
 // --------------------------------------------
 
 // ListManifests returns a list of manifests that are currently defined in the local database.
-func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsRequest) (*pb.ListManifestsResponse, error) {
+func (s *agentServer) ListManifests(ctx context.Context, request *pb.ListManifestsRequest) (*pb.ListManifestsResponse, error) {
 
 	manifests, err := s.ManifestService().GetAll()
 
@@ -58,7 +58,7 @@ func (s *server) ListManifests(ctx context.Context, request *pb.ListManifestsReq
 }
 
 // CreateManifest recursively adds paths from folder into local DB.
-func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
+func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateManifestRequest) (*pb.CreateManifestResponse, error) {
 
 	// 1. Get new Upload Session ID from Pennsieve Server
 	// --------------------------------------------------
@@ -129,7 +129,7 @@ func (s *server) CreateManifest(ctx context.Context, request *pb.CreateManifestR
 }
 
 // AddToManifest adds files to existing upload manifest.
-func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *agentServer) AddToManifest(ctx context.Context, request *pb.AddToManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	nrRecords, _ := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
 
@@ -140,7 +140,7 @@ func (s *server) AddToManifest(ctx context.Context, request *pb.AddToManifestReq
 }
 
 // RemoveFromManifest removes one or more files from the index for an existing manifest.
-func (s *server) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *agentServer) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	err := s.ManifestService().RemoveFromManifest(request.ManifestId, request.RemovePath)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *server) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromM
 }
 
 // DeleteManifest deletes existing upload manifest.
-func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *agentServer) DeleteManifest(ctx context.Context, request *pb.DeleteManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	//	1. Verify that manifest with ID exists
 
@@ -177,7 +177,7 @@ func (s *server) DeleteManifest(ctx context.Context, request *pb.DeleteManifestR
 }
 
 // ListManifestFiles lists files from an existing upload manifest.
-func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListManifestFilesResponse, error) {
+func (s *agentServer) ListManifestFiles(ctx context.Context, request *pb.ListManifestFilesRequest) (*pb.ListManifestFilesResponse, error) {
 
 	result, err := s.ManifestService().GetFiles(request.ManifestId, request.Limit, request.Offset)
 	if err != nil {
@@ -208,7 +208,7 @@ func (s *server) ListManifestFiles(ctx context.Context, request *pb.ListManifest
 }
 
 // SyncManifest synchronizes the state of the manifest between local and cloud server.
-func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
+func (s *agentServer) SyncManifest(ctx context.Context, request *pb.SyncManifestRequest) (*pb.SyncManifestResponse, error) {
 
 	/*
 		ManifestSync only synchronizes manifest files of status:
@@ -254,13 +254,13 @@ func (s *server) SyncManifest(ctx context.Context, request *pb.SyncManifestReque
 }
 
 // RelocateManifestFiles allows users to update the target path for a given path.
-func (s *server) RelocateManifestFiles(ctx context.Context, request *pb.RelocateManifestFilesRequest) (*pb.SimpleStatusResponse, error) {
+func (s *agentServer) RelocateManifestFiles(ctx context.Context, request *pb.RelocateManifestFilesRequest) (*pb.SimpleStatusResponse, error) {
 
 	return nil, nil
 }
 
 // ResetManifest allows users to reset the status for all files in a manifest
-func (s *server) ResetManifest(ctx context.Context, request *pb.ResetManifestRequest) (*pb.SimpleStatusResponse, error) {
+func (s *agentServer) ResetManifest(ctx context.Context, request *pb.ResetManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	err := s.ManifestService().ResetStatusForManifest(request.ManifestId)
 	if err != nil {
@@ -281,7 +281,7 @@ type syncSummary struct {
 }
 
 // syncProcessor Go routine that manages sync go sub-routines for crawling DB and syncing rows with service
-func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSummary, error) {
+func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSummary, error) {
 
 	log.Debug("IN SYNC PROCESSOR")
 
@@ -371,7 +371,7 @@ func (s *server) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSum
 // getCreateManifestId takes a manifest and ensures the manifest has a node-id.
 // The method checks if the manifest has a node-id, and if not, registers the manifest
 // with Pennsieve model service and sets the returned node-id in the manifest object.
-func (s *server) getCreateManifestId(m *store.Manifest) error {
+func (s *agentServer) getCreateManifestId(m *store.Manifest) error {
 
 	// Return if the node id is already set.
 	if m.NodeId.Valid {
@@ -405,7 +405,7 @@ func (s *server) getCreateManifestId(m *store.Manifest) error {
 
 // syncWorker fetches rows from crawler and syncs with the service by batch.
 // This function is called as a go-routine and typically runs multiple instances in parallel
-func (s *server) syncWorker(ctx context.Context, workerId int32,
+func (s *agentServer) syncWorker(ctx context.Context, workerId int32,
 	syncWalker <-chan store.ManifestFile, result chan []manifestFile.FileStatusDTO, m *store.Manifest, totalNrRows int64) error {
 
 	const pageSize = 250
@@ -462,7 +462,7 @@ func (s *server) syncWorker(ctx context.Context, workerId int32,
 	return nil
 }
 
-func (s *server) syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *store.Manifest) (*manifest.PostResponse, error) {
+func (s *agentServer) syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId string, m *store.Manifest) (*manifest.PostResponse, error) {
 
 	requestBody := manifest.DTO{
 		DatasetId: m.DatasetId,
@@ -484,7 +484,7 @@ func (s *server) syncItems(requestFiles []manifestFile.FileDTO, manifestNodeId s
 // ----------------------------------------------
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) syncUpdateSubscribers(total int64, nrSynced int64, workerId int32, status pb.SubscribeResponse_SyncResponse_SyncStatus) {
+func (s *agentServer) syncUpdateSubscribers(total int64, nrSynced int64, workerId int32, status pb.SubscribeResponse_SyncResponse_SyncStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -541,7 +541,7 @@ func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
 }
 
 // addToManifest walks over provided path and adds records to DB
-func (s *server) addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (int, error) {
+func (s *agentServer) addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (int, error) {
 
 	if len(files) > 0 && len(localBasePath) > 0 {
 		err := status.Error(codes.NotFound,
@@ -612,7 +612,7 @@ func (s *server) addToManifest(localBasePath string, targetBasePath string, file
 }
 
 // addUploadRecords adds records to the local SQLite DB.
-func (s *server) addUploadRecords(paths []string, localBasePath string, targetBasePath string, manifestId int32) error {
+func (s *agentServer) addUploadRecords(paths []string, localBasePath string, targetBasePath string, manifestId int32) error {
 
 	records := recordsFromPaths(paths, localBasePath, targetBasePath, manifestId)
 

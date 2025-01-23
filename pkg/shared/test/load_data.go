@@ -9,7 +9,6 @@ import (
 func LoadTestData(pgDB *sql.DB, path string) error {
 
 	fmt.Println("Trying to load test data")
-	//path := filepath.Join("..", "..", "test", "sql", "store-test-data.sql")
 	sqlBytes, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Println("adsadsadas")

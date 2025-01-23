@@ -22,7 +22,7 @@ type ProgressReader struct {
 	Reader io.Reader
 	Size   int64
 	Pos    int64
-	s      *server
+	s      *agentServer
 	Name   string
 	crc32  uint32
 }
@@ -38,7 +38,7 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func (s *server) Download(ctx context.Context, req *api.DownloadRequest) (*api.DownloadResponse, error) {
+func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*api.DownloadResponse, error) {
 
 	res := &ps_package.GetPresignedUrlResponse{}
 
@@ -169,7 +169,7 @@ func (s *server) Download(ctx context.Context, req *api.DownloadRequest) (*api.D
 	return resp, nil
 }
 
-func (s *server) downloadWorker(ctx context.Context, workerId int,
+func (s *agentServer) downloadWorker(ctx context.Context, workerId int,
 	jobs <-chan models.ManifestDTO, result <-chan int, targetFolder string,
 ) {
 
@@ -205,7 +205,7 @@ func (s *server) downloadWorker(ctx context.Context, workerId int,
 
 }
 
-func (s *server) CancelDownload(ctx context.Context, req *api.CancelDownloadRequest) (*api.SimpleStatusResponse, error) {
+func (s *agentServer) CancelDownload(ctx context.Context, req *api.CancelDownloadRequest) (*api.SimpleStatusResponse, error) {
 	cancelCount := 0
 	s.downloadCancelFncs.Range(func(k, v interface{}) bool {
 
@@ -240,7 +240,7 @@ func (s *server) CancelDownload(ctx context.Context, req *api.CancelDownloadRequ
 //
 //	downloadId is a unique id that is associated with the download (i.e. packageId, or manifestId)
 //	targetLocation is the absolute path and file-name where the downloaded content is stored
-func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, targetLocation string, downloadId string) (uint32, error) {
+func (s *agentServer) downloadFileFromPresignedUrl(ctx context.Context, url string, targetLocation string, downloadId string) (uint32, error) {
 
 	start := time.Now().UnixMilli()
 
@@ -308,7 +308,7 @@ func (s *server) downloadFileFromPresignedUrl(ctx context.Context, url string, t
 }
 
 // updateDownloadSubscribers sends download-progress updates to all grpc-update subscribers.
-func (s *server) updateDownloadSubscribers(total int64, current int64, name string,
+func (s *agentServer) updateDownloadSubscribers(total int64, current int64, name string,
 	status api.SubscribeResponse_DownloadStatusResponse_DownloadStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32

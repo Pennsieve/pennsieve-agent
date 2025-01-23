@@ -48,7 +48,7 @@ func isPath(path string) bool {
 	return false
 }
 
-func (s *server) StartWorkflow(ctx context.Context, request *api.StartWorkflowRequest) (*api.WorkflowResponse, error) {
+func (s *agentServer) StartWorkflow(ctx context.Context, request *api.StartWorkflowRequest) (*api.WorkflowResponse, error) {
 
 	id := guuid.New()
 	fmt.Println("\nStarting workflow")

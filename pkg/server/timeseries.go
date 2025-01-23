@@ -4,7 +4,7 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 )
 
-func (s *server) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeRequest, stream api.Agent_GetTimeseriesRangeForChannelsServer) error {
+func (s *agentServer) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeRequest, stream api.Agent_GetTimeseriesRangeForChannelsServer) error {
 
     return nil
     //log.Info("Received range request from ID: ", request.Id)

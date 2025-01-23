@@ -40,7 +40,7 @@ type syncResult chan []manifestFile.FileStatusDTO
 // ----------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
-func (s *server) CancelUpload(ctx context.Context,
+func (s *agentServer) CancelUpload(ctx context.Context,
 	request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
 
 	// TODO: Maybe only cancel uploadSessions that are actively running?
@@ -72,7 +72,7 @@ func (s *server) CancelUpload(ctx context.Context,
 }
 
 // UploadManifest uploads all files associated with the provided manifest
-func (s *server) UploadManifest(ctx context.Context,
+func (s *agentServer) UploadManifest(ctx context.Context,
 	request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
@@ -160,7 +160,7 @@ func (s *server) UploadManifest(ctx context.Context,
 	return &response, nil
 }
 
-func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
+func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	walker := make(chan store.ManifestFile, nrWorkers)
@@ -250,7 +250,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 }
 
-func (s *server) uploadWorker(ctx context.Context, workerId int32,
+func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 	jobs <-chan store.ManifestFile, results chan<- int, manifestNodeId string,
 	uploader *manager.Uploader, cfg aws.Config, uploadBucket string, datasetId string, organizationId string) error {
 
@@ -382,7 +382,7 @@ type CustomReader struct {
 	size     int64
 	read     int64
 	signMap  map[int64]struct{}
-	s        *server
+	s        *agentServer
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -410,7 +410,7 @@ func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 // ----------------------------------------------
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32,
+func (s *agentServer) updateSubscribers(total int64, current int64, name string, workerId int32,
 	status pb.SubscribeResponse_UploadResponse_UploadStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
@@ -460,7 +460,7 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 }
 
 // sendCancelSubscribers Send Cancel Message to Subscribers
-func (s *server) sendCancelSubscribers(message string) {
+func (s *agentServer) sendCancelSubscribers(message string) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
