@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,7 +54,6 @@ func (s *userSettingsStore) Get() (*UserSettings, error) {
 	if len(allConfigs) > 0 {
 		return &allConfigs[0], err
 	} else {
-		fmt.Println("hello session")
 		return nil, &NoClientSessionError{}
 	}
 
