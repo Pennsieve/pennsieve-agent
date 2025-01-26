@@ -244,9 +244,6 @@ func (s *agentServer) downloadFileFromPresignedUrl(ctx context.Context, url stri
 
 	start := time.Now().UnixMilli()
 
-	prefix, err := os.UserHomeDir()
-	tempPath := filepath.Join(prefix, ".pennsieve", fmt.Sprintf(".%s_download", uuid.NewString()))
-
 	ctx, cancelFnc := context.WithCancel(context.Background())
 	session := downloadSession{
 		id:        downloadId,
@@ -260,7 +257,6 @@ func (s *agentServer) downloadFileFromPresignedUrl(ctx context.Context, url stri
 	if resp.StatusCode != 200 {
 		log.Infof("Error while downloading: %v", resp.StatusCode)
 		fmt.Println(" - Download cancelled")
-		_ = os.Remove(tempPath)
 		return 0, err
 	}
 	defer func(Body io.ReadCloser) {
@@ -270,7 +266,7 @@ func (s *agentServer) downloadFileFromPresignedUrl(ctx context.Context, url stri
 		}
 	}(resp.Body)
 
-	f, _ := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY, 0644)
+	f, _ := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	defer func(f *os.File) {
 		err := f.Close()
 		if err != nil {
@@ -289,12 +285,21 @@ func (s *agentServer) downloadFileFromPresignedUrl(ctx context.Context, url stri
 	if _, err = io.Copy(f, progressReader); err != nil {
 		log.Infof("Error while downloading: %v", err)
 		fmt.Println(" - Download cancelled")
-		_ = os.Remove(tempPath)
-		return 0, err
-	}
 
-	err = os.Rename(tempPath, targetLocation)
-	if err != nil {
+		// Repopulate dummy file with the packageID
+		f, openErr := os.OpenFile(targetLocation, os.O_TRUNC|os.O_WRONLY, 0644)
+		if openErr != nil {
+			log.Warnf("Failed to write PackageID: %v", openErr)
+			return 0, err
+		}
+		defer func(f *os.File) {
+			_ = f.Close()
+		}(f)
+
+		if _, writeErr := f.WriteString(downloadId); writeErr != nil {
+			log.Warnf("Failed to write PackageID to file: %v", writeErr)
+			return 0, err
+		}
 		return 0, err
 	}
 
