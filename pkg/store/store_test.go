@@ -42,7 +42,7 @@ func run(m *testing.M) (code int, err error) {
 	// 3. run our tests
 	// 4. truncate the test db tables
 	home, err := os.UserHomeDir()
-	tempDbPath := filepath.Join(home, TempFileName(".pennsieve/", ".db"))
+	tempDbPath := filepath.Join(home, TempFileName("", ".db"))
 	sqliteUrl := fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", tempDbPath)
 
 	mig, err := migrate.New(
