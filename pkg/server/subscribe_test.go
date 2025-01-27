@@ -1,11 +1,15 @@
 package server
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/golang-migrate/migrate/v4"
+	"os"
+
 	//"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -73,8 +77,17 @@ type ServerTestSuite struct {
 	testServer    *agentServer
 }
 
+// TempFileName generates a temporary filename for use in testing or whatever
+func TempDirName() string {
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	name := hex.EncodeToString(randBytes)
+	os.Mkdir(name, 0750)
+	return name
+}
+
 func (suite *ServerTestSuite) SetupSuite() {
-	dbDir := suite.T().TempDir()
+	dbDir := TempDirName()
 	dbPath := filepath.Join(dbDir, "pennsieve_server_test.db")
 	suite.dbPath = dbPath
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
@@ -182,6 +195,8 @@ func (suite *ServerTestSuite) TearDownSuite() {
 			suite.Fail("could not close database", "%s", err)
 		}
 	}
+	os.RemoveAll(filepath.Dir(suite.dbPath))
+
 }
 
 type MockServer struct {
