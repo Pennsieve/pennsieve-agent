@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	//"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -80,10 +81,16 @@ func (suite *ServerTestSuite) SetupSuite() {
 	if err != nil {
 		suite.FailNow("could not open database", "%s", err)
 	}
-	m, err := migrate.New(
+
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	m, err := migrate.NewWithDatabaseInstance(
 		"file://../../db/migrations",
-		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
-	)
+		"sqlite3", driver)
+
+	//m, err := migrate.New(
+	//	"file://../../db/migrations",
+	//	fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
+	//)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
