@@ -79,8 +79,11 @@ func (suite *ServerTestSuite) SetupSuite() {
 	suite.dbPath = dbPath
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
+		fmt.Println("error opening db:", err)
 		suite.FailNow("could not open database", "%s", err)
 	}
+
+	fmt.Println("Opened database ...")
 
 	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 	m, err := migrate.NewWithDatabaseInstance(

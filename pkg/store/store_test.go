@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/mattn/go-sqlite3"
@@ -43,10 +44,20 @@ func run(m *testing.M) (code int, err error) {
 	// 4. truncate the test db tables
 	home, err := os.UserHomeDir()
 	tempDbPath := filepath.Join(home, TempFileName("", ".db"))
-	sqliteUrl := fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", tempDbPath)
+	//sqliteUrl := fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", tempDbPath)
 
-	mig, err := migrate.New(
-		"file://../../db/migrations", sqliteUrl)
+	db, err = sql.Open("sqlite3", tempDbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	if err != nil {
+		fmt.Println("error opening db:", err)
+	}
+
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	mig, err := migrate.NewWithDatabaseInstance(
+		"file://../../db/migrations",
+		"sqlite3", driver)
+
+	//mig, err := migrate.New(
+	//	"file://../../db/migrations", sqliteUrl)
 
 	if err != nil {
 		log.Fatal(err)

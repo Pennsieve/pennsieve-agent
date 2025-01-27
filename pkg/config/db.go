@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	log "github.com/sirupsen/logrus"
@@ -24,11 +25,21 @@ func InitializeDB() (*sql.DB, error) {
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
 
-	// Run Migrations if needed
-	m, err := migrate.New(
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	if err != nil {
+		log.Error("Unable to open database")
+	}
+
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	m, err := migrate.NewWithDatabaseInstance(
 		migrationPath,
-		fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
-	)
+		"sqlite3", driver)
+	//
+	//// Run Migrations if needed
+	//m, err := migrate.New(
+	//	migrationPath,
+	//	fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
+	//)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -42,10 +53,6 @@ func InitializeDB() (*sql.DB, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
-	if err != nil {
-		log.Error("Unable to open database")
-	}
 	err = db.Ping()
 	if err != nil {
 		log.Errorf("unable to connect to database at %s: %s", dbPath, err)
