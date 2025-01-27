@@ -44,7 +44,6 @@ func run(m *testing.M) (code int, err error) {
 	// 4. truncate the test db tables
 	home, err := os.UserHomeDir()
 	tempDbPath := filepath.Join(home, TempFileName("", ".db"))
-	//sqliteUrl := fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", tempDbPath)
 
 	db, err = sql.Open("sqlite3", tempDbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
@@ -58,9 +57,6 @@ func run(m *testing.M) (code int, err error) {
 
 	defer driver.Close()
 
-	//mig, err := migrate.New(
-	//	"file://../../db/migrations", sqliteUrl)
-
 	if err != nil {
 		log.Fatal(err)
 		return 1, err
@@ -72,11 +68,6 @@ func run(m *testing.M) (code int, err error) {
 			log.Fatal(err)
 		}
 	}
-
-	//db, err = sql.Open("sqlite3", tempDbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 
 	testDataPath := filepath.Join("..", "..", "test", "sql", "store-test-data.sql")
 	err = test.LoadTestData(db, testDataPath)

@@ -34,12 +34,7 @@ func InitializeDB() (*sql.DB, error) {
 	m, err := migrate.NewWithDatabaseInstance(
 		migrationPath,
 		"sqlite3", driver)
-	//
-	//// Run Migrations if needed
-	//m, err := migrate.New(
-	//	migrationPath,
-	//	fmt.Sprintf("sqlite3://%s?_foreign_keys=on&mode=rwc&_journal_mode=WAL", dbPath),
-	//)
+
 	if err != nil {
 		log.Error(err)
 		return nil, err
