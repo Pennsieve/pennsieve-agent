@@ -56,6 +56,8 @@ func run(m *testing.M) (code int, err error) {
 		"file://../../db/migrations",
 		"sqlite3", driver)
 
+	defer driver.Close()
+
 	//mig, err := migrate.New(
 	//	"file://../../db/migrations", sqliteUrl)
 
@@ -71,10 +73,10 @@ func run(m *testing.M) (code int, err error) {
 		}
 	}
 
-	db, err = sql.Open("sqlite3", tempDbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
-	if err != nil {
-		log.Fatal(err)
-	}
+	//db, err = sql.Open("sqlite3", tempDbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	testDataPath := filepath.Join("..", "..", "test", "sql", "store-test-data.sql")
 	err = test.LoadTestData(db, testDataPath)
