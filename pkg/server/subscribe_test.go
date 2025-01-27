@@ -1,9 +1,7 @@
 package server
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt"
@@ -75,17 +73,9 @@ type ServerTestSuite struct {
 	testServer    *agentServer
 }
 
-// TempFileName generates a temporary filename for use in testing or whatever
-func TempFileName(prefix, suffix string) string {
-	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
-	return filepath.Join("./", prefix+hex.EncodeToString(randBytes)+suffix)
-}
-
 func (suite *ServerTestSuite) SetupSuite() {
-
-	dbPath := TempFileName("", ".db")
-	//dbPath := "pennsieve_server_test.db"
+	dbDir := suite.T().TempDir()
+	dbPath := filepath.Join(dbDir, "pennsieve_server_test.db")
 	suite.dbPath = dbPath
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
@@ -96,10 +86,6 @@ func (suite *ServerTestSuite) SetupSuite() {
 	fmt.Println("Opened database ...")
 
 	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
-	if err != nil {
-		fmt.Println("error opening driver:", err)
-	}
-
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://../../db/migrations",
 		"sqlite3", driver)
@@ -107,6 +93,8 @@ func (suite *ServerTestSuite) SetupSuite() {
 	if err != nil {
 		suite.T().Fatal(err)
 	}
+
+	// Migrate schemas
 	if err := m.Up(); err != nil {
 		suite.T().Fatal(err)
 	}
@@ -189,6 +177,7 @@ func (suite *ServerTestSuite) TearDownTest() {
 
 func (suite *ServerTestSuite) TearDownSuite() {
 	if suite.db != nil {
+		fmt.Println("Closing database ...")
 		if err := suite.db.Close(); err != nil {
 			suite.Fail("could not close database", "%s", err)
 		}
