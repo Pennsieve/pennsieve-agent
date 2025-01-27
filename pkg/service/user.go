@@ -34,18 +34,19 @@ type UserDTO struct {
 }
 
 // NewUserService returns a new instance of a UserService.
-func NewUserService(uis store.UserInfoStore, uss store.UserSettingsStore) *UserService {
+func NewUserService(uis store.UserInfoStore, uss store.UserSettingsStore, client *pennsieve.Client) *UserService {
 	return &UserService{
 		uiStore: uis,
 		usStore: uss,
+		client:  client,
 	}
 }
 
-// SetPennsieveClient adds a Pennsieve Client to the Service.
-// This is not done in the NewUserService as that generates a cyclical dependency.
-func (s *UserService) SetPennsieveClient(client *pennsieve.Client) {
-	s.client = client
-}
+//// SetPennsieveClient adds a Pennsieve Client to the Service.
+//// This is not done in the NewUserService as that generates a cyclical dependency.
+//func (s *UserService) SetPennsieveClient(client *pennsieve.Client) {
+//	s.client = client
+//}
 
 func (s *UserService) UpdateActiveDataset(datasetId string) error {
 	err := s.usStore.UpdateActiveDataset(datasetId)

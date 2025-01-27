@@ -15,7 +15,7 @@ import (
 
 // Fetch gets a representation of the dataset on the local machine
 // NOTE: This does NOT support packages with multiple source-files.
-func (s *server) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatusResponse, error) {
+func (s *agentServer) Map(ctx context.Context, req *api.MapRequest) (*api.SimpleStatusResponse, error) {
 
 	var err error
 

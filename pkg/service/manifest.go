@@ -15,16 +15,17 @@ type ManifestService struct {
 	client  *pennsieve.Client
 }
 
-func NewManifestService(ms store.ManifestStore, mfs store.ManifestFileStore) *ManifestService {
+func NewManifestService(ms store.ManifestStore, mfs store.ManifestFileStore, client *pennsieve.Client) *ManifestService {
 	return &ManifestService{
 		mStore:  ms,
 		mfStore: mfs,
+		client:  client,
 	}
 }
 
-func (s *ManifestService) SetPennsieveClient(client *pennsieve.Client) {
-	s.client = client
-}
+//func (s *ManifestService) SetPennsieveClient(client *pennsieve.Client) {
+//	s.client = client
+//}
 
 // VerifyFinalizedStatus checks if files are in "Finalized" state on server and sets to "Verified"
 func (s *ManifestService) VerifyFinalizedStatus(manifest *store.Manifest) error {

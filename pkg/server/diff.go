@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func (s *server) GetMapDiff(_ context.Context, req *api.MapDiffRequest) (*api.MapDiffResponse, error) {
+func (s *agentServer) GetMapDiff(_ context.Context, req *api.MapDiffRequest) (*api.MapDiffResponse, error) {
 
 	// Check if the provided path is part of a mapped dataset
 	datasetRoot, found, err := findMappedDatasetRoot(req.Path)
@@ -153,7 +153,7 @@ func getFileIdOrCrc32(path string, maxBytes int) (*crcOrFileId, error) {
 	if err != nil {
 		// Return CRC
 		crc32, err := shared.GetFileCrc32(path, maxBytes)
-		log.Info("GOT CRC32: ", crc32)
+		log.Debug("GOT CRC32: ", crc32)
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +165,7 @@ func getFileIdOrCrc32(path string, maxBytes int) (*crcOrFileId, error) {
 		}, nil
 
 	}
-	log.Info("GOT FILEID: ", fileId)
+	log.Debug("GOT FILEID: ", fileId)
 
 	return &crcOrFileId{
 		hasFileId: true,
@@ -214,7 +214,7 @@ func createFolderManifest(datasetRoot string) ([]folderFile, error) {
 		cleanDir := filepath.Clean(
 			strings.TrimPrefix(directory, filepath.FromSlash(datasetRoot)+string(os.PathSeparator)))
 
-		log.Info("CLEANDIR: ", cleanDir)
+		log.Debug("CLEANDIR: ", cleanDir)
 
 		// Clean automatically returns '.' when path is empty. In this case we do not
 		// want that to happen as we are comparing to the manifest from the server
@@ -371,7 +371,7 @@ FindDeleted:
 				}
 			}
 
-			log.Info("DELETED: ", mPath, "  :  ", m.FileName)
+			log.Debug("DELETED: ", mPath, "  :  ", m.FileName)
 
 			// File in manifest is not present in the actual folder structure
 			deletedFiles = append(deletedFiles, deletedFile{
@@ -400,7 +400,7 @@ FindMovedRenamed:
 
 			// Skip any files in the deleted array if they have previously been matched
 			if fDeleted.hasMatched {
-				log.Info("SKIP MATCHED DELETED FILE")
+				log.Debug("SKIP MATCHED DELETED FILE")
 				continue
 			}
 
@@ -668,8 +668,7 @@ MergeStep1:
 
 func fileIsLocalAndNotMoved(filePath string, state models2.MapState) bool {
 
-	log.Info("FILEISLOCALANDNOTMOVED: ", filePath)
-	log.Info(state)
+	log.Debug("FILEISLOCALANDNOTMOVED: ", filePath)
 
 	for _, f := range state.Files {
 		log.Warn("LOCAL_NOT_MOVED: ", f.Path, "   ", filePath)

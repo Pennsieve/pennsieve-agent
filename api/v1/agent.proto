@@ -42,11 +42,14 @@ service Agent {
 	// Datasets Endpoints
 	rpc UseDataset(UseDatasetRequest) returns (UseDatasetResponse) {}
 
-	//Workflow Endpoints
+	// Workflow Endpoints
 	rpc StartWorkflow(StartWorkflowRequest) returns (WorkflowResponse){}
 
 	// Account Endpoints
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
+
+	// Timeseries Endpoints
+	rpc GetTimeseriesRangeForChannels(GetTimeseriesRangeRequest) returns (stream GetTimeseriesRangeResponse) {}
 }
 
 message PullRequest {
@@ -56,6 +59,46 @@ message PullRequest {
 message SubscribeRequest {
 	int32 id = 1;
 }
+
+message GetTimeseriesRangeRequest {
+	string package_id = 1;
+	repeated string channel_id = 2;
+	uint64 startTime = 3;
+	uint64 endTime = 4;
+}
+
+message GetTimeseriesRangeResponse {
+	message RangeStatus {
+		StatusType status = 1;
+	}
+
+	message RangeData {
+		uint64 start = 1;
+		uint64 end = 2;
+		float rate = 3;
+		string channel_id = 4;
+		repeated float data = 5;
+	}
+
+	enum StatusType {
+		START = 0;
+		END = 1;
+		ERROR = 2;
+	}
+
+	enum MessageType {
+		RANGE_STATUS = 0;
+		RANGE_DATA = 1;
+	}
+
+	MessageType type = 1;
+	oneof message_data {
+		RangeStatus status = 2;
+		RangeData data = 3;
+	}
+
+}
+
 
 message SubscribeResponse {
 	message EventResponse {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	gp "github.com/pennsieve/pennsieve-agent/pkg/server"
+	"github.com/pennsieve/pennsieve-agent/pkg/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -96,7 +96,8 @@ var startCmd = &cobra.Command{
 		}
 
 		fmt.Println("Running Agent NOT as daemon")
-		err = gp.StartAgent()
+		grpcContainer := container.NewAgentServerContainer()
+		err = grpcContainer.StartAgent()
 		if err != nil {
 			log.Fatalln(err)
 		}
