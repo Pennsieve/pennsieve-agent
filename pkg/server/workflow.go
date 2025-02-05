@@ -228,7 +228,7 @@ func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFil
 	w.Flush()
 	err = f.Close()
 	if err != nil {
-		errString = fmt.Sprintf("Error closing file stream: %v", err)
+		errString = fmt.Sprintf("Error closing file Stream: %v", err)
 		fmt.Printf(errString)
 		return err, errString
 	}

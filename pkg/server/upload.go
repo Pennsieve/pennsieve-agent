@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
@@ -422,13 +423,13 @@ func (s *agentServer) updateSubscribers(total int64, current int64, name string,
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
-		sub, ok := v.(sub)
+		sub, ok := v.(shared.Sub)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubscribeResponse{
+		// Send data over the gRPC Stream to the client
+		if err := sub.Stream.Send(&pb.SubscribeResponse{
 			Type: 1,
 			MessageData: &pb.SubscribeResponse_UploadStatus{
 				UploadStatus: &pb.SubscribeResponse_UploadResponse{
@@ -441,13 +442,13 @@ func (s *agentServer) updateSubscribers(total int64, current int64, name string,
 		}); err != nil {
 
 			select {
-			case sub.finished <- true:
+			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
-			// In case of error the client would re-subscribe so close the subscriber stream
+			// In case of error the client would re-subscribe so close the subscriber Stream
 			unsubscribe = append(unsubscribe, id)
 		}
 		return true
@@ -459,7 +460,7 @@ func (s *agentServer) updateSubscribers(total int64, current int64, name string,
 	}
 }
 
-// sendCancelSubscribers Send Cancel Message to Subscribers
+// sendCancelSubscribers Send Cancel Message to subscribers
 func (s *agentServer) sendCancelSubscribers(message string) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
@@ -471,25 +472,25 @@ func (s *agentServer) sendCancelSubscribers(message string) {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
-		sub, ok := v.(sub)
+		sub, ok := v.(shared.Sub)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubscribeResponse{
+		// Send data over the gRPC Stream to the client
+		if err := sub.Stream.Send(&pb.SubscribeResponse{
 			Type: pb.SubscribeResponse_UPLOAD_CANCEL,
 			MessageData: &pb.SubscribeResponse_EventInfo{
 				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			select {
-			case sub.finished <- true:
+			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
-			// In case of error the client would re-subscribe so close the subscriber stream
+			// In case of error the client would re-subscribe so close the subscriber Stream
 			unsubscribe = append(unsubscribe, id)
 		}
 		return true

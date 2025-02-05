@@ -49,6 +49,7 @@ service Agent {
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
 
 	// Timeseries Endpoints
+	rpc GetTimeseriesChannels(GetTimeseriesChannelsRequest) returns (GetTimeseriesChannelsResponse) {}
 	rpc GetTimeseriesRangeForChannels(GetTimeseriesRangeRequest) returns (stream GetTimeseriesRangeResponse) {}
 }
 
@@ -60,11 +61,33 @@ message SubscribeRequest {
 	int32 id = 1;
 }
 
+message GetTimeseriesChannelsRequest {
+	string dataset_id = 1;
+	string package_id = 2;
+	bool refresh = 3;
+
+}
+
+message TimeseriesChannel {
+	string id = 1;
+	string name = 2;
+	uint64 start_time = 3;
+	uint64 end_time = 4;
+	string unit = 5;
+	float rate = 6;
+}
+
+message GetTimeseriesChannelsResponse {
+	repeated TimeseriesChannel channel = 1;
+}
+
 message GetTimeseriesRangeRequest {
-	string package_id = 1;
-	repeated string channel_id = 2;
-	uint64 startTime = 3;
-	uint64 endTime = 4;
+	string dataset_id = 1;
+	string package_id = 2;
+	repeated string channel_id = 3;
+	uint64 start_time = 4;
+	uint64 end_time = 5;
+	bool refresh = 6;
 }
 
 message GetTimeseriesRangeResponse {

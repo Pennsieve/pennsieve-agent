@@ -5,20 +5,25 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/pkg/models"
+	log "github.com/sirupsen/logrus"
 	"strings"
 )
 
 type TimeseriesStore interface {
+	StoreChannelsForPackage(
+		Ctx context.Context,
+		PackageNodeId string,
+		Channels []models.TsChannel) error
 	GetChannelsForPackage(
 		Ctx context.Context,
 		PackageNodeId string,
-	) ([]models.TimeSeriesChannel, error)
+	) ([]models.TsChannel, error)
 	GetRangeBlocksForChannels(
 		Ctx context.Context,
 		ChannelNodeIds []string,
 		StartTime uint64,
 		EndTime uint64,
-	) ([]models.TimeSeriesContinuousRange, error)
+	) ([]models.TsBlock, error)
 }
 
 func NewTimeseriesStore(db *sql.DB) TimeseriesStore {
@@ -31,12 +36,47 @@ type timeseriesStore struct {
 	db *sql.DB
 }
 
+func (s *timeseriesStore) StoreChannelsForPackage(
+	ctx context.Context,
+	PackageNodeId string,
+	Channels []models.TsChannel) error {
+
+	sqlStr := "REPLACE INTO ts_channel(node_id,package_id,name,start_time,end_time,unit,rate) VALUES "
+	var vals []interface{}
+
+	for _, channel := range Channels {
+		sqlStr += "(?,?,?,?,?,?,?),"
+		vals = append(vals, channel.ChannelNodeId, channel.PackageNodeId,
+			channel.Name, channel.Start, channel.End, channel.Unit, channel.Rate)
+	}
+
+	sqlStr = strings.TrimSuffix(sqlStr, ",")
+
+	stmt, err := s.db.PrepareContext(ctx, sqlStr)
+	if err != nil {
+		log.Error("Failed to prepare statement: ", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, vals...)
+	if err != nil {
+		log.Error("Failed to store channels for package: ", err)
+		return err
+	}
+
+	log.Info("Successfully stored channels for package: ", PackageNodeId)
+
+	return nil
+
+}
+
 func (s *timeseriesStore) GetChannelsForPackage(
 	ctx context.Context,
 	packageNodeId string,
-) ([]models.TimeSeriesChannel, error) {
+) ([]models.TsChannel, error) {
 
-	statement, err := s.db.PrepareContext(ctx, `SELECT id, node_id, package_id, name, start_time, end_time, unit, rate FROM ts_channel WHERE package_id = $1`)
+	statement, err := s.db.PrepareContext(ctx, `SELECT node_id, package_id, name, start_time, end_time, unit, rate FROM ts_channel WHERE package_id = $1`)
 	if err != nil {
 		return nil, err
 	}
@@ -48,12 +88,11 @@ func (s *timeseriesStore) GetChannelsForPackage(
 	}
 	defer rows.Close()
 
-	var channels []models.TimeSeriesChannel
+	var channels []models.TsChannel
 	for rows.Next() {
-		var channel models.TimeSeriesChannel
+		var channel models.TsChannel
 		err := rows.Scan(
-			&channel.ID,
-			&channel.NodeId,
+			&channel.ChannelNodeId,
 			&channel.PackageNodeId,
 			&channel.Name,
 			&channel.Start,
@@ -76,12 +115,12 @@ func (s *timeseriesStore) GetRangeBlocksForChannels(
 	channelNodeIds []string,
 	startTime uint64,
 	endTime uint64,
-) ([]models.TimeSeriesContinuousRange, error) {
+) ([]models.TsBlock, error) {
 
 	channelIdString := fmt.Sprintf("%s", strings.Join(channelNodeIds, ", "))
 
 	statement, err := s.db.PrepareContext(ctx, `
-		SELECT id, node_id, channel_node_id, location, start_time, end_time
+		SELECT node_id, channel_node_id, location, start_time, end_time
 		FROM ts_range
 		WHERE ((start_time <= $1 AND end_time > $1)
 		   OR (start_time >= $1 AND end_time <= $2)
@@ -98,18 +137,16 @@ func (s *timeseriesStore) GetRangeBlocksForChannels(
 
 	rows, err := statement.Query(startTime, endTime, channelIdString)
 	if err != nil {
-		fmt.Println("helo")
 		return nil, err
 	}
 	defer rows.Close()
 
-	var ranges []models.TimeSeriesContinuousRange
+	var ranges []models.TsBlock
 	for rows.Next() {
-		var rng models.TimeSeriesContinuousRange
+		var rng models.TsBlock
 		err := rows.Scan(
-			&rng.ID,
-			&rng.NodeId,
-			&rng.Channel,
+			&rng.BlockNodeId,
+			&rng.ChannelNodeId,
 			&rng.Location,
 			&rng.StartTime,
 			&rng.EndTime,

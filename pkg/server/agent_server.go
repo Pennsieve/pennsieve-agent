@@ -6,6 +6,7 @@ import (
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/pkg/service"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
@@ -25,14 +26,14 @@ type DependencyContainer interface {
 	UserService() *service.UserService
 	AccountService() *service.AccountService
 	messageSubscribers(message string)
+	GetSubscribers() sync.Map
 }
 
 type agentServer struct {
 	pb.UnimplementedAgentServer
-	subscribers        sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFncs         sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
-	syncCancelFncs     sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
-	downloadCancelFncs sync.Map // downloadCancelFncs is a map that holds cancel functions for download routines.
+	subscribers    sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs     sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+	syncCancelFncs sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
 
 	grpcServer *grpc.Server
 	client     *pennsieve.Client
@@ -52,6 +53,10 @@ type agentServer struct {
 
 func NewAgentServer(s *grpc.Server) (*agentServer, error) {
 	return &agentServer{grpcServer: s}, nil
+}
+
+func (s *agentServer) GetSubscribers() sync.Map {
+	return s.subscribers
 }
 
 func (s *agentServer) ManifestStore() store.ManifestStore {
@@ -157,9 +162,15 @@ func (s *agentServer) ManifestService() *service.ManifestService {
 }
 func (s *agentServer) TimeseriesService() service.TimeseriesService {
 	if s.timeseriesService == nil {
+		client, err := s.PennsieveClient()
+		if err != nil {
+			log.Error(err)
+		}
+
 		s.timeseriesService = service.NewTimeseriesService(
 			s.TimeseriesStore(),
-			s.client,
+			client,
+			s,
 		)
 	}
 
@@ -182,25 +193,25 @@ func (s *agentServer) messageSubscribers(message string) {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
-		sub, ok := v.(sub)
+		sub, ok := v.(shared.Sub)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubscribeResponse{
+		// Send data over the gRPC Stream to the client
+		if err := sub.Stream.Send(&pb.SubscribeResponse{
 			Type: pb.SubscribeResponse_EVENT,
 			MessageData: &pb.SubscribeResponse_EventInfo{
 				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
 			select {
-			case sub.finished <- true:
+			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
-			// In case of error the client would re-subscribe so close the subscriber stream
+			// In case of error the client would re-subscribe so close the subscriber Stream
 			unsubscribe = append(unsubscribe, id)
 		}
 		return true

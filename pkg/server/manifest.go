@@ -280,7 +280,7 @@ type syncSummary struct {
 	nrFilesUpdated int
 }
 
-// syncProcessor Go routine that manages sync go sub-routines for crawling DB and syncing rows with service
+// syncProcessor Go routine that manages sync go Sub-routines for crawling DB and syncing rows with service
 func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*syncSummary, error) {
 
 	log.Debug("IN SYNC PROCESSOR")
@@ -495,13 +495,13 @@ func (s *agentServer) syncUpdateSubscribers(total int64, nrSynced int64, workerI
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
-		sub, ok := v.(sub)
+		sub, ok := v.(shared.Sub)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubscribeResponse{
+		// Send data over the gRPC Stream to the client
+		if err := sub.Stream.Send(&pb.SubscribeResponse{
 			Type: pb.SubscribeResponse_SYNC_STATUS,
 			MessageData: &pb.SubscribeResponse_SyncStatus{
 				SyncStatus: &pb.SubscribeResponse_SyncResponse{
@@ -513,12 +513,12 @@ func (s *agentServer) syncUpdateSubscribers(total int64, nrSynced int64, workerI
 		}); err != nil {
 			log.Error(fmt.Sprintf("Failed to send data to client: %v", err))
 			select {
-			case sub.finished <- true:
+			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
-			// In case of error the client would re-subscribe so close the subscriber stream
+			// In case of error the client would re-subscribe so close the subscriber Stream
 			unsubscribe = append(unsubscribe, id)
 		}
 		return true

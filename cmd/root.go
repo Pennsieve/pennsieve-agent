@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/download"
 	"github.com/pennsieve/pennsieve-agent/cmd/map"
+	"github.com/pennsieve/pennsieve-agent/cmd/timeseries"
 	"os"
 	"path/filepath"
 
@@ -76,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(account.AccountCmd)
 	rootCmd.AddCommand(download.DownloadCmd)
 	rootCmd.AddCommand(_map.MapCmd)
+	rootCmd.AddCommand(timeseries.TimeseriesCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file (default is $HOME/.pennsieve/config.ini)")
 

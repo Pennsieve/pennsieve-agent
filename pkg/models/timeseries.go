@@ -1,35 +1,25 @@
 package models
 
-import "time"
-
 type ChannelWithRanges struct {
-	Channel *TimeSeriesChannel
-	Ranges  []TimeSeriesContinuousRange
+	Channel *TsChannel
+	Ranges  []TsBlock
 }
 
-type TimeSeriesChannel struct {
-	ID             int // auto-incrementing PK
-	NodeId         string
-	PackageNodeId  string
-	Name           string
-	Start          int
-	End            int
-	Unit           string
-	Rate           float64
-	Type           string
-	Group          string
-	LastAnnotation int
-	Properties     []map[string]interface{}
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+type TsChannel struct {
+	ChannelNodeId string
+	PackageNodeId string
+	Name          string
+	Start         int64
+	End           int64
+	Unit          string
+	Rate          float64
 }
 
-type TimeSeriesContinuousRange struct {
-	ID        int // auto-incrementing PK
-	NodeId    string
-	Channel   string
-	Rate      float64
-	Location  string
-	StartTime uint64
-	EndTime   uint64
+type TsBlock struct {
+	BlockNodeId   string
+	ChannelNodeId string
+	Rate          float64
+	Location      string
+	StartTime     int64
+	EndTime       int64
 }

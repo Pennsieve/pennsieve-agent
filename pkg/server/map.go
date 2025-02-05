@@ -39,7 +39,10 @@ func (s *agentServer) Map(ctx context.Context, req *api.MapRequest) (*api.Simple
 
 	// Download Manifest to hidden .pennsieve folder in targetpath
 	manifestLocation := filepath.Join(req.TargetFolder, ".pennsieve", "manifest.json")
-	_, err = s.downloadFileFromPresignedUrl(ctx, manifestResponse.URL, manifestLocation, uuid.New().String())
+
+	downloadImpl := shared.NewDownloader(s, s.client)
+
+	_, err = downloadImpl.DownloadFileFromPresignedUrl(ctx, manifestResponse.URL, manifestLocation, uuid.New().String())
 	if err != nil {
 		log.Errorf("Download failed: %v", err)
 		return nil, err

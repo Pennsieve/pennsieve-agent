@@ -9,6 +9,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,11 +25,6 @@ type downloadSession struct {
 	cancelFnc context.CancelFunc
 }
 
-type sub struct {
-	stream   pb.Agent_SubscribeServer // stream is the server side of the RPC stream
-	finished chan<- bool              // finished is used to signal closure of a client subscribing goroutine
-}
-
 // API ENDPOINT IMPLEMENTATIONS
 // --------------------------------------------
 
@@ -38,20 +34,20 @@ func (s *agentServer) Subscribe(request *pb.SubscribeRequest, stream pb.Agent_Su
 	log.Info("Received subscribe request from ID: ", request.Id)
 
 	fin := make(chan bool)
-	// Save the subscriber stream according to the given client ID
-	s.subscribers.Store(request.Id, sub{stream: stream, finished: fin})
+	// Save the subscriber Stream according to the given client ID
+	s.subscribers.Store(request.Id, shared.Sub{Stream: stream, Finished: fin})
 
 	ctx := stream.Context()
-	// Keep this scope alive because once this scope exits - the stream is closed
+	// Keep finishedpe alive because once this scope exits - the Stream is closed
 	for {
 		select {
 		case <-fin:
-			log.Info(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
-			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
+			log.Info(fmt.Sprintf("Closing Stream for client ID: %d", request.Id))
+			s.messageSubscribers(fmt.Sprintf("Closing Stream for client ID: %d", request.Id))
 			return nil
 		case <-ctx.Done():
 			log.Info(fmt.Sprintf("Client ID %d has disconnected", request.Id))
-			s.messageSubscribers(fmt.Sprintf("Closing stream for client ID: %d", request.Id))
+			s.messageSubscribers(fmt.Sprintf("Closing Stream for client ID: %d", request.Id))
 			return nil
 		}
 	}
@@ -64,12 +60,12 @@ func (s *agentServer) Unsubscribe(ctx context.Context, request *pb.SubscribeRequ
 	if !ok {
 		return nil, fmt.Errorf("failed to load subscriber key: %d", request.Id)
 	}
-	sub, ok := v.(sub)
+	sub, ok := v.(shared.Sub)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast subscriber value: %T", v)
 	}
 	select {
-	case sub.finished <- true:
+	case sub.Finished <- true:
 		log.Info(fmt.Sprintf("Unsubscribed client: %d", request.Id))
 	default:
 		// Default case is to avoid blocking in case client has already unsubscribed

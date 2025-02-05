@@ -2,7 +2,7 @@ module github.com/pennsieve/pennsieve-agent
 
 go 1.22.7
 
-//replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
+replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 
 //replace github.com/pennsieve/pennsieve-go-core => ../pennsieve-go-core
 

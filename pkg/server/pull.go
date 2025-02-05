@@ -68,10 +68,11 @@ func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.Simp
 				log.Error("Cannot get presigned url")
 			}
 
+			downloaderImpl := shared.NewDownloader(s, s.client)
 			// Iterate over the files in a package and download serially
 		FILEWALK:
 			for _, f := range res.Files {
-				_, err := s.downloadFileFromPresignedUrl(ctx, f.URL, pkg.Location, pkg.PackageId)
+				_, err := downloaderImpl.DownloadFileFromPresignedUrl(ctx, f.URL, pkg.Location, pkg.PackageId)
 				if err != nil {
 					log.Errorf("Download failed: %v", err)
 				}
