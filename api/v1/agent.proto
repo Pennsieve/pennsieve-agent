@@ -84,10 +84,11 @@ message GetTimeseriesChannelsResponse {
 message GetTimeseriesRangeRequest {
 	string dataset_id = 1;
 	string package_id = 2;
-	repeated string channel_id = 3;
-	uint64 start_time = 4;
-	uint64 end_time = 5;
+	string channel_id = 3;
+	float start_time = 4;
+	float end_time = 5;
 	bool refresh = 6;
+	bool relative_time = 7;
 }
 
 message GetTimeseriesRangeResponse {

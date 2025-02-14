@@ -36,12 +36,54 @@ func (s *agentServer) GetTimeseriesChannels(ctx context.Context, req *api.GetTim
 
 func (s *agentServer) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeRequest, stream api.Agent_GetTimeseriesRangeForChannelsServer) error {
 
-	log.Info("GetTimeseriesRangeForChannels called - ", req.DatasetId, req.PackageId)
+	log.Info("GetTimeseriesRangeForChannels called - ", req.DatasetId, req.PackageId, req.RelativeTime)
 
 	rangeChannel := make(chan models.TsBlock, 5)
 	ctx := context.Background()
 
 	tsService := s.TimeseriesService()
+
+	// If channelIds not provided, then get all channels
+	channel := req.ChannelId
+	minStartTime := 0
+
+	// Always get the channels from server as we might need to get starttimes for relative range
+	// TODO: improve this and check cached channels
+	client, err := s.PennsieveClient()
+	if err != nil {
+		return err
+	}
+	response, err := client.Timeseries.GetChannels(ctx, req.DatasetId, req.PackageId)
+
+	if len(channel) == 0 {
+		log.Info("No Channels Supplied --> Returning all channels")
+		for _, ch := range response {
+			if minStartTime == 0 || minStartTime > ch.StartTime {
+				minStartTime = ch.StartTime
+			}
+		}
+	} else {
+		for _, ch := range response {
+			if ch.ChannelID == channel {
+				minStartTime = ch.StartTime
+				break
+			}
+		}
+	}
+
+	var useStartTime, useEndTime uint64
+
+	log.Info("req time: ", req.StartTime, req.EndTime)
+
+	if req.RelativeTime {
+		useStartTime = uint64(req.StartTime*1000000) + uint64(minStartTime)
+		useEndTime = uint64(req.EndTime*1000000) + uint64(minStartTime)
+	} else {
+		useStartTime = uint64(req.StartTime)
+		useEndTime = uint64(req.EndTime)
+
+	}
+	log.Info("use time: ", useStartTime, useEndTime)
 
 	// Create WaitGroup: The waitgroup is canceled when all blocks are streamed to client
 	var streamWg sync.WaitGroup
@@ -50,7 +92,7 @@ func (s *agentServer) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeR
 	// Use the service to get the blocks for range and put them on channel once available locally
 	go func() {
 		err := tsService.GetRangeBlocksForChannels(
-			ctx, req.DatasetId, req.PackageId, req.ChannelId, req.StartTime, req.EndTime, rangeChannel)
+			ctx, req.DatasetId, req.PackageId, channel, useStartTime, useEndTime, rangeChannel)
 		if err != nil {
 			log.Error("GetTimeseriesRangeForChannels err: ", err)
 		}
@@ -59,7 +101,7 @@ func (s *agentServer) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeR
 
 	// Use the service to grab local blocks of data and Stream to client over gRPC
 	go func() {
-		tsService.StreamBlocksToClient(ctx, rangeChannel, stream)
+		tsService.StreamBlocksToClient(ctx, rangeChannel, useStartTime, useEndTime, stream)
 		defer streamWg.Done()
 	}()
 

@@ -1,6 +1,7 @@
 package timeseries
 
 import (
+	"encoding/csv"
 	"fmt"
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
@@ -12,24 +13,45 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"io"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 var getCmd = &cobra.Command{
-	Use:   "get <PACKAGE-ID> <START-TIMESTAMP> <END-TIMESTAMP> <TARGET>",
-	Short: "Retrieve timeseries data as CSV file.",
-	Long: `Retrieve timeseries data as CSV file. 
-The command will return a CSV file at the TARGET location with the requested range of timeseries data.
+	Use:   "get <package-id> <channel-id> <start-time> <end-time> [<target>]]",
+	Short: "Writes a CSV file from a range of a timeseries package.",
+	Long: `This function returns a CSV file with the data for a single channel of a timeseries package. 
+The CSV file will have two columns, the first with the timestamps, the second with the values. 
+It will have a single header row with the scientific units of the columns.
+
+Users can provide an optional target file-name. If no target is specified, the file name will 
+include the channel name and the time-range of the request. 
+
+By default the specified start- and endtimes are defined in uUTC time. By setting the [-r | --relative_time] 
+flag, the start- and stoptime are interpreted as relative to the start time of the channel. 
 
 `,
 	Args: cobra.MinimumNArgs(4),
 	Run: func(cmd *cobra.Command, args []string) {
 
 		packageId := args[0]
-		startTimestamp, _ := strconv.ParseUint(args[1], 10, 64)
-		endTimestamp, _ := strconv.ParseUint(args[2], 10, 64)
-		//target := args[3]
+		channelId := args[1]
+		startTimestamp, _ := strconv.ParseFloat(args[2], 32)
+		endTimestamp, _ := strconv.ParseFloat(args[3], 32)
+
+		target := fmt.Sprintf("%s_%s_%s.csv", strings.Replace(channelId, ":", "-", -1),
+			args[2], args[3])
+		if len(args) > 4 {
+			target = args[4]
+		}
+
+		doRelativeTime, err := cmd.Flags().GetBool("relative_time")
+		if err != nil {
+			log.Printf("Error: Cannot get flag \"relative_time\": %s", err)
+			return
+		}
 
 		db, _ := config.InitializeDB()
 		userSettingsStore := store.NewUserSettingsStore(db)
@@ -42,26 +64,37 @@ The command will return a CSV file at the TARGET location with the requested ran
 		log.Info("datasetID")
 
 		port := viper.GetString("agent.port")
-		conn, err := grpc.Dial(":"+port, []grpc.DialOption{
+		conn, err := grpc.NewClient(":"+port, []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock()}...)
+		}...)
 
 		client := api.NewAgentClient(conn)
 
 		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 		stream, err := client.GetTimeseriesRangeForChannels(ctx, &api.GetTimeseriesRangeRequest{
-			DatasetId: s.UseDatasetId,
-			PackageId: packageId,
-			ChannelId: nil,
-			StartTime: startTimestamp,
-			EndTime:   endTimestamp,
-			Refresh:   false,
+			DatasetId:    s.UseDatasetId,
+			PackageId:    packageId,
+			ChannelId:    channelId,
+			StartTime:    float32(startTimestamp),
+			EndTime:      float32(endTimestamp),
+			Refresh:      false,
+			RelativeTime: doRelativeTime,
 		})
 		if err != nil {
 			log.Error("Error getting timeseries range: ", err)
 			return
 		}
 
+		file, err := os.Create(target)
+		if err != nil {
+			log.Fatal("Cannot create file", err)
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		firstBlock := uint64(0)
 		for {
 			req, err := stream.Recv()
 			if err == io.EOF {
@@ -72,11 +105,32 @@ The command will return a CSV file at the TARGET location with the requested ran
 				break
 			}
 			// Process the received request message
-			fmt.Println(req)
-		}
+			d := req.GetData()
+			data := d.GetData()
 
+			timeStamp := d.Start
+			if doRelativeTime {
+				if firstBlock == 0 {
+					firstBlock = d.Start
+				}
+				timeStamp = timeStamp - firstBlock
+			}
+
+			record := make([]string, 2)
+			for i, value := range data {
+				record[0] = strconv.FormatFloat(float64(timeStamp)+(float64(1000000)/float64(d.Rate))*float64(i), 'f', -1, 64)
+				record[1] = strconv.FormatFloat(float64(value), 'f', -1, 64)
+				writer.Write(record)
+
+			}
+
+		}
 	},
 }
 
 func init() {
+
+	getCmd.Flags().BoolP("relative_time", "r",
+		false, "Use relative time from start of channel in sec.")
+
 }

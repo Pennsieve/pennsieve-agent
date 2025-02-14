@@ -24,6 +24,14 @@ type TimeseriesStore interface {
 		StartTime uint64,
 		EndTime uint64,
 	) ([]models.TsBlock, error)
+	StoreBlockForChannel(
+		Ctx context.Context,
+		BlockNodeId string,
+		ChannelNodeId string,
+		Location string,
+		StartTime uint64,
+		EndTime uint64,
+	) error
 }
 
 func NewTimeseriesStore(db *sql.DB) TimeseriesStore {
@@ -34,6 +42,27 @@ func NewTimeseriesStore(db *sql.DB) TimeseriesStore {
 
 type timeseriesStore struct {
 	db *sql.DB
+}
+
+func (s *timeseriesStore) StoreBlockForChannel(ctx context.Context, BlockNodeId string, ChannelNodeId string, location string,
+	StartTime uint64, EndTime uint64) error {
+
+	sqlStr := "REPLACE INTO ts_range(node_id,channel_node_id,location,start_time,end_time) VALUES (?,?,?,?,?)"
+
+	stmt, err := s.db.PrepareContext(ctx, sqlStr)
+	if err != nil {
+		log.Error("Failed to prepare statement: ", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, BlockNodeId, ChannelNodeId, location, StartTime, EndTime)
+	if err != nil {
+		log.Error("Failed to store channels for package: ", err)
+		return err
+	}
+
+	return nil
 }
 
 func (s *timeseriesStore) StoreChannelsForPackage(
@@ -117,25 +146,31 @@ func (s *timeseriesStore) GetRangeBlocksForChannels(
 	endTime uint64,
 ) ([]models.TsBlock, error) {
 
-	channelIdString := fmt.Sprintf("%s", strings.Join(channelNodeIds, ", "))
+	channelIdString := ""
+	if len(channelNodeIds) > 0 {
+		channelIdString = fmt.Sprintf("'%s'", strings.Join(channelNodeIds, "', '"))
+	}
 
-	statement, err := s.db.PrepareContext(ctx, `
+	log.Info(channelIdString)
+
+	// Note: not ideal to use sprintf to get channelIds in there but
+	// adding this in statement.query doesn't work.
+	statement, err := s.db.PrepareContext(ctx, fmt.Sprintf(`
 		SELECT node_id, channel_node_id, location, start_time, end_time
 		FROM ts_range
 		WHERE ((start_time <= $1 AND end_time > $1)
 		   OR (start_time >= $1 AND end_time <= $2)
 		   OR (start_time <$2 AND end_time > $2)
 		   OR (start_time <=$1 AND end_time >= $2))
-		   AND channel_node_id IN($3)`)
+		   AND channel_node_id IN( %s )`, channelIdString))
 
 	defer statement.Close()
 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(startTime, endTime, channelIdString)
 
-	rows, err := statement.Query(startTime, endTime, channelIdString)
+	rows, err := statement.Query(startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
@@ -158,5 +193,15 @@ func (s *timeseriesStore) GetRangeBlocksForChannels(
 		ranges = append(ranges, rng)
 	}
 
+	log.Info("Successfully fetched ranges: ", ranges)
+
 	return ranges, nil
+}
+
+func convertToInterfaceSlice(stringSlice []string) []interface{} {
+	interfaceSlice := make([]interface{}, len(stringSlice))
+	for i, str := range stringSlice {
+		interfaceSlice[i] = str
+	}
+	return interfaceSlice
 }

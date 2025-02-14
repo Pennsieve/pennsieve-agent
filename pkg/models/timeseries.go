@@ -23,3 +23,11 @@ type TsBlock struct {
 	StartTime     int64
 	EndTime       int64
 }
+
+type SimpleTsBlock struct {
+	ChannelNodeId string
+	Rate          float32
+	StartTime     uint64
+	EndTime       uint64
+	Data          []float32
+}
