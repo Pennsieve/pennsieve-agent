@@ -23,9 +23,9 @@ func TestCreateChannels(t *testing.T) {
 	store := NewTimeseriesStore(db)
 
 	packageNodeId := "N:package:store-test"
-	channels := []models.TimeSeriesChannel{
+	channels := []models.TsChannel{
 		{
-			NodeId:        "N:channel:store-test-1",
+			ChannelNodeId: "N:channel:store-test-1",
 			PackageNodeId: packageNodeId,
 			Name:          "channel 1",
 			Start:         1,
@@ -34,7 +34,7 @@ func TestCreateChannels(t *testing.T) {
 			Rate:          120.5,
 		},
 		{
-			NodeId:        "N:channel:store-test-2",
+			ChannelNodeId: "N:channel:store-test-2",
 			PackageNodeId: packageNodeId,
 			Name:          "channel 2",
 			Start:         50,
@@ -51,7 +51,7 @@ func TestCreateChannels(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 2, len(results))
-	assert.Equal(t, "N:channel:store-test-1", results[0].NodeId)
+	assert.Equal(t, "N:channel:store-test-1", results[0].ChannelNodeId)
 
 }
 
@@ -71,12 +71,12 @@ func TestRangeStore(t *testing.T) {
 	ranges, err = store.GetRangeBlocksForChannels(context.Background(), []string{"N:channel:1"}, 0, 50)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(ranges))
-	assert.Equal(t, "19-1", ranges[0].NodeId)
+	assert.Equal(t, "19-1", ranges[0].BlockNodeId)
 
 	ranges, err = store.GetRangeBlocksForChannels(context.Background(), []string{"N:channel:1"}, 110, 200)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(ranges))
-	assert.Equal(t, "19-2", ranges[0].NodeId)
+	assert.Equal(t, "19-2", ranges[0].BlockNodeId)
 
 	ranges, err = store.GetRangeBlocksForChannels(context.Background(), []string{"N:channel:1"}, 0, 200)
 	assert.NoError(t, err)

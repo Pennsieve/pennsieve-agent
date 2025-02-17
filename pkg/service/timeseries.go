@@ -192,7 +192,7 @@ func (t *TimeseriesServiceImpl) GetChannelsForPackage(
 		// Save in SQL-database
 		err = t.tsStore.StoreChannelsForPackage(ctx, datasetNodeId, result)
 		if err != nil {
-			log.Error("Error storing channels for dataset node id %v: %v", datasetNodeId, err)
+			log.Error(fmt.Sprintf("Error storing channels for dataset node id %v: %v", datasetNodeId, err))
 			return nil, err
 		}
 

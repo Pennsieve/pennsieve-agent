@@ -112,7 +112,7 @@ func (suite *ServerTestSuite) SetupSuite() {
 		suite.T().Fatal(err)
 	}
 
-	testDataPath := filepath.Join("..", "..", "test", "sql", "server-test-data.sql")
+	testDataPath := filepath.Join("..", "..", "resources", "test", "sql", "server-test-data.sql")
 	err = test.LoadTestData(db, testDataPath)
 	if err != nil {
 		suite.T().Fatal(err)
@@ -173,7 +173,7 @@ func (suite *ServerTestSuite) SetupTest() {
 
 	suite.clearDatabase()
 	suite.initConfig()
-	suite.Require().NoError(test.LoadTestData(suite.db, "../../test/sql/server-test-data.sql"))
+	suite.Require().NoError(test.LoadTestData(suite.db, "../../resources/test/sql/server-test-data.sql"))
 
 	testServer, err := NewAgentServer(grpc.NewServer())
 	suite.db = testServer.SqliteDB()

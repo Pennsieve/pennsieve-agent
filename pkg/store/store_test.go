@@ -69,7 +69,7 @@ func run(m *testing.M) (code int, err error) {
 		}
 	}
 
-	testDataPath := filepath.Join("..", "..", "test", "sql", "store-test-data.sql")
+	testDataPath := filepath.Join("..", "..", "resources", "test", "sql", "store-test-data.sql")
 	err = test.LoadTestData(db, testDataPath)
 	//if err != nil {
 	//	Error is possible as other tests might have already loaded the testdata.
