@@ -47,25 +47,33 @@ func (s *agentServer) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeR
 	channel := req.ChannelId
 	minStartTime := 0
 
-	// Always get the channels from server as we might need to get starttimes for relative range
-	// TODO: improve this and check cached channels
-	client, err := s.PennsieveClient()
-	if err != nil {
-		return err
-	}
-	response, err := client.Timeseries.GetChannels(ctx, req.DatasetId, req.PackageId)
+	response, err := tsService.GetChannelsForPackage(ctx, req.GetDatasetId(), req.GetPackageId(), false)
 
 	if len(channel) == 0 {
 		log.Info("No Channels Supplied --> Returning all channels")
 		for _, ch := range response {
-			if minStartTime == 0 || minStartTime > ch.StartTime {
-				minStartTime = ch.StartTime
+
+			// Sending channel info to client.
+			err = tsService.StreamChannelInfoToClient(ctx, ch, stream)
+			if err != nil {
+				log.Error("Error streaming channel info to client: ", err)
+			}
+
+			if minStartTime == 0 || minStartTime > int(ch.Start) {
+				minStartTime = int(ch.Start)
 			}
 		}
 	} else {
 		for _, ch := range response {
-			if ch.ChannelID == channel {
-				minStartTime = ch.StartTime
+			if ch.ChannelNodeId == channel {
+				minStartTime = int(ch.Start)
+
+				// Sending channel info to client.
+				err = tsService.StreamChannelInfoToClient(ctx, ch, stream)
+				if err != nil {
+					log.Error("Error streaming channel info to client: ", err)
+				}
+
 				break
 			}
 		}
@@ -110,4 +118,26 @@ func (s *agentServer) GetTimeseriesRangeForChannels(req *api.GetTimeseriesRangeR
 	log.Info("returning from function")
 
 	return nil
+}
+
+func (s *agentServer) ResetCache(ctx context.Context, req *api.ResetCacheRequest) (*api.SimpleStatusResponse, error) {
+
+	resetAll := true
+	packageId := ""
+	if req.Id != nil {
+		resetAll = false
+		packageId = req.GetId()
+	}
+
+	log.Info(fmt.Sprintf("%v - %s", resetAll, packageId))
+
+	tsService := s.TimeseriesService()
+	err := tsService.ResetCache(ctx, packageId, resetAll)
+	if err != nil {
+		log.Error("ResetCache err: ", err)
+		return nil, err
+	}
+
+	response := api.SimpleStatusResponse{Status: "Success"}
+	return &response, nil
 }

@@ -24,6 +24,13 @@ type TimeseriesStore interface {
 		StartTime uint64,
 		EndTime uint64,
 	) ([]models.TsBlock, error)
+	GetCachedPackageIds(
+		Ctx context.Context,
+	) ([]string, error)
+	GetLocalBlocksForPackage(
+		Ctx context.Context,
+		PackageNodeId string,
+	) ([]models.TsBlock, error)
 	StoreBlockForChannel(
 		Ctx context.Context,
 		BlockNodeId string,
@@ -32,6 +39,10 @@ type TimeseriesStore interface {
 		StartTime uint64,
 		EndTime uint64,
 	) error
+	RemoveBlocksForPackage(
+		ctx context.Context,
+		packageId string,
+	) (err error)
 }
 
 func NewTimeseriesStore(db *sql.DB) TimeseriesStore {
@@ -42,6 +53,82 @@ func NewTimeseriesStore(db *sql.DB) TimeseriesStore {
 
 type timeseriesStore struct {
 	db *sql.DB
+}
+
+func (s *timeseriesStore) GetCachedPackageIds(ctx context.Context) (ids []string, err error) {
+
+	sqlStr := `SELECT DISTINCT package_id FROM ts_channel`
+
+	rows, err := s.db.Query(sqlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var packageIds []string
+	for rows.Next() {
+		var packageId *string
+		err := rows.Scan(&packageId)
+		if err != nil {
+			return nil, err
+		}
+
+		packageIds = append(packageIds, *packageId)
+	}
+
+	return packageIds, nil
+}
+
+func (s *timeseriesStore) GetLocalBlocksForPackage(ctx context.Context, packageId string) (blocks []models.TsBlock, err error) {
+
+	sqlStr := `SELECT rng.node_id, rng.channel_node_id, rng.location, rng.start_time, rng.end_time, ts.package_id
+    FROM ts_range AS rng JOIN ts_channel AS ts ON rng.channel_node_id == ts.node_id WHERE package_id = ?`
+
+	stmt, err := s.db.PrepareContext(ctx, sqlStr)
+	if err != nil {
+		log.Error("Failed to prepare statement: ", err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(packageId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ranges []models.TsBlock
+	for rows.Next() {
+		var rng models.TsBlock
+		var pckId *string
+		err := rows.Scan(
+			&rng.BlockNodeId,
+			&rng.ChannelNodeId,
+			&rng.Location,
+			&rng.StartTime,
+			&rng.EndTime,
+			&pckId,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		ranges = append(ranges, rng)
+	}
+
+	return ranges, nil
+}
+
+func (s *timeseriesStore) RemoveBlocksForPackage(ctx context.Context, packageId string) (err error) {
+
+	sqlStr := "DELETE FROM ts_range WHERE channel_node_id IN (SELECT DISTINCT channel_node_id FROM ts_channel JOIN ts_range ON ts_range.channel_node_id = ts_channel.node_id WHERE package_id = ?)"
+
+	_, err = s.db.Exec(sqlStr, packageId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func (s *timeseriesStore) StoreBlockForChannel(ctx context.Context, BlockNodeId string, ChannelNodeId string, location string,
@@ -56,9 +143,10 @@ func (s *timeseriesStore) StoreBlockForChannel(ctx context.Context, BlockNodeId 
 	}
 	defer stmt.Close()
 
+	log.Info(ChannelNodeId)
 	_, err = stmt.ExecContext(ctx, BlockNodeId, ChannelNodeId, location, StartTime, EndTime)
 	if err != nil {
-		log.Error("Failed to store channels for package: ", err)
+		log.Error("Failed to store blocks for package: ", err)
 		return err
 	}
 

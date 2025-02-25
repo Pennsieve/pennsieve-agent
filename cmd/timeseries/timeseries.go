@@ -17,4 +17,5 @@ var TimeseriesCmd = &cobra.Command{
 func init() {
 	TimeseriesCmd.AddCommand(ChannelsCmd)
 	TimeseriesCmd.AddCommand(getCmd)
+	TimeseriesCmd.AddCommand(resetCmd)
 }

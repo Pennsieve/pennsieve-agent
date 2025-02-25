@@ -60,6 +60,7 @@ type AgentClient interface {
 	// Timeseries Endpoints
 	GetTimeseriesChannels(ctx context.Context, in *GetTimeseriesChannelsRequest, opts ...grpc.CallOption) (*GetTimeseriesChannelsResponse, error)
 	GetTimeseriesRangeForChannels(ctx context.Context, in *GetTimeseriesRangeRequest, opts ...grpc.CallOption) (Agent_GetTimeseriesRangeForChannelsClient, error)
+	ResetCache(ctx context.Context, in *ResetCacheRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error)
 }
 
 type agentClient struct {
@@ -377,6 +378,15 @@ func (x *agentGetTimeseriesRangeForChannelsClient) Recv() (*GetTimeseriesRangeRe
 	return m, nil
 }
 
+func (c *agentClient) ResetCache(ctx context.Context, in *ResetCacheRequest, opts ...grpc.CallOption) (*SimpleStatusResponse, error) {
+	out := new(SimpleStatusResponse)
+	err := c.cc.Invoke(ctx, "/v1.Agent/ResetCache", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
@@ -419,6 +429,7 @@ type AgentServer interface {
 	// Timeseries Endpoints
 	GetTimeseriesChannels(context.Context, *GetTimeseriesChannelsRequest) (*GetTimeseriesChannelsResponse, error)
 	GetTimeseriesRangeForChannels(*GetTimeseriesRangeRequest, Agent_GetTimeseriesRangeForChannelsServer) error
+	ResetCache(context.Context, *ResetCacheRequest) (*SimpleStatusResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -512,6 +523,9 @@ func (UnimplementedAgentServer) GetTimeseriesChannels(context.Context, *GetTimes
 }
 func (UnimplementedAgentServer) GetTimeseriesRangeForChannels(*GetTimeseriesRangeRequest, Agent_GetTimeseriesRangeForChannelsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetTimeseriesRangeForChannels not implemented")
+}
+func (UnimplementedAgentServer) ResetCache(context.Context, *ResetCacheRequest) (*SimpleStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetCache not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -1054,6 +1068,24 @@ func (x *agentGetTimeseriesRangeForChannelsServer) Send(m *GetTimeseriesRangeRes
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Agent_ResetCache_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetCacheRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ResetCache(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Agent/ResetCache",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ResetCache(ctx, req.(*ResetCacheRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1168,6 +1200,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTimeseriesChannels",
 			Handler:    _Agent_GetTimeseriesChannels_Handler,
+		},
+		{
+			MethodName: "ResetCache",
+			Handler:    _Agent_ResetCache_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

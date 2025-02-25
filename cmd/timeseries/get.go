@@ -15,7 +15,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -41,8 +40,9 @@ flag, the start- and stoptime are interpreted as relative to the start time of t
 		startTimestamp, _ := strconv.ParseFloat(args[2], 32)
 		endTimestamp, _ := strconv.ParseFloat(args[3], 32)
 
-		target := fmt.Sprintf("%s_%s_%s.csv", strings.Replace(channelId, ":", "-", -1),
+		target := fmt.Sprintf("%s_%s_%s.csv", channelId[len(channelId)-8:],
 			args[2], args[3])
+
 		if len(args) > 4 {
 			target = args[4]
 		}
@@ -60,8 +60,6 @@ flag, the start- and stoptime are interpreted as relative to the start time of t
 			fmt.Println("\nError: No dataset specified; use 'pennsieve dataset use <node-id>' to set active dataset.")
 			return
 		}
-
-		log.Info("datasetID")
 
 		port := viper.GetString("agent.port")
 		conn, err := grpc.NewClient(":"+port, []grpc.DialOption{
@@ -97,33 +95,58 @@ flag, the start- and stoptime are interpreted as relative to the start time of t
 		firstBlock := uint64(0)
 		for {
 			req, err := stream.Recv()
-			if err == io.EOF {
-				fmt.Println("Closing")
-				// End of stream, process accumulated data and send response
 
+			// Server closes connection when done streaming.
+			if err == io.EOF {
 				stream.CloseSend()
 				break
 			}
-			// Process the received request message
-			d := req.GetData()
-			data := d.GetData()
 
-			timeStamp := d.Start
-			if doRelativeTime {
+			// Check Message Type
+			switch req.Type {
+			case api.GetTimeseriesRangeResponse_CHANNEL_INFO:
+
+				log.Info("Got Channel Info")
+
+				ch := req.GetChannel()
+				// Check if this message arrives before first block
 				if firstBlock == 0 {
-					firstBlock = d.Start
+					header := []string{
+						ch.Name,
+						fmt.Sprintf("%sHz - %s", strconv.FormatFloat(float64(ch.GetRate()), 'f', -1, 64), ch.GetUnit()),
+					}
+					writer.Write(header)
+
+				} else {
+					log.Error("Received channel-info after blocks, ignoring info.")
 				}
-				timeStamp = timeStamp - firstBlock
+
+				break
+			case api.GetTimeseriesRangeResponse_RANGE_DATA:
+				d := req.GetData()
+				data := d.GetData()
+
+				timeStamp := d.Start
+				if doRelativeTime {
+					if firstBlock == 0 {
+						firstBlock = d.Start
+					}
+					timeStamp = timeStamp - firstBlock
+				}
+
+				record := make([]string, 2)
+				for i, value := range data {
+					record[0] = strconv.FormatFloat(float64(timeStamp)+(float64(1000000)/float64(d.Rate))*float64(i), 'f', -1, 64)
+					record[1] = strconv.FormatFloat(float64(value), 'f', -1, 64)
+					writer.Write(record)
+
+				}
+
+				break
+			case api.GetTimeseriesRangeResponse_ERROR:
+				err := req.GetError()
+				log.Error(err.GetInfo())
 			}
-
-			record := make([]string, 2)
-			for i, value := range data {
-				record[0] = strconv.FormatFloat(float64(timeStamp)+(float64(1000000)/float64(d.Rate))*float64(i), 'f', -1, 64)
-				record[1] = strconv.FormatFloat(float64(value), 'f', -1, 64)
-				writer.Write(record)
-
-			}
-
 		}
 	},
 }

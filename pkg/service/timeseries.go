@@ -39,6 +39,15 @@ type TimeseriesService interface {
 		startTime uint64,
 		endTime uint64,
 		stream api.Agent_GetTimeseriesRangeForChannelsServer) error
+	StreamChannelInfoToClient(
+		ctx context.Context,
+		channel models.TsChannel,
+		stream api.Agent_GetTimeseriesRangeForChannelsServer) error
+	ResetCache(
+		ctx context.Context,
+		packagenodeId string,
+		resetAll bool,
+	) error
 }
 
 type TimeseriesServiceImpl struct {
@@ -60,6 +69,55 @@ func NewTimeseriesService(ts store.TimeseriesStore, c *pennsieve.Client, s share
 		subscriber:    s,
 		cacheLocation: filepath.Join(homedir, ".pennsieve", "timeseries"),
 	}
+}
+
+func (t *TimeseriesServiceImpl) ResetCache(ctx context.Context, packageNodeId string, resetAll bool) error {
+
+	var packageIds []string
+	var err error
+	if resetAll {
+		packageIds, err = t.tsStore.GetCachedPackageIds(ctx)
+		if err != nil {
+			return err
+		}
+	} else {
+		packageIds = append(packageIds, packageNodeId)
+	}
+
+	log.Info("PackageIds: ", packageIds)
+
+	for _, packageId := range packageIds {
+
+		blocks, err := t.tsStore.GetLocalBlocksForPackage(ctx, packageId)
+		if err != nil {
+			log.Error("Failed to get local blocks for package", packageId)
+			return err
+		}
+
+		log.Info("blocks: ", blocks)
+
+		// Remove files from disk
+		for _, block := range blocks {
+			log.Info("remove block: ", block)
+			err := os.Remove(block.Location)
+			if err != nil {
+				log.Error("Failed to remove block", block.Location)
+				continue
+			}
+
+		}
+
+		// Remove blocks from database
+		log.Info("Removing blocks for package: ", packageId)
+		err = t.tsStore.RemoveBlocksForPackage(ctx, packageId)
+		if err != nil {
+			log.Error("Failed to remove blocks for package", packageId)
+		}
+
+		// Remove
+	}
+
+	return nil
 }
 
 // GetRangeBlocksForChannels retrieves
@@ -256,6 +314,25 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
 		}
 	}
 
+	return nil
+}
+
+func (t *TimeseriesServiceImpl) StreamChannelInfoToClient(
+	ctx context.Context,
+	ch models.TsChannel,
+	stream api.Agent_GetTimeseriesRangeForChannelsServer) error {
+
+	err := stream.Send(&api.GetTimeseriesRangeResponse{
+		Type: api.GetTimeseriesRangeResponse_CHANNEL_INFO,
+		MessageData: &api.GetTimeseriesRangeResponse_Channel{Channel: &api.GetTimeseriesRangeResponse_ChannelInfo{
+			ChannelId: ch.ChannelNodeId,
+			Name:      ch.Name,
+			Unit:      ch.Unit,
+			Rate:      float32(ch.Rate),
+		}}})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

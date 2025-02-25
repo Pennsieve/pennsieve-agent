@@ -51,6 +51,7 @@ service Agent {
 	// Timeseries Endpoints
 	rpc GetTimeseriesChannels(GetTimeseriesChannelsRequest) returns (GetTimeseriesChannelsResponse) {}
 	rpc GetTimeseriesRangeForChannels(GetTimeseriesRangeRequest) returns (stream GetTimeseriesRangeResponse) {}
+	rpc ResetCache(ResetCacheRequest) returns (SimpleStatusResponse) {}
 }
 
 message PullRequest {
@@ -59,6 +60,10 @@ message PullRequest {
 
 message SubscribeRequest {
 	int32 id = 1;
+}
+
+message ResetCacheRequest {
+	optional string id = 1;
 }
 
 message GetTimeseriesChannelsRequest {
@@ -92,8 +97,12 @@ message GetTimeseriesRangeRequest {
 }
 
 message GetTimeseriesRangeResponse {
-	message RangeStatus {
-		StatusType status = 1;
+
+	message ChannelInfo {
+		string channel_id = 1;
+		string name = 2;
+		string unit = 3;
+		float rate = 4;
 	}
 
 	message RangeData {
@@ -104,23 +113,23 @@ message GetTimeseriesRangeResponse {
 		repeated float data = 5;
 	}
 
-	enum StatusType {
-		START = 0;
-		END = 1;
-		ERROR = 2;
-	}
-
 	enum MessageType {
 		RANGE_STATUS = 0;
 		RANGE_DATA = 1;
+		CHANNEL_INFO = 2;
+		ERROR = 3;
+	}
+
+	message ErrorData {
+		string info = 1;
 	}
 
 	MessageType type = 1;
 	oneof message_data {
-		RangeStatus status = 2;
+		ErrorData error = 2;
 		RangeData data = 3;
+		ChannelInfo channel = 4;
 	}
-
 }
 
 
