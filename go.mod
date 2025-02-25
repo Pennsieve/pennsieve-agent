@@ -2,7 +2,7 @@ module github.com/pennsieve/pennsieve-agent
 
 go 1.22.7
 
-replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
+//replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 
 //replace github.com/pennsieve/pennsieve-go-core => ../pennsieve-go-core
 
@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty/v6 v6.5.9
 	github.com/mattn/go-sqlite3 v1.14.23
-	github.com/pennsieve/pennsieve-go v1.3.7
+	github.com/pennsieve/pennsieve-go v1.3.8
 	github.com/pennsieve/pennsieve-go-api v1.3.1
 	github.com/pennsieve/pennsieve-go-core v1.11.2
 	github.com/pkg/errors v0.9.1
