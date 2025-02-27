@@ -48,7 +48,7 @@ func isPath(path string) bool {
 	return false
 }
 
-func (s *server) StartWorkflow(ctx context.Context, request *api.StartWorkflowRequest) (*api.WorkflowResponse, error) {
+func (s *agentServer) StartWorkflow(ctx context.Context, request *api.StartWorkflowRequest) (*api.WorkflowResponse, error) {
 
 	id := guuid.New()
 	fmt.Println("\nStarting workflow")
@@ -228,7 +228,7 @@ func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFil
 	w.Flush()
 	err = f.Close()
 	if err != nil {
-		errString = fmt.Sprintf("Error closing file stream: %v", err)
+		errString = fmt.Sprintf("Error closing file Stream: %v", err)
 		fmt.Printf(errString)
 		return err, errString
 	}

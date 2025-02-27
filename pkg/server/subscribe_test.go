@@ -1,13 +1,21 @@
 package server
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt"
+	"github.com/golang-migrate/migrate/v4"
+	"os"
+
+	//"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/migrations"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared/test"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/authentication"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/organization"
@@ -15,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -62,23 +71,58 @@ var (
 
 type ServerTestSuite struct {
 	suite.Suite
+	dbPath        string
 	db            *sql.DB
 	mockPennsieve *MockPennsieve
-	testServer    *server
+	testServer    *agentServer
+}
+
+// TempFileName generates a temporary filename for use in testing or whatever
+func TempDirName() string {
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	name := hex.EncodeToString(randBytes)
+	os.Mkdir(name, 0750)
+	return name
 }
 
 func (suite *ServerTestSuite) SetupSuite() {
-	dbDir := suite.T().TempDir()
+	dbDir := TempDirName()
 	dbPath := filepath.Join(dbDir, "pennsieve_server_test.db")
+	suite.dbPath = dbPath
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
+		fmt.Println("error opening db:", err)
 		suite.FailNow("could not open database", "%s", err)
 	}
-	migrations.Run(db)
+
+	fmt.Println("Opened database ...")
+
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://../../db/migrations",
+		"sqlite3", driver)
+
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+
+	// Migrate schemas
+	if err := m.Up(); err != nil {
+		suite.T().Fatal(err)
+	}
+
+	testDataPath := filepath.Join("..", "..", "resources", "test", "sql", "server-test-data.sql")
+	err = test.LoadTestData(db, testDataPath)
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+
 	err = db.Ping()
 	if err != nil {
 		suite.T().Fatal(err)
 	}
+
 	suite.db = db
 }
 
@@ -96,8 +140,10 @@ func (suite *ServerTestSuite) clearDatabase() {
 // Also updates config.AWSEndpoints to point to mock Cognito
 func (suite *ServerTestSuite) initConfig() {
 	// Initialize Viper
+	viper.Set("agent.db_path", suite.dbPath)
 	viper.Set("agent.useConfigFile", true)
 	viper.Set("global.default_profile", expectedUserProfiles[0].Profile.Name)
+	viper.Set("migration.path", "file://../../db/migrations")
 	for _, up := range expectedUserProfiles {
 		profile := up.Profile
 		viper.Set(profile.Name+".api_token", profile.APIToken)
@@ -127,7 +173,10 @@ func (suite *ServerTestSuite) SetupTest() {
 
 	suite.clearDatabase()
 	suite.initConfig()
-	testServer, err := newServer(suite.db)
+	suite.Require().NoError(test.LoadTestData(suite.db, "../../resources/test/sql/server-test-data.sql"))
+
+	testServer, err := NewAgentServer(grpc.NewServer())
+	suite.db = testServer.SqliteDB()
 	suite.NoError(err)
 	suite.testServer = testServer
 
@@ -141,10 +190,13 @@ func (suite *ServerTestSuite) TearDownTest() {
 
 func (suite *ServerTestSuite) TearDownSuite() {
 	if suite.db != nil {
+		fmt.Println("Closing database ...")
 		if err := suite.db.Close(); err != nil {
 			suite.Fail("could not close database", "%s", err)
 		}
 	}
+	os.RemoveAll(filepath.Dir(suite.dbPath))
+
 }
 
 type MockServer struct {

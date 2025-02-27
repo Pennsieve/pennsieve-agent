@@ -6,8 +6,10 @@ package config
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/migrations"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -19,11 +21,33 @@ import (
 // * Ensures that this config has the correct tables
 func InitializeDB() (*sql.DB, error) {
 	// Initialize connection to the database
+	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
+	migrationPath := viper.GetString("migration.path")
+
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
 		log.Error("Unable to open database")
 	}
+
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	m, err := migrate.NewWithDatabaseInstance(
+		migrationPath,
+		"sqlite3", driver)
+
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	if err := m.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			log.Info("No change in database schema: ", err)
+		} else {
+			log.Error(err)
+			return nil, err
+		}
+	}
+
 	err = db.Ping()
 	if err != nil {
 		log.Errorf("unable to connect to database at %s: %s", dbPath, err)
@@ -41,12 +65,7 @@ func InitializeDB() (*sql.DB, error) {
 
 		if err == sql.ErrNoRows || strings.ContainsAny(err.Error(), "no such table") {
 			// The database does not exist or no userSettings are defined in the table.
-
-			// If the table does not exist, run migrations.
-			if strings.ContainsAny(err.Error(), "no such table") {
-				log.Info("Setting up the local database and running migrations.")
-				migrations.Run(db)
-			}
+			log.Fatalln(err)
 
 		} else if errors.As(err, &target) && !useConfig {
 			log.Info("No user record in db, but using environment variables.")

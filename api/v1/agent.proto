@@ -42,11 +42,16 @@ service Agent {
 	// Datasets Endpoints
 	rpc UseDataset(UseDatasetRequest) returns (UseDatasetResponse) {}
 
-	//Workflow Endpoints
+	// Workflow Endpoints
 	rpc StartWorkflow(StartWorkflowRequest) returns (WorkflowResponse){}
 
 	// Account Endpoints
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
+
+	// Timeseries Endpoints
+	rpc GetTimeseriesChannels(GetTimeseriesChannelsRequest) returns (GetTimeseriesChannelsResponse) {}
+	rpc GetTimeseriesRangeForChannels(GetTimeseriesRangeRequest) returns (stream GetTimeseriesRangeResponse) {}
+	rpc ResetCache(ResetCacheRequest) returns (SimpleStatusResponse) {}
 }
 
 message PullRequest {
@@ -56,6 +61,77 @@ message PullRequest {
 message SubscribeRequest {
 	int32 id = 1;
 }
+
+message ResetCacheRequest {
+	optional string id = 1;
+}
+
+message GetTimeseriesChannelsRequest {
+	string dataset_id = 1;
+	string package_id = 2;
+	bool refresh = 3;
+
+}
+
+message TimeseriesChannel {
+	string id = 1;
+	string name = 2;
+	uint64 start_time = 3;
+	uint64 end_time = 4;
+	string unit = 5;
+	float rate = 6;
+}
+
+message GetTimeseriesChannelsResponse {
+	repeated TimeseriesChannel channel = 1;
+}
+
+message GetTimeseriesRangeRequest {
+	string dataset_id = 1;
+	string package_id = 2;
+	string channel_id = 3;
+	float start_time = 4;
+	float end_time = 5;
+	bool refresh = 6;
+	bool relative_time = 7;
+}
+
+message GetTimeseriesRangeResponse {
+
+	message ChannelInfo {
+		string channel_id = 1;
+		string name = 2;
+		string unit = 3;
+		float rate = 4;
+	}
+
+	message RangeData {
+		uint64 start = 1;
+		uint64 end = 2;
+		float rate = 3;
+		string channel_id = 4;
+		repeated float data = 5;
+	}
+
+	enum MessageType {
+		RANGE_STATUS = 0;
+		RANGE_DATA = 1;
+		CHANNEL_INFO = 2;
+		ERROR = 3;
+	}
+
+	message ErrorData {
+		string info = 1;
+	}
+
+	MessageType type = 1;
+	oneof message_data {
+		ErrorData error = 2;
+		RangeData data = 3;
+		ChannelInfo channel = 4;
+	}
+}
+
 
 message SubscribeResponse {
 	message EventResponse {

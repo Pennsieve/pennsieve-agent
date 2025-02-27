@@ -15,7 +15,7 @@ func TestCompareManifest(t *testing.T) {
 
 	absPath, _ := filepath.Abs(".")
 	root := filepath.Dir(filepath.Dir(absPath))
-	datasetRoot := filepath.ToSlash(filepath.Join(root, "resources", "test", "mapDataset"))
+	datasetRoot := filepath.ToSlash(filepath.Join(root, "resources", "test", "testData", "mapDataset"))
 
 	files, _ := createFolderManifest(datasetRoot)
 

@@ -19,7 +19,7 @@ type packageRecord struct {
 	Location  string
 }
 
-func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleStatusResponse, error) {
+func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleStatusResponse, error) {
 
 	// Check if the provided path is part of a mapped dataset
 	datasetRoot, found, err := findMappedDatasetRoot(req.Path)
@@ -68,10 +68,11 @@ func (s *server) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleSta
 				log.Error("Cannot get presigned url")
 			}
 
+			downloaderImpl := shared.NewDownloader(s, s.client)
 			// Iterate over the files in a package and download serially
 		FILEWALK:
 			for _, f := range res.Files {
-				_, err := s.downloadFileFromPresignedUrl(ctx, f.URL, pkg.Location, pkg.PackageId)
+				_, err := downloaderImpl.DownloadFileFromPresignedUrl(ctx, f.URL, pkg.Location, pkg.PackageId)
 				if err != nil {
 					log.Errorf("Download failed: %v", err)
 				}

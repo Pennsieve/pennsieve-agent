@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
@@ -32,7 +33,7 @@ type record struct {
 	status     string
 }
 
-//type recordWalk chan record
+// type recordWalk chan record
 type syncResult chan []manifestFile.FileStatusDTO
 
 // ----------------------------------------------
@@ -40,7 +41,7 @@ type syncResult chan []manifestFile.FileStatusDTO
 // ----------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
-func (s *server) CancelUpload(ctx context.Context,
+func (s *agentServer) CancelUpload(ctx context.Context,
 	request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
 
 	// TODO: Maybe only cancel uploadSessions that are actively running?
@@ -72,13 +73,13 @@ func (s *server) CancelUpload(ctx context.Context,
 }
 
 // UploadManifest uploads all files associated with the provided manifest
-func (s *server) UploadManifest(ctx context.Context,
+func (s *agentServer) UploadManifest(ctx context.Context,
 	request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
 
 	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
 
 	var m *store.Manifest
-	m, err := s.Manifest.GetManifest(request.ManifestId)
+	m, err := s.ManifestService().GetManifest(request.ManifestId)
 	if err != nil {
 		log.Fatalln("Cannot get Manifest based on ID.")
 		return nil, err
@@ -114,7 +115,7 @@ func (s *server) UploadManifest(ctx context.Context,
 				// This should return a list of files that have recently been finalized and then set the status of
 				// those files to "Verified" on the server.
 				log.Println("Verifying status for manifest: ", m.Id)
-				s.Manifest.VerifyFinalizedStatus(m)
+				s.ManifestService().VerifyFinalizedStatus(m)
 
 			}
 		}
@@ -160,7 +161,7 @@ func (s *server) UploadManifest(ctx context.Context,
 	return &response, nil
 }
 
-func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
+func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	walker := make(chan store.ManifestFile, nrWorkers)
@@ -177,7 +178,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 			manifestFile.Registered,
 		}
 
-		s.Manifest.ManifestFilesToChannel(ctx, m.Id, requestStatus, walker)
+		s.ManifestService().ManifestFilesToChannel(ctx, m.Id, requestStatus, walker)
 
 	}()
 
@@ -250,7 +251,7 @@ func (s *server) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 }
 
-func (s *server) uploadWorker(ctx context.Context, workerId int32,
+func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 	jobs <-chan store.ManifestFile, results chan<- int, manifestNodeId string,
 	uploader *manager.Uploader, cfg aws.Config, uploadBucket string, datasetId string, organizationId string) error {
 
@@ -364,7 +365,7 @@ func (s *server) uploadWorker(ctx context.Context, workerId int32,
 			log.Fatalln("Could not close file.")
 		}
 
-		err = s.Manifest.SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
+		err = s.ManifestService().SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
 		if err != nil {
 			log.Fatalln("Could not update status of file. Here is why: ", err)
 		}
@@ -382,7 +383,7 @@ type CustomReader struct {
 	size     int64
 	read     int64
 	signMap  map[int64]struct{}
-	s        *server
+	s        *agentServer
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -410,7 +411,7 @@ func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 // ----------------------------------------------
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *server) updateSubscribers(total int64, current int64, name string, workerId int32,
+func (s *agentServer) updateSubscribers(total int64, current int64, name string, workerId int32,
 	status pb.SubscribeResponse_UploadResponse_UploadStatus) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
@@ -422,13 +423,13 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
-		sub, ok := v.(sub)
+		sub, ok := v.(shared.Sub)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubscribeResponse{
+		// Send data over the gRPC Stream to the client
+		if err := sub.Stream.Send(&pb.SubscribeResponse{
 			Type: 1,
 			MessageData: &pb.SubscribeResponse_UploadStatus{
 				UploadStatus: &pb.SubscribeResponse_UploadResponse{
@@ -441,13 +442,13 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 		}); err != nil {
 
 			select {
-			case sub.finished <- true:
+			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
-			// In case of error the client would re-subscribe so close the subscriber stream
+			// In case of error the client would re-subscribe so close the subscriber Stream
 			unsubscribe = append(unsubscribe, id)
 		}
 		return true
@@ -459,8 +460,8 @@ func (s *server) updateSubscribers(total int64, current int64, name string, work
 	}
 }
 
-// sendCancelSubscribers Send Cancel Message to Subscribers
-func (s *server) sendCancelSubscribers(message string) {
+// sendCancelSubscribers Send Cancel Message to subscribers
+func (s *agentServer) sendCancelSubscribers(message string) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
@@ -471,25 +472,25 @@ func (s *server) sendCancelSubscribers(message string) {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
 			return false
 		}
-		sub, ok := v.(sub)
+		sub, ok := v.(shared.Sub)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
 			return false
 		}
-		// Send data over the gRPC stream to the client
-		if err := sub.stream.Send(&pb.SubscribeResponse{
+		// Send data over the gRPC Stream to the client
+		if err := sub.Stream.Send(&pb.SubscribeResponse{
 			Type: pb.SubscribeResponse_UPLOAD_CANCEL,
 			MessageData: &pb.SubscribeResponse_EventInfo{
 				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
 		}); err != nil {
 			select {
-			case sub.finished <- true:
+			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
 			default:
 				log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
 				// Default case is to avoid blocking in case client has already unsubscribed
 			}
-			// In case of error the client would re-subscribe so close the subscriber stream
+			// In case of error the client would re-subscribe so close the subscriber Stream
 			unsubscribe = append(unsubscribe, id)
 		}
 		return true

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/download"
 	"github.com/pennsieve/pennsieve-agent/cmd/map"
+	"github.com/pennsieve/pennsieve-agent/cmd/timeseries"
 	"os"
 	"path/filepath"
 
@@ -76,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(account.AccountCmd)
 	rootCmd.AddCommand(download.DownloadCmd)
 	rootCmd.AddCommand(_map.MapCmd)
+	rootCmd.AddCommand(timeseries.TimeseriesCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file (default is $HOME/.pennsieve/config.ini)")
 
@@ -105,6 +107,7 @@ func initViper() error {
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
+	viper.SetDefault("migration.path", "file://db/migrations")
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
 	if len(workers) > 0 {

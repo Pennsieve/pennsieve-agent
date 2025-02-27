@@ -10,7 +10,7 @@ import (
 )
 
 type WorkflowTestSuite struct {
-	server
+	agentServer
 	suite.Suite
 }
 
@@ -68,7 +68,7 @@ func TestWorkflowSuite(t *testing.T) {
 			{
 				Id:         63,
 				ManifestId: 10,
-				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/sub-0001/ses-preimplant0001/eeg/sub-0001_ses-preimplant0001_task-task_run-01_eeg.json"),
+				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/Sub-0001/ses-preimplant0001/eeg/Sub-0001_ses-preimplant0001_task-task_run-01_eeg.json"),
 				TargetPath: "",
 				UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c3",
 				Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
@@ -76,7 +76,7 @@ func TestWorkflowSuite(t *testing.T) {
 			{
 				Id:         64,
 				ManifestId: 10,
-				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/sub-0001/.DS_Store"),
+				SourcePath: filepath.Clean("/Users/pennUser/Documents/bids-data/Sub-0001/.DS_Store"),
 				TargetPath: "",
 				UploadId:   "7d64320a-6399-4671-b2a8-6eec4e2650c4",
 				Status:     api.ListManifestFilesResponse_StatusType(manifestFile.Verified),
