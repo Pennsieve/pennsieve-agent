@@ -19,6 +19,7 @@ import (
 	"github.com/pennsieve/pennsieve-agent/cmd/download"
 	"github.com/pennsieve/pennsieve-agent/cmd/map"
 	"github.com/pennsieve/pennsieve-agent/cmd/timeseries"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 
@@ -104,10 +105,18 @@ func initViper() error {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 
+	// Get compiled executable relative path
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Error getting executable path: %v", err)
+	}
+	exeDir := filepath.Dir(exePath)
+	migrationPath := filepath.Join(exeDir, "db", "migrations")
+
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
-	viper.SetDefault("migration.path", "file://db/migrations")
+	viper.SetDefault("migration.path", fmt.Sprintf("file://%s", migrationPath))
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
 	if len(workers) > 0 {
