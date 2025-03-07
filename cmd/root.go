@@ -15,11 +15,12 @@
 package cmd
 
 import (
+	"embed"
 	"fmt"
 	"github.com/pennsieve/pennsieve-agent/cmd/download"
 	"github.com/pennsieve/pennsieve-agent/cmd/map"
 	"github.com/pennsieve/pennsieve-agent/cmd/timeseries"
-	log "github.com/sirupsen/logrus"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -37,6 +38,7 @@ import (
 )
 
 var cfgFile string
+var migrationsFS embed.FS
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -59,7 +61,8 @@ var rootCmd = &cobra.Command{
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(fs embed.FS) {
+	migrationsFS = fs
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -105,18 +108,18 @@ func initViper() error {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 
-	// Get compiled executable relative path
-	exePath, err := os.Executable()
+	migrationsPath := filepath.Join(home, ".pennsieve", "migrations")
+	err := os.MkdirAll(migrationsPath, os.ModePerm)
 	if err != nil {
-		log.Fatalf("Error getting executable path: %v", err)
+		log.Fatal("Error creating temp dir:", err)
 	}
-	exeDir := filepath.Dir(exePath)
-	migrationPath := filepath.Join(exeDir, "db", "migrations")
+	//migrationPath := extractMigrations(migrationsPath)
 
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
-	viper.SetDefault("migration.path", fmt.Sprintf("file://%s", migrationPath))
+	viper.SetDefault("migration.path", fmt.Sprintf("file://%s", migrationsPath))
+	err = extractMigrations(migrationsFS, migrationsPath)
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
 	if len(workers) > 0 {
@@ -161,6 +164,31 @@ func initViper() error {
 				fmt.Println("\nset the PENNSIEVE_API_KEY and PENNSIEVE_API_SECRET environment variables.")
 				os.Exit(1)
 			}
+		}
+	}
+
+	return nil
+}
+
+func extractMigrations(fs embed.FS, targetDir string) error {
+	files, err := fs.ReadDir("db/migrations")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded migration files: %w", err)
+	}
+
+	for _, file := range files {
+		filePath := filepath.Join(targetDir, file.Name())
+
+		// Read the embedded file content
+		data, err := fs.ReadFile("db/migrations/" + file.Name())
+		if err != nil {
+			return fmt.Errorf("failed to read embedded migration file %s: %w", file.Name(), err)
+		}
+
+		// Write the file to the target directory
+		err = os.WriteFile(filePath, data, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write migration file %s: %w", filePath, err)
 		}
 	}
 
