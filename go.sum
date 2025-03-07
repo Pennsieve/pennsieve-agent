@@ -117,8 +117,6 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/pelletier/go-toml/v2 v2.2.2 h1:aYUidT7k73Pcl9nb2gScu7NSrKCSHIDE89b3+6Wq+LM=
 github.com/pelletier/go-toml/v2 v2.2.2/go.mod h1:1t835xjRzz80PqgE6HHgN2JOsmgYu/h4qDAS4n929Rs=
-github.com/pennsieve/pennsieve-go v1.3.7 h1:xaRR89EsrtjGU6eE6p0xMC4XYawQDP12ZdR2mY+4r6Y=
-github.com/pennsieve/pennsieve-go v1.3.7/go.mod h1:64xj6hISkWK/rrPnpBYXu1qXn3GMbKbr4iztno5THSQ=
 github.com/pennsieve/pennsieve-go v1.3.8 h1:oJBxFZABQAlc/J+fXbtkK3gR7sG8Jdr4xGiutnnAYC0=
 github.com/pennsieve/pennsieve-go v1.3.8/go.mod h1:64xj6hISkWK/rrPnpBYXu1qXn3GMbKbr4iztno5THSQ=
 github.com/pennsieve/pennsieve-go-api v1.3.1 h1:CJkZF+FDVdSg0CX/mhv/3HUrqjdL/AyNvsXL3JJub48=
