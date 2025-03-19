@@ -65,7 +65,7 @@ func InitializeDB() (*sql.DB, error) {
 
 		if err == sql.ErrNoRows || strings.ContainsAny(err.Error(), "no such table") {
 			// The database does not exist or no userSettings are defined in the table.
-			log.Fatalln(err)
+			log.Info(err)
 
 		} else if errors.As(err, &target) && !useConfig {
 			log.Info("No user record in db, but using environment variables.")
