@@ -15,6 +15,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type TimeseriesService interface {
@@ -22,7 +23,7 @@ type TimeseriesService interface {
 		Ctx context.Context,
 		DatasetNodeId string,
 		PackageNodeId string,
-		ChannelNodeId string,
+		ChannelNodeIds []string,
 		StartTime uint64,
 		EndTime uint64,
 		rangeChannel chan<- models.TsBlock,
@@ -120,12 +121,22 @@ func (t *TimeseriesServiceImpl) ResetCache(ctx context.Context, packageNodeId st
 	return nil
 }
 
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
+}
+
 // GetRangeBlocksForChannels retrieves
 func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 	ctx context.Context,
 	DatasetNodeId string,
 	PackagenodeId string,
-	ChannelNodeId string,
+	ChannelNodeIds []string,
 	StartTime uint64,
 	EndTime uint64,
 	rangeChannel chan<- models.TsBlock,
@@ -133,23 +144,40 @@ func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 
 	// Check which blocks are available on server
 	log.Info(fmt.Sprintf("d: %s, p: %s", DatasetNodeId, PackagenodeId))
-	log.Info(fmt.Sprintf("Channel Node Id: %s", ChannelNodeId))
+	log.Info(fmt.Sprintf("Channel Node Ids: %v", ChannelNodeIds))
 
-	result, err := t.client.Timeseries.GetRangeBlocks(ctx, DatasetNodeId, PackagenodeId, StartTime, EndTime, ChannelNodeId)
+	start := time.Now()
+
+	// Get ranges for all channels
+	result, err := t.client.Timeseries.GetRangeBlocks(ctx, DatasetNodeId, PackagenodeId, StartTime, EndTime, "")
 	if err != nil {
 		log.Error(err)
 		return err
 	}
 
-	// Check which Blocks are already cached on the local machine
-	cachedBlocks, err := t.tsStore.GetRangeBlocksForChannels(ctx, []string{ChannelNodeId}, StartTime, EndTime)
-	if err != nil {
-		return err
-	}
+	//// Check which Blocks are already cached on the local machine
+	//cachedBlocks, err := t.tsStore.GetRangeBlocksForChannels(ctx, []string{ChannelNodeId}, StartTime, EndTime)
+	//if err != nil {
+	//	return err
+	//}
 
-	log.Info(cachedBlocks)
+	log.Printf("Binomial took %s", time.Since(start))
 
 	for _, ch := range result.Channels {
+
+		// Only process the channels that were requested --> discard others
+		// TODO: Refactor such that timeseries service can take a list of channels to return urls for
+		if !contains(ChannelNodeIds, ch.ChannelID) {
+			continue
+		}
+
+		// Check which Blocks are already cached on the local machine
+		cachedBlocks, err := t.tsStore.GetRangeBlocksForChannels(ctx, []string{ch.ChannelID}, StartTime, EndTime)
+		if err != nil {
+			return err
+		}
+
+		log.Info("Cached Blocks: ", cachedBlocks)
 
 		// I am assuming the ranges are ordered correctly.
 		for _, r := range ch.Ranges {
@@ -274,6 +302,7 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
 
 		fileContents, err := readGzFile(block.Location)
 		if err != nil {
+			fileContents, err = os.ReadFile(block.Location)
 			log.Error(err)
 		}
 
@@ -282,34 +311,58 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
 		intBlockStart := uint64(block.StartTime)
 		intBlockEnd := uint64(block.EndTime)
 
+		croppedStart := intBlockStart
+		croppedEnd := intBlockEnd
 		if intBlockStart < startTime && intBlockEnd < endTime {
 			// Crop from beginning
-			cropIndex := int64(float64((startTime-intBlockStart)/1000000) * block.Rate * 8)
+			cropIndex := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
+			log.Info(fmt.Sprintf("1START %d -- %d - %d", cropIndex, intBlockEnd-intBlockStart, len(fileContents)))
+
 			croppedSlice = fileContents[cropIndex:]
+			croppedStart = startTime
+
 		} else if intBlockStart < startTime && intBlockEnd > endTime {
 			// Crop from beginning and end
-			cropIndex1 := int64(float64((startTime-intBlockStart)/1000000) * block.Rate * 8)
-			cropIndex2 := int64(float64((intBlockEnd-endTime)/1000000) * block.Rate * 8)
+			cropIndex1 := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
+			cropIndex2 := 8 * (int64((float64(endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
+			log.Info(fmt.Sprintf("2START %d - %d -- %d - %d", cropIndex1, cropIndex2, intBlockEnd-intBlockStart, len(fileContents)))
 			croppedSlice = fileContents[cropIndex1:cropIndex2]
+			log.Info(fmt.Sprintf("cropped slice %d", len(croppedSlice)))
+
+			croppedStart = startTime
+			croppedEnd = endTime
+
 		} else if intBlockEnd > endTime {
 			// Crop from end
-			cropIndex := int64(float64((intBlockEnd-endTime)/1000000) * block.Rate * 8)
-			croppedSlice = fileContents[:(int64(len(fileContents)) - cropIndex)]
+			log.Info(fmt.Sprintf("3START %d - %d -- %d - %d", intBlockStart, intBlockEnd, intBlockEnd-intBlockStart, len(fileContents)))
+			cropIndex := 8 * (int64((float64(endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
+			croppedSlice = fileContents[:cropIndex]
+
+			croppedEnd = endTime
+
+			log.Info(fmt.Sprintf("3CROP END +%d - %d", len(croppedSlice), cropIndex))
 		} else {
+			log.Info("4CROP ALL")
 			croppedSlice = fileContents
+		}
+
+		data := BytesToFloat32s(croppedSlice)
+		if data == nil {
+			log.Error("Error converting cropped slice")
 		}
 
 		err = stream.Send(&api.GetTimeseriesRangeResponse{
 			Type: api.GetTimeseriesRangeResponse_RANGE_DATA,
 			MessageData: &api.GetTimeseriesRangeResponse_Data{Data: &api.GetTimeseriesRangeResponse_RangeData{
-				Start:     uint64(block.StartTime),
-				End:       uint64(block.EndTime),
+				Start:     croppedStart,
+				End:       croppedEnd,
 				Rate:      float32(block.Rate),
 				ChannelId: block.ChannelNodeId,
-				Data:      BytesToFloat32s(croppedSlice),
+				Data:      data,
 			},
 			}})
 		if err != nil {
+			log.Error(err)
 			return err
 		}
 	}
