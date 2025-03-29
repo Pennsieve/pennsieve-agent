@@ -72,7 +72,7 @@ flag, the start- and stoptime are interpreted as relative to the start time of t
 		stream, err := client.GetTimeseriesRangeForChannels(ctx, &api.GetTimeseriesRangeRequest{
 			DatasetId:    s.UseDatasetId,
 			PackageId:    packageId,
-			ChannelId:    channelId,
+			ChannelIds:   []string{channelId},
 			StartTime:    float32(startTimestamp),
 			EndTime:      float32(endTimestamp),
 			Refresh:      false,
