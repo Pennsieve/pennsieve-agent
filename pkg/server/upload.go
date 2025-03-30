@@ -14,7 +14,7 @@ import (
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
-	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"

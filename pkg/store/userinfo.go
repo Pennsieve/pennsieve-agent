@@ -3,9 +3,9 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"time"
 
-	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -80,8 +80,8 @@ func (s *userInfoStore) CreateNewUserInfo(data UserInfoParams) (*UserInfo, error
 		log.Error("Error preparing statement for creating new user info:", err)
 		return nil, err
 	}
-	defer statement.Close() 
-	
+	defer statement.Close()
+
 	result, err := statement.Exec(data.Id, data.Name, data.SessionToken, data.RefreshToken, data.Profile,
 		data.TokenExpire, data.IdToken, data.Environment, data.OrganizationId, data.OrganizationName, updatedAt)
 	if err == nil {
@@ -134,7 +134,7 @@ func (s *userInfoStore) GetAll() ([]UserInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close() 
+	defer rows.Close()
 	var allUsers []UserInfo
 
 	for rows.Next() {
@@ -147,7 +147,7 @@ func (s *userInfoStore) GetAll() ([]UserInfo, error) {
 		allUsers = append(allUsers, currentUser)
 	}
 	return allUsers, err
-	
+
 }
 
 func (s *userInfoStore) UpdateTokenForUser(userId string, credentials *pennsieve.APISession) error {

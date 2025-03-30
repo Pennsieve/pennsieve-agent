@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest"
 	log "github.com/sirupsen/logrus"
 )
 

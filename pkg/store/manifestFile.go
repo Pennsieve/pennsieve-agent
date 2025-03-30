@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pennsieve/pennsieve-go-api/pkg/models/manifest/manifestFile"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -371,7 +371,6 @@ func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath stri
 	pathLikeExpr := removePath + "%"
 	initiatedStatus := manifestFile.Local.String()
 
-
 	stmt, err := s.db.Prepare("DELETE FROM manifest_files WHERE manifest_id = ? AND source_path LIKE ? AND status = ?")
 	if err != nil {
 		log.Println("Error in RemoveFromManifest (DELETE):", err)
@@ -385,7 +384,6 @@ func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath stri
 		return err
 	}
 
-
 	syncStatus := manifestFile.Registered.String()
 	removeStatus := manifestFile.Removed.String()
 
@@ -398,7 +396,6 @@ func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath stri
 
 	return nil
 }
-
 
 // ResetStatusForManifest resets all files to status = LOCAL
 func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
@@ -422,7 +419,6 @@ func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 
 	return nil
 }
-
 
 // GetNumberOfRowsForStatus returns the number of rows in a manifest that do (not) have a specific status
 func (s *manifestFileStore) GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error) {
