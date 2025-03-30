@@ -1,6 +1,7 @@
 module github.com/pennsieve/pennsieve-agent
 
 go 1.23
+toolchain go1.24.1
 
 //replace github.com/pennsieve/pennsieve-go => ../pennsieve-go
 
@@ -27,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/vbauerster/mpb/v8 v8.8.3
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
-	golang.org/x/net v0.34.0
+	golang.org/x/net v0.36.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.4
 )
@@ -75,8 +76,8 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
