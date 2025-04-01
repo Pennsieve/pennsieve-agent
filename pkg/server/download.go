@@ -4,24 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
-	"github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
-	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/ps_package"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/google/uuid"
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
+	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/ps_package"
+	log "github.com/sirupsen/logrus"
 )
 
 func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*api.DownloadResponse, error) {
 
 	res := &ps_package.GetPresignedUrlResponse{}
-
-	var err error
-
 	responseType := api.DownloadResponse_PRESIGNED_URL
 
 	switch req.Type {
@@ -33,8 +31,14 @@ func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*
 
 		// Need to get a presigned URL for the package.
 		// This can return an array of results in case a package has multiple source files.
-		client := s.client
-		res, err = client.Package.GetPresignedUrl(ctx, requestData.PackageId, true)
+		client, err := s.PennsieveClient()
+		if err != nil {
+			return nil, err
+		}
+		res, err = client.Package.GetPresignedUrl(ctx, requestData.PackageId, false)
+		if err != nil {
+			return nil, err
+		}
 
 		if !requestData.GetPresignedUrl {
 			log.Debug("Downloading the package.")
