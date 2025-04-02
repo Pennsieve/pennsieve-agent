@@ -23,7 +23,7 @@ func InitializeDB() (*sql.DB, error) {
 	// Initialize connection to the database
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
-	migrationPath := viper.GetString("migration.path")
+	migrationPath := viper.GetString("migration.local")
 	log.Println(migrationPath)
 	log.Println(viper.GetString("migration.local"))
 
