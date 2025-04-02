@@ -119,11 +119,15 @@ func initViper() error {
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
 	// Internal agent filepath
-	viper.SetDefault("migration.path", fmt.Sprintf(filepath.Join("file://", migrationsPath)))
+	viper.SetDefault("migration.path", fmt.Sprintf(filepath.Join("file:", "//", migrationsPath)))
+
 	// Filepath on user system
 	viper.SetDefault("migration.local", fmt.Sprintf(migrationsPath))
-	log.Println(viper.GetString("migration.path"))
-	log.Println(viper.GetString("migration.path.local"))
+
+	log.Println("root")
+	log.Println("root.go migration.path:", viper.GetString("migration.path"))
+	log.Println("root.go migration.local:", viper.GetString("migration.local"))
+
 	err = extractMigrations(migrationsFS, migrationsPath)
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
