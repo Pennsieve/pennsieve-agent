@@ -25,8 +25,8 @@ func InitializeDB() (*sql.DB, error) {
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
-	log.Println(migrationPath)
-	log.Println(viper.GetString("migration.local"))
+	fmt.Println(migrationPath)
+	fmt.Println(viper.GetString("migration.local"))
 
 	log.Println("BEFORE SQL OPEN")
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
