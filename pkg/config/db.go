@@ -28,16 +28,19 @@ func InitializeDB() (*sql.DB, error) {
 	log.Println(migrationPath)
 	log.Println(viper.GetString("migration.local"))
 
+	log.Println("BEFORE SQL OPEN")
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
 		log.Error("Unable to open database")
 	}
 
+	log.Println("BEFORE DRIVER")
 	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
+	log.Println("BEFORE MIGRATION NEW DATABASE INIT")
 	m, err := migrate.NewWithDatabaseInstance(
 		migrationPath,
 		"sqlite3", driver)
@@ -46,6 +49,8 @@ func InitializeDB() (*sql.DB, error) {
 		log.Error(err)
 		return nil, err
 	}
+	log.Println("BEFORE M UP")
+
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
 			log.Info("No change in database schema: ", err)
@@ -54,6 +59,8 @@ func InitializeDB() (*sql.DB, error) {
 			return nil, err
 		}
 	}
+
+	log.Println("AFTER MUP")
 
 	err = db.Ping()
 	if err != nil {
