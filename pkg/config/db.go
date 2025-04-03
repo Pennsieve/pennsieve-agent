@@ -7,7 +7,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
+
+	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -27,6 +30,17 @@ func InitializeDB() (*sql.DB, error) {
 	migrationPath := viper.GetString("migration.path")
 	fmt.Println(migrationPath)
 	fmt.Println(viper.GetString("migration.local"))
+
+	path := filepath.Join(migrationPath, "000001_create_or_import_tables.down.sql")
+	fmt.Println(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Println("error reading real file:", err)
+	} else {
+		fmt.Println("Success!")
+	}
+
+	fmt.Println(string(data))
 
 	log.Println("BEFORE SQL OPEN")
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
