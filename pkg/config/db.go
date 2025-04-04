@@ -7,13 +7,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 // InitializeDB initialized local SQL DB and creates userinfo for current user.
@@ -24,23 +29,53 @@ func InitializeDB() (*sql.DB, error) {
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
-	log.Println(migrationPath)
-	log.Println(viper.GetString("migration.local"))
+	fmt.Println("MigrationPath Print:", migrationPath)
 
+	home, err := os.UserHomeDir()
+	p, err := filepath.Abs(home)
+	p = filepath.ToSlash(p)
+	p = path.Join(p, ".pennsieve", "migrations")
+
+	testPath := fmt.Sprintf("file://%s", p)
+
+	fmt.Println("testing output", testPath)
+
+	// m, err := migrate.NewWithDatabaseInstance(
+	// 	fmt.Sprintf("file://%s", p),
+	// 	"postgres", driver)
+
+	filePathForURL := filepath.ToSlash(migrationPath)
+	fmt.Println("filePathForURL Print:", filePathForURL)
+
+	fileURL := &url.URL{
+		Scheme: "file",
+		Path:   "/" + filePathForURL,
+	}
+	fmt.Println("fileURL Print:", fileURL.String())
+
+	log.Println("BEFORE SQL OPEN")
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
 		log.Error("Unable to open database")
 	}
 
+	log.Println("BEFORE DRIVER")
 	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	log.Println("BEFORE MIGRATION NEW DATABASE INIT")
 	m, err := migrate.NewWithDatabaseInstance(
-		migrationPath,
+		testPath,
 		"sqlite3", driver)
 
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
+	log.Println("BEFORE M UP")
+
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
 			log.Info("No change in database schema: ", err)
@@ -49,6 +84,8 @@ func InitializeDB() (*sql.DB, error) {
 			return nil, err
 		}
 	}
+
+	log.Println("AFTER MUP")
 
 	err = db.Ping()
 	if err != nil {
