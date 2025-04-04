@@ -27,14 +27,9 @@ func InitializeDB() (*sql.DB, error) {
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
+	fmt.Println("MigrationPath Print:", migrationPath)
 
-	absMigrationPath, err := filepath.Abs(migrationPath)
-	if err != nil {
-		log.Error("Unable to create Absolute Path")
-	}
-	fmt.Println("MigrationPath Print:", absMigrationPath)
-
-	filePathForURL := filepath.ToSlash(absMigrationPath)
+	filePathForURL := filepath.ToSlash(migrationPath)
 	fmt.Println("filePathForURL Print:", filePathForURL)
 
 	fileURL := &url.URL{
