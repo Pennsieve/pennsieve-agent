@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -28,6 +30,19 @@ func InitializeDB() (*sql.DB, error) {
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
 	fmt.Println("MigrationPath Print:", migrationPath)
+
+	home, err := os.UserHomeDir()
+	p, err := filepath.Abs(home)
+	p = filepath.ToSlash(p)
+	p = path.Join(p, ".pennsieve", "migrations")
+
+	testPath := fmt.Sprintf("file://%s", p)
+
+	fmt.Println("testing output", testPath)
+
+	// m, err := migrate.NewWithDatabaseInstance(
+	// 	fmt.Sprintf("file://%s", p),
+	// 	"postgres", driver)
 
 	filePathForURL := filepath.ToSlash(migrationPath)
 	fmt.Println("filePathForURL Print:", filePathForURL)
@@ -52,7 +67,7 @@ func InitializeDB() (*sql.DB, error) {
 	}
 	log.Println("BEFORE MIGRATION NEW DATABASE INIT")
 	m, err := migrate.NewWithDatabaseInstance(
-		fileURL.String(),
+		testPath,
 		"sqlite3", driver)
 
 	if err != nil {
