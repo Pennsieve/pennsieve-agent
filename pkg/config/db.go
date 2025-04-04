@@ -25,7 +25,7 @@ func InitializeDB() (*sql.DB, error) {
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	// migrationPath := viper.GetString("migration.path")
-	migrationPath := "file:///C:\\Users\\WagenaarLabMember\\.pennsieve\\migrations"
+	migrationPath := "file:///C:/Users/WagenaarLabMember/.pennsieve/migrations"
 	fmt.Println("MigrationPath PRint:", migrationPath)
 
 	log.Println("BEFORE SQL OPEN")
