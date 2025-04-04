@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -24,9 +26,22 @@ func InitializeDB() (*sql.DB, error) {
 	// Initialize connection to the database
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
-	// migrationPath := viper.GetString("migration.path")
-	migrationPath := "file:///C:/Users/WagenaarLabMember/.pennsieve/migrations"
-	fmt.Println("MigrationPath PRint:", migrationPath)
+	migrationPath := viper.GetString("migration.path")
+
+	absMigrationPath, err := filepath.Abs(migrationPath)
+	if err != nil {
+		log.Error("Unable to create Absolute Path")
+	}
+	fmt.Println("MigrationPath Print:", absMigrationPath)
+
+	filePathForURL := filepath.ToSlash(absMigrationPath)
+	fmt.Println("filePathForURL Print:", filePathForURL)
+
+	fileURL := &url.URL{
+		Scheme: "file",
+		Path:   "/" + filePathForURL,
+	}
+	fmt.Println("fileURL Print:", fileURL.String())
 
 	log.Println("BEFORE SQL OPEN")
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
@@ -42,7 +57,7 @@ func InitializeDB() (*sql.DB, error) {
 	}
 	log.Println("BEFORE MIGRATION NEW DATABASE INIT")
 	m, err := migrate.NewWithDatabaseInstance(
-		migrationPath,
+		fileURL.String(),
 		"sqlite3", driver)
 
 	if err != nil {
