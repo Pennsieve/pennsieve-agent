@@ -120,7 +120,7 @@ func initViper() error {
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
 	// Internal agent filepath
-	viper.SetDefault("migration.path", migrationsPath)
+	viper.SetDefault("migration.path", fmt.Sprintf("file://%s", migrationsPath))
 	// Filepath on user system
 	viper.SetDefault("migration.local", fmt.Sprintf(migrationsPath))
 	log.Println(viper.GetString("migration.path"))
