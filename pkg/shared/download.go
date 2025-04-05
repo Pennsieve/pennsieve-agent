@@ -146,10 +146,21 @@ func (s *downloader) DownloadFileFromPresignedUrl(ctx context.Context, url strin
 	}
 
 	s.downloadCancelFncs.Store(downloadId, session)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	resp, err := http.DefaultClient.Do(req)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		log.Errorf("Download failed: %v", err)
+	}
+
+	log.Infof("Downloading %s to %s", url, targetLocation)
+
+	resp, err := http.Get(req.URL.String())
+	log.Info("askjsaksajhdjsahk")
+	if err != nil {
+		log.Errorf("Download failed: %v", err)
+	}
 
 	if resp.StatusCode != 200 {
+		log.Info(resp)
 		log.Infof("Error while downloading: %v", resp.StatusCode)
 		fmt.Println(" - Download cancelled")
 		return 0, err

@@ -61,14 +61,18 @@ func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.Simp
 		mapState, _ := shared.ReadStateFile(filepath.Join(datasetRoot, ".pennsieve", "state.json"))
 
 		for _, pkg := range packages {
-			client := s.client
+			client, err := s.PennsieveClient()
+			if err != nil {
+				log.Error("Cannot get Pennsieve client")
+
+			}
 			res, err := client.Package.GetPresignedUrl(context.Background(), pkg.PackageId, false)
 			if err != nil {
 				// TODO: do correct error handling from go routine
 				log.Error("Cannot get presigned url")
 			}
 
-			downloaderImpl := shared.NewDownloader(s, s.client)
+			downloaderImpl := shared.NewDownloader(s, client)
 			// Iterate over the files in a package and download serially
 		FILEWALK:
 			for _, f := range res.Files {

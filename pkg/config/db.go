@@ -6,7 +6,6 @@ package config
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
@@ -21,11 +20,8 @@ import (
 // * Ensures that this config has the correct tables
 func InitializeDB() (*sql.DB, error) {
 	// Initialize connection to the database
-	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
-	log.Println(migrationPath)
-	log.Println(viper.GetString("migration.local"))
 
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
@@ -43,7 +39,7 @@ func InitializeDB() (*sql.DB, error) {
 	}
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
-			log.Info("No change in database schema: ", err)
+			log.Debug("No change in database schema: ", err)
 		} else {
 			log.Error(err)
 			return nil, err

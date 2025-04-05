@@ -166,6 +166,10 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	walker := make(chan store.ManifestFile, nrWorkers)
 	results := make(chan int, nrWorkers)
+	pennsieveClient, err := s.PennsieveClient()
+	if err != nil {
+		log.Error("Cannot get Pennsieve client")
+	}
 
 	var uploadWg sync.WaitGroup
 
@@ -188,12 +192,11 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 		chunkSize := viper.GetInt64("agent.upload_chunk_size")
 		nrWorkers := viper.GetInt("agent.upload_workers")
 
-		client := s.client
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithRegion("us-east-1"),
 			config.WithCredentialsProvider(
 				pennsieve.AWSCredentialProviderWithExpiration{
-					AuthService: client.Authentication,
+					AuthService: pennsieveClient.Authentication,
 				},
 			),
 			config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
@@ -235,7 +238,7 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, client.GetAPIParams().UploadBucket, m.DatasetId, m.OrganizationId)
+				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, m.DatasetId, m.OrganizationId)
 				if err != nil {
 					log.Println("Error in Upload Worker:", err)
 				}

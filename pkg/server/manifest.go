@@ -88,7 +88,8 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 	}
 
 	// Check dataset exist (should be redundant) and grab name
-	ds, err := s.client.Dataset.Get(nil, curClientSession.UseDatasetId)
+	client, err := s.PennsieveClient()
+	ds, err := client.Dataset.Get(nil, curClientSession.UseDatasetId)
 	if err != nil {
 		log.Error(err)
 	}
@@ -384,7 +385,10 @@ func (s *agentServer) getCreateManifestId(m *store.Manifest) error {
 		DatasetId: m.DatasetId,
 	}
 
-	client := s.client
+	client, err := s.PennsieveClient()
+	if err != nil {
+		return err
+	}
 
 	response, err := client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
@@ -471,7 +475,9 @@ func (s *agentServer) syncItems(requestFiles []manifestFile.FileDTO, manifestNod
 		Status:    m.Status,
 	}
 
-	response, err := s.client.Manifest.Create(context.Background(), requestBody)
+	client, err := s.PennsieveClient()
+
+	response, err := client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
 		log.Error(err)
 		return nil, err
