@@ -22,9 +22,6 @@ func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*
 	res := &ps_package.GetPresignedUrlResponse{}
 
 	responseType := api.DownloadResponse_PRESIGNED_URL
-	log.Info("DOWNLOAD Called")
-
-	log.Info(req)
 
 	switch req.Type {
 	case api.DownloadRequest_PACKAGE:
