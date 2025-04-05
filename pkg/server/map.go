@@ -23,7 +23,11 @@ func (s *agentServer) Map(ctx context.Context, req *api.MapRequest) (*api.Simple
 		return &api.SimpleStatusResponse{Status: "Cannot map into folder as folder already exists."}, nil
 	}
 
-	client := s.client
+	client, err := s.PennsieveClient()
+	if err != nil {
+		return nil, err
+	}
+
 	manifestResponse, err := client.Dataset.GetManifest(ctx, req.DatasetId)
 	if err != nil {
 		log.Errorf("Download failed: %v", err)
@@ -40,7 +44,7 @@ func (s *agentServer) Map(ctx context.Context, req *api.MapRequest) (*api.Simple
 	// Download Manifest to hidden .pennsieve folder in targetpath
 	manifestLocation := filepath.Join(req.TargetFolder, ".pennsieve", "manifest.json")
 
-	downloadImpl := shared.NewDownloader(s, s.client)
+	downloadImpl := shared.NewDownloader(s, client)
 
 	_, err = downloadImpl.DownloadFileFromPresignedUrl(ctx, manifestResponse.URL, manifestLocation, uuid.New().String())
 	if err != nil {

@@ -31,6 +31,7 @@ type DependencyContainer interface {
 
 type agentServer struct {
 	pb.UnimplementedAgentServer
+
 	subscribers    sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
 	cancelFncs     sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
 	syncCancelFncs sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.

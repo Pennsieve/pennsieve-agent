@@ -20,6 +20,7 @@ import (
 func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*api.DownloadResponse, error) {
 
 	res := &ps_package.GetPresignedUrlResponse{}
+
 	responseType := api.DownloadResponse_PRESIGNED_URL
 
 	switch req.Type {
@@ -37,6 +38,7 @@ func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*
 		}
 		res, err = client.Package.GetPresignedUrl(ctx, requestData.PackageId, false)
 		if err != nil {
+
 			return nil, err
 		}
 
@@ -47,7 +49,7 @@ func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*
 				// TODO: can optimize by concurrency
 				for _, f := range res.Files {
 
-					downloaderImpl := shared.NewDownloader(s, s.client)
+					downloaderImpl := shared.NewDownloader(s, client)
 					_, err = downloaderImpl.DownloadFileFromPresignedUrl(ctx, f.URL, f.Name, requestData.PackageId)
 					if err != nil {
 						log.Errorf("Download failed: %v", err)
@@ -63,7 +65,8 @@ func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*
 		requestData := req.GetDataset()
 
 		//
-		client := s.client
+		client, err := s.PennsieveClient()
+
 		manifestResponse, err := client.Dataset.GetManifest(ctx, requestData.DatasetId)
 		if err != nil {
 			log.Errorf("Download failed: %v", err)
@@ -81,7 +84,12 @@ func (s *agentServer) Download(ctx context.Context, req *api.DownloadRequest) (*
 		// Download Manifest to hidden .pennsieve folder in target path
 		manifestLocation := filepath.Join(requestData.TargetFolder, ".pennsieve", "manifest.json")
 
-		downloaderImpl := shared.NewDownloader(s, s.client)
+		client, err = s.PennsieveClient()
+		if err != nil {
+			return nil, err
+		}
+
+		downloaderImpl := shared.NewDownloader(s, client)
 
 		_, err = downloaderImpl.DownloadFileFromPresignedUrl(ctx, manifestResponse.URL, manifestLocation, uuid.New().String())
 		if err != nil {
