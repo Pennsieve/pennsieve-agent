@@ -119,8 +119,8 @@ func initViper() error {
 
 	// Setup paths for portability
 	absPath, err := filepath.Abs(home)
-	absPath = filepath.ToSlash(absPath)
 	migrationsPath = path.Join(absPath, migrationsFolders)
+	migrationsPath = fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath))
 
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
