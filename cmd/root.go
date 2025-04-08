@@ -17,12 +17,14 @@ package cmd
 import (
 	"embed"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/cmd/download"
-	"github.com/pennsieve/pennsieve-agent/cmd/map"
-	"github.com/pennsieve/pennsieve-agent/cmd/timeseries"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
+
+	"github.com/pennsieve/pennsieve-agent/cmd/download"
+	_map "github.com/pennsieve/pennsieve-agent/cmd/map"
+	"github.com/pennsieve/pennsieve-agent/cmd/timeseries"
 
 	"github.com/pennsieve/pennsieve-agent/cmd/account"
 	"github.com/pennsieve/pennsieve-agent/cmd/agent"
@@ -108,20 +110,22 @@ func initViper() error {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 
-	migrationsPath := filepath.Join(home, ".pennsieve", "migrations")
+	migrationsFolders := filepath.Join(".pennsieve", "migrations")
+	migrationsPath := filepath.Join(home, migrationsFolders)
 	err := os.MkdirAll(migrationsPath, os.ModePerm)
 	if err != nil {
 		log.Fatal("Error creating temp dir:", err)
 	}
-	//migrationPath := extractMigrations(migrationsPath)
+
+	// Setup paths for portability
+	absPath, err := filepath.Abs(home)
+	migrationsPath = path.Join(absPath, migrationsFolders)
+	migrationsPath = fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath))
 
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
-	// Internal agent filepath
-	viper.SetDefault("migration.path", fmt.Sprintf(filepath.Join("file://", migrationsPath)))
-	// Filepath on user system
-	viper.SetDefault("migration.local", fmt.Sprintf(migrationsPath))
+	viper.SetDefault("migration.path", migrationsPath)
 	err = extractMigrations(migrationsFS, migrationsPath)
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")

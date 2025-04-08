@@ -6,13 +6,15 @@ package config
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 // InitializeDB initialized local SQL DB and creates userinfo for current user.
@@ -20,6 +22,7 @@ import (
 // * Ensures that this config has the correct tables
 func InitializeDB() (*sql.DB, error) {
 	// Initialize connection to the database
+	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
 
@@ -39,7 +42,7 @@ func InitializeDB() (*sql.DB, error) {
 	}
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
-			log.Debug("No change in database schema: ", err)
+			log.Info("No change in database schema: ", err)
 		} else {
 			log.Error(err)
 			return nil, err
