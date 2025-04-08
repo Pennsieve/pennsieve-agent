@@ -7,6 +7,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -30,6 +33,16 @@ func InitializeDB() (*sql.DB, error) {
 	if err != nil {
 		log.Error("Unable to open database")
 	}
+
+	home, err := os.UserHomeDir()
+	p, err := filepath.Abs(home)
+	p = filepath.ToSlash(p)
+	p = path.Join(p, ".pennsieve", "migrations")
+
+	testPath := fmt.Sprintf("file://%s", p)
+
+	fmt.Println("testing output: ", testPath)
+	fmt.Println("migration.path: ", migrationPath)
 
 	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 	m, err := migrate.NewWithDatabaseInstance(
