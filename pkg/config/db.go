@@ -7,13 +7,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 // InitializeDB initialized local SQL DB and creates userinfo for current user.
@@ -24,8 +25,6 @@ func InitializeDB() (*sql.DB, error) {
 	fmt.Println("Initializing DB...")
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
-	log.Println(migrationPath)
-	log.Println(viper.GetString("migration.local"))
 
 	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
 	if err != nil {
