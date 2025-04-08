@@ -110,7 +110,8 @@ func initViper() error {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".pennsieve/pennsieve_agent.db")
 
-	migrationsPath := filepath.Join(home, ".pennsieve", "migrations")
+	migrationsFolders := filepath.Join(".pennsieve", "migrations")
+	migrationsPath := filepath.Join(home, migrationsFolders)
 	err := os.MkdirAll(migrationsPath, os.ModePerm)
 	if err != nil {
 		log.Fatal("Error creating temp dir:", err)
@@ -119,14 +120,12 @@ func initViper() error {
 	// Setup paths for portability
 	absPath, err := filepath.Abs(home)
 	absPath = filepath.ToSlash(absPath)
-	migrationsPath = path.Join(absPath, migrationsPath)
+	migrationsPath = path.Join(absPath, migrationsFolders)
 
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
 	viper.SetDefault("migration.path", migrationsPath)
-	log.Println(viper.GetString("migration.path"))
-	log.Println(viper.GetString("migration.path.local"))
 	err = extractMigrations(migrationsFS, migrationsPath)
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
