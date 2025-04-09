@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/pennsieve/pennsieve-agent/cmd/download"
@@ -118,9 +117,7 @@ func initViper() error {
 	}
 
 	// Setup paths for portability
-	absPath, err := filepath.Abs(home)
-	dbMigrationsPath := path.Join(absPath, migrationsFolders)
-	dbMigrationsPath = fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath))
+	dbMigrationsPath := fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath))
 
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
