@@ -119,13 +119,13 @@ func initViper() error {
 
 	// Setup paths for portability
 	absPath, err := filepath.Abs(home)
-	migrationsPath = path.Join(absPath, migrationsFolders)
-	migrationsPath = fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath))
+	dbMigrationsPath := path.Join(absPath, migrationsFolders)
+	dbMigrationsPath = fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath))
 
 	viper.SetDefault("global.default_profile", "pennsieve")
 	viper.SetDefault("agent.db_path", dbPath)
 	viper.SetDefault("agent.useConfigFile", true)
-	viper.SetDefault("migration.path", migrationsPath)
+	viper.SetDefault("migration.path", dbMigrationsPath)
 	err = extractMigrations(migrationsFS, migrationsPath)
 
 	workers := os.Getenv("PENNSIEVE_AGENT_UPLOAD_WORKERS")
