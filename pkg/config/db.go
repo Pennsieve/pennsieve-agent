@@ -42,7 +42,7 @@ func InitializeDB() (*sql.DB, error) {
 	}
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
-			log.Info("No change in database schema: ", err)
+			log.Debug("No change in database schema: ", err)
 		} else {
 			log.Error(err)
 			return nil, err
