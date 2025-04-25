@@ -26,7 +26,7 @@ func InitializeDB() (*sql.DB, error) {
 	dbPath := viper.GetString("agent.db_path")
 	migrationPath := viper.GetString("migration.path")
 
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL")
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&mode=rwc&_journal_mode=WAL&_busy_timeout=15000")
 	if err != nil {
 		log.Error("Unable to open database")
 	}
