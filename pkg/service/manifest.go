@@ -23,15 +23,11 @@ func NewManifestService(ms store.ManifestStore, mfs store.ManifestFileStore, cli
 	}
 }
 
-//func (s *ManifestService) SetPennsieveClient(client *pennsieve.Client) {
-//	s.client = client
-//}
-
 // VerifyFinalizedStatus checks if files are in "Finalized" state on server and sets to "Verified"
-func (s *ManifestService) VerifyFinalizedStatus(manifest *store.Manifest) error {
+func (s *ManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest) error {
 	log.Debug("Verifying files")
 
-	response, err := s.client.Manifest.GetFilesForStatus(nil, manifest.NodeId.String, manifestFile.Finalized, "", true)
+	response, err := s.client.Manifest.GetFilesForStatus(ctx, manifest.NodeId.String, manifestFile.Finalized, "", true)
 	if err != nil {
 		log.Error("Error getting files for status, here is why: ", err)
 		return err
@@ -49,7 +45,7 @@ func (s *ManifestService) VerifyFinalizedStatus(manifest *store.Manifest) error 
 	for {
 		if len(response.ContinuationToken) > 0 {
 			log.Debug("Getting another set of files ")
-			response, err = s.client.Manifest.GetFilesForStatus(nil, manifest.NodeId.String, manifestFile.Finalized, response.ContinuationToken, true)
+			response, err = s.client.Manifest.GetFilesForStatus(ctx, manifest.NodeId.String, manifestFile.Finalized, response.ContinuationToken, true)
 			if err != nil {
 				log.Error("Error getting files for status, here is why: ", err)
 				return err
@@ -70,44 +66,35 @@ func (s *ManifestService) VerifyFinalizedStatus(manifest *store.Manifest) error 
 }
 
 func (s *ManifestService) GetManifest(manifestId int32) (*store.Manifest, error) {
-	manifest, err := s.mStore.Get(manifestId)
-	return manifest, err
+	return s.mStore.Get(manifestId)
 }
 
 func (s *ManifestService) GetAll() ([]store.Manifest, error) {
-	manifests, err := s.mStore.GetAll()
-	return manifests, err
+	return s.mStore.GetAll()
 }
 
 func (s *ManifestService) Add(params store.ManifestParams) (*store.Manifest, error) {
-	manifest, err := s.mStore.Add(params)
-	return manifest, err
+	return s.mStore.Add(params)
 }
 
 func (s *ManifestService) RemoveFromManifest(manifestId int32, removePath string) error {
-	err := s.mfStore.RemoveFromManifest(manifestId, removePath)
-	return err
+	return s.mfStore.RemoveFromManifest(manifestId, removePath)
 }
 
 func (s *ManifestService) RemoveManifest(manifestId int32) error {
-	err := s.mStore.Remove(manifestId)
-	return err
+	return s.mStore.Remove(manifestId)
 }
 
 func (s *ManifestService) GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error) {
-	files, err := s.mfStore.Get(manifestId, limit, offset)
-	return files, err
+	return s.mfStore.Get(manifestId, limit, offset)
 }
 
 func (s *ManifestService) ResetStatusForManifest(manifestId int32) error {
-	err := s.mfStore.ResetStatusForManifest(manifestId)
-	return err
+	return s.mfStore.ResetStatusForManifest(manifestId)
 }
 
 func (s *ManifestService) GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error) {
-	result, err := s.mfStore.GetNumberOfRowsForStatus(manifestId, statusArr, invert)
-	return result, err
-
+	return s.mfStore.GetNumberOfRowsForStatus(manifestId, statusArr, invert)
 }
 
 func (s *ManifestService) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile) {
@@ -115,8 +102,7 @@ func (s *ManifestService) ManifestFilesToChannel(ctx context.Context, manifestId
 }
 
 func (s *ManifestService) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
-	err := s.mfStore.SyncResponseStatusUpdate(manifestId, statusList)
-	return err
+	return s.mfStore.SyncResponseStatusUpdate(manifestId, statusList)
 }
 
 // SetManifestNodeId updates the manifest Node ID in the Manifest object and Database
@@ -127,16 +113,13 @@ func (s *ManifestService) SetManifestNodeId(m *store.Manifest, nodeId string) er
 		Valid:  true,
 	}
 
-	err := s.mStore.SetManifestNodeId(m.Id, nodeId)
-	return err
+	return s.mStore.SetManifestNodeId(m.Id, nodeId)
 }
 
 func (s *ManifestService) AddFiles(records []store.ManifestFileParams) error {
-	err := s.mfStore.Add(records)
-	return err
+	return s.mfStore.Add(records)
 }
 
 func (s *ManifestService) SetFileStatus(uploadId string, status manifestFile.Status) error {
-	err := s.mfStore.SetStatus(status, uploadId)
-	return err
+	return s.mfStore.SetStatus(status, uploadId)
 }
