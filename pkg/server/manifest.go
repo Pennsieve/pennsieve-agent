@@ -288,6 +288,9 @@ func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*sy
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	syncWalker := make(chan store.ManifestFile, nrWorkers)
+
+	// type recordWalk chan record
+	type syncResult chan []manifestFile.FileStatusDTO
 	syncResults := make(syncResult, nrWorkers)
 
 	totalNrRows, err := s.ManifestService().GetNumberOfRowsForStatus(m.Id,

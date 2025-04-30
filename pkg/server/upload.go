@@ -25,53 +25,11 @@ import (
 	"time"
 )
 
-type record struct {
-	sourcePath string
-	targetPath string
-	targetName string
-	uploadId   string
-	status     string
-}
-
-// type recordWalk chan record
-type syncResult chan []manifestFile.FileStatusDTO
-
 // ----------------------------------------------
 // UPLOAD FUNCTIONS
 // ----------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
-func (s *agentServer) CancelUpload(ctx context.Context,
-	request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
-
-	// TODO: Maybe only cancel uploadSessions that are actively running?
-
-	cancelCount := 0
-	s.cancelFncs.Range(func(k, v interface{}) bool {
-
-		session := v.(uploadSession)
-		if !request.CancelAll {
-			// Only cancel if the manifest id matches requested id
-			if session.manifestId == request.ManifestId {
-				session.cancelFnc()
-				s.sendCancelSubscribers(fmt.Sprintf("Cancelling all uploads."))
-				cancelCount += 1
-				return false
-			}
-		} else {
-			// Cancel all upload sessions.
-			session.cancelFnc()
-			s.sendCancelSubscribers(fmt.Sprintf("Cancelling uploading manifest: %d", session.manifestId))
-			cancelCount += 1
-		}
-
-		return true
-	})
-
-	return &pb.SimpleStatusResponse{
-		Status: fmt.Sprintf("Succesfully cancelled %d upload sessions", cancelCount)}, nil
-}
-
 // UploadManifest uploads all files associated with the provided manifest
 func (s *agentServer) UploadManifest(ctx context.Context,
 	request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
@@ -165,7 +123,6 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	walker := make(chan store.ManifestFile, nrWorkers)
-	results := make(chan int, nrWorkers)
 	pennsieveClient, err := s.PennsieveClient()
 	if err != nil {
 		log.Error("Cannot get Pennsieve client")
@@ -238,7 +195,7 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, m.DatasetId, m.OrganizationId)
+				err := s.uploadWorker(ctx, w, walker, m.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, m.DatasetId, m.OrganizationId)
 				if err != nil {
 					log.Println("Error in Upload Worker:", err)
 				}
@@ -255,7 +212,7 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 }
 
 func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan store.ManifestFile, results chan<- int, manifestNodeId string,
+	jobs <-chan store.ManifestFile, manifestNodeId string,
 	uploader *manager.Uploader, cfg aws.Config, uploadBucket string, datasetId string, organizationId string) error {
 
 	for record := range jobs {
@@ -267,6 +224,10 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 		}
 
 		fileInfo, err := file.Stat()
+		if err != nil {
+			log.Println("Failed describing file", record.SourcePath, err)
+			continue
+		}
 
 		reader := &CustomReader{
 			workerId: workerId,
@@ -289,18 +250,16 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 		})
 		if err != nil {
 
-			s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
+			s.messageSubscribers("Upload Failed: see log for details.")
 
 			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
 			// is done automatically by the manager.
 			if errors.Is(err, context.Canceled) {
 
-				s.messageSubscribers(fmt.Sprintf("Upload canceled."))
+				s.messageSubscribers("Upload canceled.")
 
 				var mu manager.MultiUploadFailure
 				if errors.As(err, &mu) {
-					//log.Println("Cancelling multi-part upload: ", record.sourcePath)
-
 					s3Session := s3.NewFromConfig(cfg)
 					input := &s3.AbortMultipartUploadInput{
 						Bucket:   aws.String(uploadBucket),
@@ -351,7 +310,7 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 				log.Println("Failed to upload", record.SourcePath)
 				log.Println("Error:", err.Error())
 
-				s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
+				s.messageSubscribers("Upload Failed: see log for details.")
 
 				err = file.Close()
 				if err != nil {
@@ -420,7 +379,7 @@ func (s *agentServer) updateSubscribers(total int64, current int64, name string,
 	var unsubscribe []int32
 
 	// Iterate over all subscribers and send data to each client
-	s.subscribers.Range(func(k, v interface{}) bool {
+	s.subscribers.Range(func(k, v any) bool {
 		id, ok := k.(int32)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
@@ -444,48 +403,6 @@ func (s *agentServer) updateSubscribers(total int64, current int64, name string,
 				}},
 		}); err != nil {
 
-			select {
-			case sub.Finished <- true:
-				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
-			default:
-				log.Warn(fmt.Sprintf("Failed to send data to client: %v", err))
-				// Default case is to avoid blocking in case client has already unsubscribed
-			}
-			// In case of error the client would re-subscribe so close the subscriber Stream
-			unsubscribe = append(unsubscribe, id)
-		}
-		return true
-	})
-
-	// Unsubscribe erroneous client streams
-	for _, id := range unsubscribe {
-		s.subscribers.Delete(id)
-	}
-}
-
-// sendCancelSubscribers Send Cancel Message to subscribers
-func (s *agentServer) sendCancelSubscribers(message string) {
-	// A list of clients to unsubscribe in case of error
-	var unsubscribe []int32
-
-	// Iterate over all subscribers and send data to each client
-	s.subscribers.Range(func(k, v interface{}) bool {
-		id, ok := k.(int32)
-		if !ok {
-			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
-			return false
-		}
-		sub, ok := v.(shared.Sub)
-		if !ok {
-			log.Error(fmt.Sprintf("Failed to cast subscriber value: %T", v))
-			return false
-		}
-		// Send data over the gRPC Stream to the client
-		if err := sub.Stream.Send(&pb.SubscribeResponse{
-			Type: pb.SubscribeResponse_UPLOAD_CANCEL,
-			MessageData: &pb.SubscribeResponse_EventInfo{
-				EventInfo: &pb.SubscribeResponse_EventResponse{Details: message}},
-		}); err != nil {
 			select {
 			case sub.Finished <- true:
 				log.Info(fmt.Sprintf("Unsubscribed client: %d", id))
