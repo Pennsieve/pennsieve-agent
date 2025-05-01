@@ -86,19 +86,27 @@ func (s *agentServer) UploadManifest(
 		}
 	}()
 
-	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100) // arbitrary buffer size
+	// collect all file status updates in a single buffered channel to serialize writes
+	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
+	s.batchWriteFileStatusUpdates(statusUpdates)
 
 	tickerDone := make(chan bool)
 	ticker := time.NewTicker(10 * time.Second)
 
 	// Ticker to get status updates from the server periodically
 	go func() {
-		defer close(tickerDone)
+		// on return stop the ticker and close the status update channel
+		defer func() {
+			ticker.Stop()
+			close(statusUpdates)
+			log.Println("Stopped syncing manifest: ", manifest.Id)
+		}()
+
 		for {
 			select {
 			case <-tickerDone:
-				ticker.Stop()
-				log.Println("Stopped syncing manifest: ", manifest.Id)
+				return
+			case <-ctx.Done():
 				return
 			case <-ticker.C:
 				// Checking status of files on server and verify.
@@ -116,35 +124,37 @@ func (s *agentServer) UploadManifest(
 	// 2. Wait for sync to be done
 	// 3. Create thread for upload
 	go func() {
-
 		// Create Context and store cancel function in server object.
 		ctx, cancelFnc := context.WithCancel(context.Background())
+		var uploadWg sync.WaitGroup
+
 		session := uploadSession{
 			manifestId: request.GetManifestId(),
 			cancelFnc:  cancelFnc,
 		}
 		s.cancelFncs.Store(request.GetManifestId(), session)
 
-		// Step 1. Synchronize all files
+		// Step 1 & 2. synchronize all files and wait for sync to complete
 		s.syncProcessor(ctx, manifest)
 
-		// Step 2. Upload all files
-		s.uploadProcessor(ctx, manifest, statusUpdates)
+		// Step 3. upload all files
+		s.uploadProcessor(ctx, manifest, &uploadWg, statusUpdates)
 
-		// Wait X minutes before cancelling sync thread.
-		syncTickerDelay := 15 * time.Minute // time to continue syncing files after upload complete
+		// continue syncing files for 15 minutes after uploads complete
+		// make sure all upload workers have completed first
+		syncTimerDelay := 15 * time.Minute
 		if _, isPresent := s.syncCancelFncs.Load(manifest.Id); !isPresent {
-			syncTimer := time.NewTimer(syncTickerDelay)
+			syncTimer := time.NewTimer(syncTimerDelay)
+			defer syncTimer.Stop()
 			cancel := make(chan struct{})
 			s.syncCancelFncs.Store(manifest.Id, cancel)
 			select {
 			case <-syncTimer.C:
-				tickerDone <- true
-				s.syncCancelFncs.Delete(manifest.Id)
 			case <-cancel:
-				tickerDone <- true
-				s.syncCancelFncs.Delete(manifest.Id)
 			}
+			uploadWg.Wait()
+			s.syncCancelFncs.Delete(manifest.Id)
+			tickerDone <- true
 		}
 	}()
 
@@ -152,9 +162,50 @@ func (s *agentServer) UploadManifest(
 	return &response, nil
 }
 
+// batch write status updates and flush the batch every 5 seconds,
+// or whenever the status updates channel has produced 100 status updates
+func (s *agentServer) batchWriteFileStatusUpdates(statusUpdates <-chan models.UploadStatusUpdateMessage) {
+	batch := make([]models.UploadStatusUpdateMessage, 0, 100)
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		statusGroups := make(map[manifestFile.Status][]string)
+		for _, msg := range batch {
+			statusGroups[msg.Status] = append(statusGroups[msg.Status], msg.UploadID)
+		}
+		for status, uploadIds := range statusGroups {
+			if err := s.ManifestService().BatchSetFileStatus(uploadIds, status); err != nil {
+				log.Errorf("BatchSetFileStatus error for status %s (%d items): %v", status, len(uploadIds), err)
+			}
+		}
+		batch = batch[:0]
+	}
+
+	statusUpdateTicker := time.NewTicker(5 * time.Second)
+	defer statusUpdateTicker.Stop()
+
+	for {
+		select {
+		case update, ok := <-statusUpdates:
+			if !ok {
+				flush()
+				return
+			}
+			batch = append(batch, update)
+			if len(batch) >= 100 {
+				flush()
+			}
+		case <-statusUpdateTicker.C:
+			flush()
+		}
+	}
+}
+
 func (s *agentServer) uploadProcessor(
 	ctx context.Context,
 	manifest *store.Manifest,
+	uploadWg *sync.WaitGroup,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 ) {
 	uploadWorkers := viper.GetInt("agent.upload_workers")
@@ -165,8 +216,6 @@ func (s *agentServer) uploadProcessor(
 	if err != nil {
 		log.Error("Cannot get Pennsieve client")
 	}
-
-	var uploadWg sync.WaitGroup
 
 	// Database crawler to fetch rows
 	go func() {
@@ -181,7 +230,7 @@ func (s *agentServer) uploadProcessor(
 	// Upload Handler
 	go func() {
 		cfg, err := config.LoadDefaultConfig(
-			context.TODO(),
+			ctx,
 			config.WithRegion("us-east-1"),
 			config.WithCredentialsProvider(
 				pennsieve.AWSCredentialProviderWithExpiration{
@@ -198,7 +247,7 @@ func (s *agentServer) uploadProcessor(
 		}
 
 		// For each file found walking, upload it to Amazon S3
-		ctx, cancelFnc := context.WithCancel(context.Background())
+		ctx, cancelFnc := context.WithCancel(ctx)
 		session := uploadSession{
 			manifestId: manifest.Id,
 			cancelFnc:  cancelFnc,
@@ -219,19 +268,19 @@ func (s *agentServer) uploadProcessor(
 		// Initiate the upload workers
 		for worker := 1; worker <= uploadWorkers; worker++ {
 			uploadWg.Add(1)
-			log.Println("Starting upload worker: ", worker)
-			worker := int32(worker)
-			go func() {
+			workerId := int32(worker)
+			go func(workerId int32) {
+				log.Println("Starting upload worker: ", workerId)
 				defer func() {
-					log.Println("Closing upload worker: ", worker)
+					log.Println("Closing upload worker: ", workerId)
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, worker, walker, manifest.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, manifest.DatasetId, manifest.OrganizationId)
+				err := s.uploadWorker(ctx, workerId, walker, statusUpdates, manifest.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, manifest.DatasetId, manifest.OrganizationId)
 				if err != nil {
-					log.Println("Error in Upload Worker:", err)
+					log.Println("error in upload worker:", workerId, err)
 				}
-			}()
+			}(workerId)
 		}
 
 		uploadWg.Wait()
@@ -245,6 +294,7 @@ func (s *agentServer) uploadWorker(
 	ctx context.Context,
 	workerId int32,
 	jobs <-chan store.ManifestFile,
+	statusUpdates chan<- models.UploadStatusUpdateMessage,
 	manifestNodeId string,
 	uploader *manager.Uploader,
 	cfg aws.Config,
@@ -361,9 +411,9 @@ func (s *agentServer) uploadWorker(
 			log.Fatalln("Could not close file.")
 		}
 
-		err = s.ManifestService().SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
-		if err != nil {
-			log.Fatalln("Could not update status of file. Here is why: ", err)
+		statusUpdates <- models.UploadStatusUpdateMessage{
+			UploadID: record.UploadId.String(),
+			Status:   manifestFile.Uploaded,
 		}
 	}
 

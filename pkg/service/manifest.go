@@ -131,3 +131,7 @@ func (s *ManifestService) AddFiles(records []store.ManifestFileParams) error {
 func (s *ManifestService) SetFileStatus(uploadId string, status manifestFile.Status) error {
 	return s.mfStore.SetStatus(status, uploadId)
 }
+
+func (s *ManifestService) BatchSetFileStatus(uploadIds []string, status manifestFile.Status) error {
+	return s.mfStore.BatchSetStatus(status, uploadIds)
+}

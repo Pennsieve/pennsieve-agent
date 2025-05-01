@@ -375,7 +375,6 @@ func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*sy
 	s.ManifestService().SyncResponseStatusUpdate(m.Id, allStatusUpdates)
 
 	return &syncSummary{nrFilesUpdated: len(allStatusUpdates)}, nil
-
 }
 
 // getCreateManifestId takes a manifest and ensures the manifest has a node-id.
