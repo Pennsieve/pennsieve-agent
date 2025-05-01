@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"database/sql"
+
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
@@ -24,7 +26,11 @@ func NewManifestService(ms store.ManifestStore, mfs store.ManifestFileStore, cli
 }
 
 // VerifyFinalizedStatus checks if files are in "Finalized" state on server and sets to "Verified"
-func (s *ManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest) error {
+func (s *ManifestService) VerifyFinalizedStatus(
+	ctx context.Context,
+	manifest *store.Manifest,
+	statusUpdates chan<- models.UploadStatusUpdateMessage,
+) error {
 	log.Debug("Verifying files")
 
 	response, err := s.client.Manifest.GetFilesForStatus(ctx, manifest.NodeId.String, manifestFile.Finalized, "", true)
@@ -35,10 +41,11 @@ func (s *ManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *s
 
 	log.Debug("Number of responses: ", len(response.Files))
 	if len(response.Files) > 0 {
-		if len(response.Files) == 1 {
-			s.mfStore.SetStatus(manifestFile.Verified, response.Files[0])
-		} else {
-			s.mfStore.BatchSetStatus(manifestFile.Verified, response.Files)
+		for _, file := range response.Files {
+			statusUpdates <- models.UploadStatusUpdateMessage{
+				UploadID: file,
+				Status:   manifestFile.Verified,
+			}
 		}
 	}
 
@@ -51,10 +58,11 @@ func (s *ManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *s
 				return err
 			}
 			if len(response.Files) > 0 {
-				if len(response.Files) == 1 {
-					s.mfStore.SetStatus(manifestFile.Verified, response.Files[0])
-				} else {
-					s.mfStore.BatchSetStatus(manifestFile.Verified, response.Files)
+				for _, file := range response.Files {
+					statusUpdates <- models.UploadStatusUpdateMessage{
+						UploadID: file,
+						Status:   manifestFile.Verified,
+					}
 				}
 			}
 		} else {
