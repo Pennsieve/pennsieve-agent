@@ -94,11 +94,13 @@ func (s *agentServer) UploadManifest(
 	ticker := time.NewTicker(10 * time.Second)
 
 	// Ticker to get status updates from the server periodically
+	var tickerWg sync.WaitGroup
+	tickerWg.Add(1)
 	go func() {
 		// on return stop the ticker and close the status update channel
 		defer func() {
 			ticker.Stop()
-			close(statusUpdates)
+			tickerWg.Done()
 			log.Println("Stopped syncing manifest: ", manifest.Id)
 		}()
 
@@ -156,8 +158,10 @@ func (s *agentServer) UploadManifest(
 			case <-cancel:
 			}
 			uploadWg.Wait()
-			s.syncCancelFncs.Delete(manifest.Id)
 			tickerDone <- true
+			tickerWg.Wait()
+			close(statusUpdates)
+			s.syncCancelFncs.Delete(manifest.Id)
 		}
 	}()
 
