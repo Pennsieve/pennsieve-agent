@@ -88,7 +88,7 @@ func (s *agentServer) UploadManifest(
 
 	// collect all file status updates in a single buffered channel to serialize writes
 	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
-	s.batchWriteFileStatusUpdates(statusUpdates)
+	go s.startStatusUpdateBatchWriter(statusUpdates)
 
 	tickerDone := make(chan bool)
 	ticker := time.NewTicker(10 * time.Second)
@@ -113,7 +113,10 @@ func (s *agentServer) UploadManifest(
 				// This should return a list of files that have recently been finalized and then set the status of
 				// those files to "Verified" on the server.
 				log.Println("Verifying status for manifest: ", manifest.Id)
-				s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
+				err := s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
+				if err != nil {
+					log.Error("failed to verify manifest file statuses", err)
+				}
 
 			}
 		}
@@ -164,7 +167,7 @@ func (s *agentServer) UploadManifest(
 
 // batch write status updates and flush the batch every 5 seconds,
 // or whenever the status updates channel has produced 100 status updates
-func (s *agentServer) batchWriteFileStatusUpdates(statusUpdates <-chan models.UploadStatusUpdateMessage) {
+func (s *agentServer) startStatusUpdateBatchWriter(statusUpdates <-chan models.UploadStatusUpdateMessage) {
 	batch := make([]models.UploadStatusUpdateMessage, 0, 100)
 	flush := func() {
 		if len(batch) == 0 {

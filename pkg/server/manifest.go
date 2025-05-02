@@ -7,7 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest"
@@ -16,11 +23,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io/fs"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 type fileWalk chan string
@@ -233,11 +235,27 @@ func (s *agentServer) SyncManifest(ctx context.Context, request *pb.SyncManifest
 		return nil, err
 	}
 
+	// collect all file status updates in a single buffered channel to serialize writes
+	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
+	var statusUpdatesWg sync.WaitGroup
+	statusUpdatesWg.Add(1)
+
+	go func() {
+		defer statusUpdatesWg.Done()
+		s.startStatusUpdateBatchWriter(statusUpdates)
+	}()
+
 	// Verify uploaded files that are in Finalized state.
 	if manifest.NodeId.Valid {
 		log.Debug("Verifying files")
-		s.ManifestService().VerifyFinalizedStatus(ctx, manifest)
+		err := s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
+		if err != nil {
+			log.Error("failed to verify manifest file statuses", err)
+		}
 	}
+
+	close(statusUpdates)
+	statusUpdatesWg.Wait()
 
 	// Sync local files with the server.
 	log.Debug("Syncing files.")
