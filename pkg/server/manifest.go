@@ -7,7 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest"
@@ -16,11 +23,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io/fs"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 type fileWalk chan string
@@ -65,13 +67,14 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 	activeUser, err := s.UserService().GetActiveUser()
 	if err != nil {
 		log.Error("Cannot get active user: ", err)
+		return nil, err
 	}
 
 	curClientSession, err := s.UserService().GetUserSettings()
 	if err != nil {
 		err := status.Error(codes.NotFound,
 			"Unable to get Client Session\n "+
-				"\t Please use: pennsieve config init to initialize local database.")
+				"\t Please use: Pennsieve config init to initialize local database.")
 
 		log.Warn(err)
 		return nil, err
@@ -81,7 +84,7 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 	if curClientSession.UseDatasetId == "" {
 		err := status.Error(codes.NotFound,
 			"No active dataset was specified.\n "+
-				"\t Please use: pennsieve dataset use <dataset_id> to specify active dataset.")
+				"\t Please use: Pennsieve dataset use <dataset_id> to specify active dataset.")
 
 		log.Warn(err)
 		return nil, err
@@ -89,7 +92,12 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 
 	// Check dataset exist (should be redundant) and grab name
 	client, err := s.PennsieveClient()
-	ds, err := client.Dataset.Get(nil, curClientSession.UseDatasetId)
+	if err != nil {
+		log.Error("Unable to initialize Pennsieve client: ", err)
+		return nil, err
+	}
+
+	ds, err := client.Dataset.Get(ctx, curClientSession.UseDatasetId)
 	if err != nil {
 		log.Error(err)
 	}
@@ -118,7 +126,7 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 	nrRecords, err := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
 	if err != nil {
 		s.messageSubscribers(fmt.Sprintf("Error with accessing files on: %s", request.BasePath))
-		response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: fmt.Sprintf("Creating manifest failed.")}
+		response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: "Creating manifest failed."}
 		return &response, nil
 	}
 
@@ -148,7 +156,7 @@ func (s *agentServer) RemoveFromManifest(ctx context.Context, request *pb.Remove
 		return nil, err
 	}
 
-	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully removed files.")}
+	response := pb.SimpleStatusResponse{Status: "Successfully removed files."}
 	return &response, nil
 }
 
@@ -227,11 +235,27 @@ func (s *agentServer) SyncManifest(ctx context.Context, request *pb.SyncManifest
 		return nil, err
 	}
 
+	// collect all file status updates in a single buffered channel to serialize writes
+	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
+	var statusUpdatesWg sync.WaitGroup
+	statusUpdatesWg.Add(1)
+
+	go func() {
+		defer statusUpdatesWg.Done()
+		s.startStatusUpdateBatchWriter(statusUpdates)
+	}()
+
 	// Verify uploaded files that are in Finalized state.
 	if manifest.NodeId.Valid {
 		log.Debug("Verifying files")
-		s.ManifestService().VerifyFinalizedStatus(manifest)
+		err := s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
+		if err != nil {
+			log.Error("failed to verify manifest file statuses", err)
+		}
 	}
+
+	close(statusUpdates)
+	statusUpdatesWg.Wait()
 
 	// Sync local files with the server.
 	log.Debug("Syncing files.")
@@ -277,6 +301,8 @@ func (s *agentServer) ResetManifest(ctx context.Context, request *pb.ResetManife
 // SYNC FUNCTIONS
 // ----------------------------------------------
 
+// type recordWalk chan record
+type syncResult chan []manifestFile.FileStatusDTO
 type syncSummary struct {
 	nrFilesUpdated int
 }
@@ -288,6 +314,7 @@ func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*sy
 
 	nrWorkers := viper.GetInt("agent.upload_workers")
 	syncWalker := make(chan store.ManifestFile, nrWorkers)
+
 	syncResults := make(syncResult, nrWorkers)
 
 	totalNrRows, err := s.ManifestService().GetNumberOfRowsForStatus(m.Id,
@@ -366,7 +393,6 @@ func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*sy
 	s.ManifestService().SyncResponseStatusUpdate(m.Id, allStatusUpdates)
 
 	return &syncSummary{nrFilesUpdated: len(allStatusUpdates)}, nil
-
 }
 
 // getCreateManifestId takes a manifest and ensures the manifest has a node-id.
@@ -398,7 +424,7 @@ func (s *agentServer) getCreateManifestId(m *store.Manifest) error {
 
 	log.Debug("New Manifest ID: ", response.ManifestNodeId)
 	if response.ManifestNodeId == "" {
-		return errors.New("Error: Unexpected Manifest Node ID returned by Pennsieve.")
+		return errors.New("error: Unexpected Manifest Node ID returned by Pennsieve")
 	}
 
 	// Update NodeId in manifest and database
@@ -409,8 +435,14 @@ func (s *agentServer) getCreateManifestId(m *store.Manifest) error {
 
 // syncWorker fetches rows from crawler and syncs with the service by batch.
 // This function is called as a go-routine and typically runs multiple instances in parallel
-func (s *agentServer) syncWorker(ctx context.Context, workerId int32,
-	syncWalker <-chan store.ManifestFile, result chan []manifestFile.FileStatusDTO, m *store.Manifest, totalNrRows int64) error {
+func (s *agentServer) syncWorker(
+	_ context.Context,
+	workerId int32,
+	syncWalker <-chan store.ManifestFile,
+	result chan []manifestFile.FileStatusDTO,
+	m *store.Manifest,
+	totalNrRows int64,
+) error {
 
 	const pageSize = 250
 
@@ -418,7 +450,7 @@ func (s *agentServer) syncWorker(ctx context.Context, workerId int32,
 
 	// Ensure that manifestID is set
 	if !m.NodeId.Valid {
-		return errors.New("Error: Cannot call syncWorker on manifest that has no manifest node id. ")
+		return errors.New("error: Cannot call syncWorker on manifest that has no manifest node id")
 	}
 
 	var requestFiles []manifestFile.FileDTO
@@ -476,6 +508,10 @@ func (s *agentServer) syncItems(requestFiles []manifestFile.FileDTO, manifestNod
 	}
 
 	client, err := s.PennsieveClient()
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
 
 	response, err := client.Manifest.Create(context.Background(), requestBody)
 	if err != nil {
@@ -495,7 +531,7 @@ func (s *agentServer) syncUpdateSubscribers(total int64, nrSynced int64, workerI
 	var unsubscribe []int32
 
 	// Iterate over all subscribers and send data to each client
-	s.subscribers.Range(func(k, v interface{}) bool {
+	s.subscribers.Range(func(k, v any) bool {
 		id, ok := k.(int32)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))

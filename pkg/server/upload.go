@@ -6,60 +6,49 @@ package server
 import (
 	"context"
 	"fmt"
+	"os"
+	"runtime/debug"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"os"
-	"runtime/debug"
-	"sync"
-	"time"
+
+	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	log "github.com/sirupsen/logrus"
 )
-
-type record struct {
-	sourcePath string
-	targetPath string
-	targetName string
-	uploadId   string
-	status     string
-}
-
-// type recordWalk chan record
-type syncResult chan []manifestFile.FileStatusDTO
 
 // ----------------------------------------------
 // UPLOAD FUNCTIONS
 // ----------------------------------------------
 
 // CancelUpload cancels an ongoing upload.
-func (s *agentServer) CancelUpload(ctx context.Context,
-	request *pb.CancelUploadRequest) (*pb.SimpleStatusResponse, error) {
-
-	// TODO: Maybe only cancel uploadSessions that are actively running?
-
+// TODO: Maybe only cancel uploadSessions that are actively running?
+func (s *agentServer) CancelUpload(
+	ctx context.Context,
+	request *pb.CancelUploadRequest,
+) (*pb.SimpleStatusResponse, error) {
 	cancelCount := 0
-	s.cancelFncs.Range(func(k, v interface{}) bool {
-
+	s.cancelFncs.Range(func(k, v any) bool {
 		session := v.(uploadSession)
-		if !request.CancelAll {
-			// Only cancel if the manifest id matches requested id
+		if !request.CancelAll { // only cancel if the manifest id matches requested id
 			if session.manifestId == request.ManifestId {
 				session.cancelFnc()
-				s.sendCancelSubscribers(fmt.Sprintf("Cancelling all uploads."))
+				s.sendCancelSubscribers("Cancelling all uploads.")
 				cancelCount += 1
 				return false
 			}
-		} else {
-			// Cancel all upload sessions.
+		} else { // cancel all upload sessions
 			session.cancelFnc()
 			s.sendCancelSubscribers(fmt.Sprintf("Cancelling uploading manifest: %d", session.manifestId))
 			cancelCount += 1
@@ -69,19 +58,20 @@ func (s *agentServer) CancelUpload(ctx context.Context,
 	})
 
 	return &pb.SimpleStatusResponse{
-		Status: fmt.Sprintf("Succesfully cancelled %d upload sessions", cancelCount)}, nil
+		Status: fmt.Sprintf("Succesfully cancelled %d upload sessions", cancelCount),
+	}, nil
 }
 
 // UploadManifest uploads all files associated with the provided manifest
-func (s *agentServer) UploadManifest(ctx context.Context,
-	request *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error) {
-
+func (s *agentServer) UploadManifest(
+	ctx context.Context,
+	request *pb.UploadManifestRequest,
+) (*pb.SimpleStatusResponse, error) {
 	s.messageSubscribers(fmt.Sprintf("Server starting upload manifest %d.", request.ManifestId))
 
-	var m *store.Manifest
-	m, err := s.ManifestService().GetManifest(request.ManifestId)
+	manifest, err := s.ManifestService().GetManifest(request.ManifestId)
 	if err != nil {
-		log.Fatalln("Cannot get Manifest based on ID.")
+		log.Error("Cannot get Manifest based on ID.")
 		return nil, err
 	}
 
@@ -96,26 +86,39 @@ func (s *agentServer) UploadManifest(ctx context.Context,
 		}
 	}()
 
+	// collect all file status updates in a single buffered channel to serialize writes
+	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
+	go s.startStatusUpdateBatchWriter(statusUpdates)
+
 	tickerDone := make(chan bool)
 	ticker := time.NewTicker(10 * time.Second)
 
 	// Ticker to get status updates from the server periodically
-	syncTickerDelay := 15 * time.Minute // time to continue syncing files after upload complete
+	var tickerWg sync.WaitGroup
+	tickerWg.Add(1)
 	go func() {
-		defer close(tickerDone)
+		// on return stop the ticker and close the status update channel
+		defer func() {
+			ticker.Stop()
+			tickerWg.Done()
+			log.Println("Stopped syncing manifest: ", manifest.Id)
+		}()
+
 		for {
 			select {
 			case <-tickerDone:
-				ticker.Stop()
-				log.Println("Stopped syncing manifest: ", m.Id)
+				return
+			case <-ctx.Done():
 				return
 			case <-ticker.C:
-
 				// Checking status of files on server and verify.
 				// This should return a list of files that have recently been finalized and then set the status of
 				// those files to "Verified" on the server.
-				log.Println("Verifying status for manifest: ", m.Id)
-				s.ManifestService().VerifyFinalizedStatus(m)
+				log.Println("Verifying status for manifest: ", manifest.Id)
+				err := s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
+				if err != nil {
+					log.Error("failed to verify manifest file statuses", err)
+				}
 
 			}
 		}
@@ -126,34 +129,39 @@ func (s *agentServer) UploadManifest(ctx context.Context,
 	// 2. Wait for sync to be done
 	// 3. Create thread for upload
 	go func() {
-
 		// Create Context and store cancel function in server object.
 		ctx, cancelFnc := context.WithCancel(context.Background())
+		var uploadWg sync.WaitGroup
+
 		session := uploadSession{
 			manifestId: request.GetManifestId(),
 			cancelFnc:  cancelFnc,
 		}
 		s.cancelFncs.Store(request.GetManifestId(), session)
 
-		// Step 1. Synchronize all files
-		s.syncProcessor(ctx, m)
+		// Step 1 & 2. synchronize all files and wait for sync to complete
+		s.syncProcessor(ctx, manifest)
 
-		// Step 2. Upload all files
-		s.uploadProcessor(ctx, m)
+		// Step 3. upload all files
+		s.uploadProcessor(ctx, manifest, &uploadWg, statusUpdates)
 
-		// Wait X minutes before cancelling sync thread.
-		if _, isPresent := s.syncCancelFncs.Load(m.Id); !isPresent {
-			syncTimer := time.NewTimer(syncTickerDelay)
+		// continue syncing files for 15 minutes after uploads complete
+		// make sure all upload workers have completed first
+		syncTimerDelay := 15 * time.Minute
+		if _, isPresent := s.syncCancelFncs.Load(manifest.Id); !isPresent {
+			syncTimer := time.NewTimer(syncTimerDelay)
+			defer syncTimer.Stop()
 			cancel := make(chan struct{})
-			s.syncCancelFncs.Store(m.Id, cancel)
+			s.syncCancelFncs.Store(manifest.Id, cancel)
 			select {
 			case <-syncTimer.C:
-				tickerDone <- true
-				s.syncCancelFncs.Delete(m.Id)
 			case <-cancel:
-				tickerDone <- true
-				s.syncCancelFncs.Delete(m.Id)
 			}
+			uploadWg.Wait()
+			tickerDone <- true
+			tickerWg.Wait()
+			close(statusUpdates)
+			s.syncCancelFncs.Delete(manifest.Id)
 		}
 	}()
 
@@ -161,38 +169,75 @@ func (s *agentServer) UploadManifest(ctx context.Context,
 	return &response, nil
 }
 
-func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
+// batch write status updates and flush the batch every 5 seconds,
+// or whenever the status updates channel has produced 100 status updates
+func (s *agentServer) startStatusUpdateBatchWriter(statusUpdates <-chan models.UploadStatusUpdateMessage) {
+	batch := make([]models.UploadStatusUpdateMessage, 0, 100)
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		statusGroups := make(map[manifestFile.Status][]string)
+		for _, msg := range batch {
+			statusGroups[msg.Status] = append(statusGroups[msg.Status], msg.UploadID)
+		}
+		for status, uploadIds := range statusGroups {
+			if err := s.ManifestService().BatchSetFileStatus(uploadIds, status); err != nil {
+				log.Errorf("BatchSetFileStatus error for status %s (%d items): %v", status, len(uploadIds), err)
+			}
+		}
+		batch = batch[:0]
+	}
 
-	nrWorkers := viper.GetInt("agent.upload_workers")
-	walker := make(chan store.ManifestFile, nrWorkers)
-	results := make(chan int, nrWorkers)
+	statusUpdateTicker := time.NewTicker(5 * time.Second)
+	defer statusUpdateTicker.Stop()
+
+	for {
+		select {
+		case update, ok := <-statusUpdates:
+			if !ok {
+				flush()
+				return
+			}
+			batch = append(batch, update)
+			if len(batch) >= 100 {
+				flush()
+			}
+		case <-statusUpdateTicker.C:
+			flush()
+		}
+	}
+}
+
+func (s *agentServer) uploadProcessor(
+	ctx context.Context,
+	manifest *store.Manifest,
+	uploadWg *sync.WaitGroup,
+	statusUpdates chan<- models.UploadStatusUpdateMessage,
+) {
+	uploadWorkers := viper.GetInt("agent.upload_workers")
+	chunkSize := viper.GetInt64("agent.upload_chunk_size")
+
+	walker := make(chan store.ManifestFile, uploadWorkers)
 	pennsieveClient, err := s.PennsieveClient()
 	if err != nil {
 		log.Error("Cannot get Pennsieve client")
 	}
 
-	var uploadWg sync.WaitGroup
-
 	// Database crawler to fetch rows
 	go func() {
-
 		defer close(walker)
 
-		requestStatus := []manifestFile.Status{
-			manifestFile.Registered,
-		}
+		requestStatus := []manifestFile.Status{manifestFile.Registered}
 
-		s.ManifestService().ManifestFilesToChannel(ctx, m.Id, requestStatus, walker)
+		s.ManifestService().ManifestFilesToChannel(ctx, manifest.Id, requestStatus, walker)
 
 	}()
 
 	// Upload Handler
 	go func() {
-
-		chunkSize := viper.GetInt64("agent.upload_chunk_size")
-		nrWorkers := viper.GetInt("agent.upload_workers")
-
-		cfg, err := config.LoadDefaultConfig(context.TODO(),
+		cfg, err := config.LoadDefaultConfig(
+			ctx,
 			config.WithRegion("us-east-1"),
 			config.WithCredentialsProvider(
 				pennsieve.AWSCredentialProviderWithExpiration{
@@ -209,12 +254,12 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 		}
 
 		// For each file found walking, upload it to Amazon S3
-		ctx, cancelFnc := context.WithCancel(context.Background())
+		ctx, cancelFnc := context.WithCancel(ctx)
 		session := uploadSession{
-			manifestId: m.Id,
+			manifestId: manifest.Id,
 			cancelFnc:  cancelFnc,
 		}
-		s.cancelFncs.Store(m.Id, session)
+		s.cancelFncs.Store(manifest.Id, session)
 		defer cancelFnc()
 
 		// Create an S3 Client with the config
@@ -228,38 +273,44 @@ func (s *agentServer) uploadProcessor(ctx context.Context, m *store.Manifest) {
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_INIT)
 
 		// Initiate the upload workers
-		for w := 1; w <= nrWorkers; w++ {
+		for worker := 1; worker <= uploadWorkers; worker++ {
 			uploadWg.Add(1)
-			log.Println("Starting upload worker: ", w)
-			w := int32(w)
-			go func() {
+			workerId := int32(worker)
+			go func(workerId int32) {
+				log.Println("Starting upload worker: ", workerId)
 				defer func() {
-					log.Println("Closing upload worker: ", w)
+					log.Println("Closing upload worker: ", workerId)
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, w, walker, results, m.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, m.DatasetId, m.OrganizationId)
+				err := s.uploadWorker(ctx, workerId, walker, statusUpdates, manifest.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, manifest.DatasetId, manifest.OrganizationId)
 				if err != nil {
-					log.Println("Error in Upload Worker:", err)
+					log.Println("error in upload worker:", workerId, err)
 				}
-			}()
+			}(workerId)
 		}
 
 		uploadWg.Wait()
 		log.Println("Upload Completed")
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_COMPLETE)
-
-		log.Println("Returned from uploader for manifest: ", m.Id)
+		log.Println("Returned from uploader for manifest: ", manifest.Id)
 	}()
-
 }
 
-func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
-	jobs <-chan store.ManifestFile, results chan<- int, manifestNodeId string,
-	uploader *manager.Uploader, cfg aws.Config, uploadBucket string, datasetId string, organizationId string) error {
+func (s *agentServer) uploadWorker(
+	ctx context.Context,
+	workerId int32,
+	jobs <-chan store.ManifestFile,
+	statusUpdates chan<- models.UploadStatusUpdateMessage,
+	manifestNodeId string,
+	uploader *manager.Uploader,
+	cfg aws.Config,
+	uploadBucket string,
+	datasetId string,
+	organizationId string,
+) error {
 
 	for record := range jobs {
-
 		file, err := os.Open(record.SourcePath)
 		if err != nil {
 			log.Println("Failed opening file", record.SourcePath, err)
@@ -267,6 +318,10 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 		}
 
 		fileInfo, err := file.Stat()
+		if err != nil {
+			log.Println("Failed describing file", record.SourcePath, err)
+			continue
+		}
 
 		reader := &CustomReader{
 			workerId: workerId,
@@ -277,7 +332,6 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 		}
 
 		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
-
 		tags := fmt.Sprintf("OrgId=%s&DatasetId=%s", organizationId, datasetId)
 
 		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
@@ -288,19 +342,16 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 			Tagging:           &tags,
 		})
 		if err != nil {
-
-			s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
+			s.messageSubscribers("Upload Failed: see log for details.")
 
 			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
 			// is done automatically by the manager.
 			if errors.Is(err, context.Canceled) {
 
-				s.messageSubscribers(fmt.Sprintf("Upload canceled."))
+				s.messageSubscribers("Upload canceled.")
 
 				var mu manager.MultiUploadFailure
 				if errors.As(err, &mu) {
-					//log.Println("Cancelling multi-part upload: ", record.sourcePath)
-
 					s3Session := s3.NewFromConfig(cfg)
 					input := &s3.AbortMultipartUploadInput{
 						Bucket:   aws.String(uploadBucket),
@@ -351,7 +402,7 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 				log.Println("Failed to upload", record.SourcePath)
 				log.Println("Error:", err.Error())
 
-				s.messageSubscribers(fmt.Sprintf("Upload Failed: see log for details."))
+				s.messageSubscribers("Upload Failed: see log for details.")
 
 				err = file.Close()
 				if err != nil {
@@ -360,7 +411,6 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 			}
 
 			continue
-
 		}
 
 		err = file.Close()
@@ -368,11 +418,12 @@ func (s *agentServer) uploadWorker(ctx context.Context, workerId int32,
 			log.Fatalln("Could not close file.")
 		}
 
-		err = s.ManifestService().SetFileStatus(record.UploadId.String(), manifestFile.Uploaded)
-		if err != nil {
-			log.Fatalln("Could not update status of file. Here is why: ", err)
+		statusUpdates <- models.UploadStatusUpdateMessage{
+			UploadID: record.UploadId.String(),
+			Status:   manifestFile.Uploaded,
 		}
 	}
+
 	return nil
 }
 
@@ -414,13 +465,18 @@ func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
 // ----------------------------------------------
 
 // updateSubscribers sends upload-progress updates to all grpc-update subscribers.
-func (s *agentServer) updateSubscribers(total int64, current int64, name string, workerId int32,
-	status pb.SubscribeResponse_UploadResponse_UploadStatus) {
+func (s *agentServer) updateSubscribers(
+	total int64,
+	current int64,
+	name string,
+	workerId int32,
+	status pb.SubscribeResponse_UploadResponse_UploadStatus,
+) {
 	// A list of clients to unsubscribe in case of error
 	var unsubscribe []int32
 
 	// Iterate over all subscribers and send data to each client
-	s.subscribers.Range(func(k, v interface{}) bool {
+	s.subscribers.Range(func(k, v any) bool {
 		id, ok := k.(int32)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
@@ -469,7 +525,7 @@ func (s *agentServer) sendCancelSubscribers(message string) {
 	var unsubscribe []int32
 
 	// Iterate over all subscribers and send data to each client
-	s.subscribers.Range(func(k, v interface{}) bool {
+	s.subscribers.Range(func(k, v any) bool {
 		id, ok := k.(int32)
 		if !ok {
 			log.Error(fmt.Sprintf("Failed to cast subscriber key: %T", k))
