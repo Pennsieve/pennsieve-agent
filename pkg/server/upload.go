@@ -311,116 +311,100 @@ func (s *agentServer) uploadWorker(
 ) error {
 
 	for record := range jobs {
-		file, err := os.Open(record.SourcePath)
-		if err != nil {
-			log.Println("Failed opening file", record.SourcePath, err)
-			continue
-		}
+		if err := func() error {
+			file, err := os.Open(record.SourcePath)
+			if err != nil {
+				log.Println("Failed opening file", record.SourcePath, err)
+				return err
+			}
+			defer file.Close()
 
-		fileInfo, err := file.Stat()
-		if err != nil {
-			log.Println("Failed describing file", record.SourcePath, err)
-			continue
-		}
+			fileInfo, err := file.Stat()
+			if err != nil {
+				log.Println("Failed describing file", record.SourcePath, err)
+				return err
+			}
 
-		reader := &CustomReader{
-			workerId: workerId,
-			fp:       file,
-			size:     fileInfo.Size(),
-			signMap:  map[int64]struct{}{},
-			s:        s,
-		}
+			reader := &CustomReader{
+				workerId: workerId,
+				fp:       file,
+				size:     fileInfo.Size(),
+				signMap:  map[int64]struct{}{},
+				s:        s,
+			}
 
-		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
-		tags := fmt.Sprintf("OrgId=%s&DatasetId=%s", organizationId, datasetId)
+			s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
+			tags := fmt.Sprintf("OrgId=%s&DatasetId=%s", organizationId, datasetId)
 
-		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
-			Bucket:            aws.String(uploadBucket),
-			Key:               s3Key,
-			Body:              reader,
-			ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
-			Tagging:           &tags,
-		})
-		if err != nil {
-			s.messageSubscribers("Upload Failed: see log for details.")
+			_, err = uploader.Upload(ctx, &s3.PutObjectInput{
+				Bucket:            aws.String(uploadBucket),
+				Key:               s3Key,
+				Body:              reader,
+				ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
+				Tagging:           &tags,
+			})
+			if err != nil {
+				s.messageSubscribers("Upload Failed: see log for details.")
 
-			// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
-			// is done automatically by the manager.
-			if errors.Is(err, context.Canceled) {
+				// If Cancelled, need to manually abort upload on S3 to remove partial upload on S3. For other errors, this
+				// is done automatically by the manager.
+				if errors.Is(err, context.Canceled) {
 
-				s.messageSubscribers("Upload canceled.")
+					s.messageSubscribers("Upload canceled.")
 
-				var mu manager.MultiUploadFailure
-				if errors.As(err, &mu) {
-					s3Session := s3.NewFromConfig(cfg)
-					input := &s3.AbortMultipartUploadInput{
-						Bucket:   aws.String(uploadBucket),
-						Key:      aws.String(*s3Key),
-						UploadId: aws.String(mu.UploadID()),
-					}
+					var mu manager.MultiUploadFailure
+					if errors.As(err, &mu) {
+						s3Session := s3.NewFromConfig(cfg)
+						input := &s3.AbortMultipartUploadInput{
+							Bucket:   aws.String(uploadBucket),
+							Key:      aws.String(*s3Key),
+							UploadId: aws.String(mu.UploadID()),
+						}
 
-					_, err := s3Session.AbortMultipartUpload(context.Background(), input)
-					if err != nil {
-						log.Println("Failed to abort multipart after cancelling: ", err)
-						return err
-					}
-
-					// Try to get the parts of the removed multipart upload. This should fail as all parts are removed
-					// but can theoretically succeed if we delete parts at the same time that they are being written.
-					// In that case, we try again to delete the multipart upload.
-					inputListParts := &s3.ListPartsInput{
-						Bucket:   aws.String(uploadBucket),
-						Key:      aws.String(*s3Key),
-						UploadId: aws.String(mu.UploadID()),
-					}
-
-					maxRetry := 10
-					iter := 0
-					for {
-						_, err = s3Session.ListParts(context.Background(), inputListParts)
-						iter += 1
+						_, err := s3Session.AbortMultipartUpload(context.Background(), input)
 						if err != nil {
-							log.Println("Multi-part upload cancelled: ", record.SourcePath)
-							break
-						} else if iter == maxRetry {
-							log.Println("Maximum retries for cancelling multipart upload: ", record.SourcePath)
-							break
-						} else {
+							log.Println("Failed to abort multipart after cancelling: ", err)
+							return err
+						}
+
+						// Try to get the parts of the removed multipart upload. This should fail as all parts are removed
+						// but can theoretically succeed if we delete parts at the same time that they are being written.
+						// In that case, we try again to delete the multipart upload.
+						inputListParts := &s3.ListPartsInput{
+							Bucket:   aws.String(uploadBucket),
+							Key:      aws.String(*s3Key),
+							UploadId: aws.String(mu.UploadID()),
+						}
+						maxRetry := 10
+						iter := 0
+						for {
+							_, err = s3Session.ListParts(context.Background(), inputListParts)
+							iter += 1
+							if err != nil {
+								log.Println("Multi-part upload cancelled: ", record.SourcePath)
+								break
+							} else if iter == maxRetry {
+								log.Println("Maximum retries for cancelling multipart upload: ", record.SourcePath)
+								break
+							}
 							time.Sleep(500 * time.Millisecond)
 						}
 					}
 				}
-
-				err = file.Close()
-				if err != nil {
-					log.Fatalln("Could not close file.")
-				}
-
-				break
-			} else {
 				// Process error generically
 				log.Println("Failed to upload", record.SourcePath)
 				log.Println("Error:", err.Error())
 
-				s.messageSubscribers("Upload Failed: see log for details.")
-
-				err = file.Close()
-				if err != nil {
-					log.Fatalln("Could not close file.")
-				}
+				return err
 			}
 
+			statusUpdates <- models.UploadStatusUpdateMessage{
+				UploadID: record.UploadId.String(),
+				Status:   manifestFile.Uploaded,
+			}
+			return nil
+		}(); err != nil {
 			continue
-		}
-
-		err = file.Close()
-		if err != nil {
-			log.Fatalln("Could not close file.")
-		}
-
-		statusUpdates <- models.UploadStatusUpdateMessage{
-			UploadID: record.UploadId.String(),
-			Status:   manifestFile.Uploaded,
 		}
 	}
 
