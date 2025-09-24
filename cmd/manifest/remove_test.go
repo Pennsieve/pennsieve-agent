@@ -36,7 +36,7 @@ func TestRemoveCmd_Help(t *testing.T) {
 	require.NoError(t, removeCmd.Execute())
 
 	output := readBuffer(t, outBuffer)
-	assert.Contains(t, output, "remove -m MANIFEST-ID SOURCE-PATH")
+	assert.Contains(t, output, "remove -m MANIFEST-ID SOURCE-PATH-PREFIX")
 
 	assert.Empty(t, errBuffer)
 }
@@ -68,7 +68,7 @@ func TestRemoveCmd_BadArgs(t *testing.T) {
 
 			stdout := readBuffer(t, outBuffer)
 			// fmt.Println("stdout", stdout)
-			assert.Contains(t, stdout, "remove -m MANIFEST-ID SOURCE-PATH")
+			assert.Contains(t, stdout, "remove -m MANIFEST-ID SOURCE-PATH-PREFIX")
 
 			stderr := readBuffer(t, errBuffer)
 			//fmt.Println("stderr", stderr)

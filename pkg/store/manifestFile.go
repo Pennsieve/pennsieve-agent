@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"strings"
 	"time"
 
@@ -40,7 +41,7 @@ type ManifestFileStore interface {
 	SetStatus(status manifestFile.Status, uploadId string) error
 	SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error
 	SyncResponseStatusUpdate2(manifestId int32, failedFiles []string)
-	RemoveFromManifest(manifestId int32, removePath string) error
+	RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error)
 	ResetStatusForManifest(manifestId int32) error
 	GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error)
 	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- ManifestFile)
@@ -367,34 +368,48 @@ func (s *manifestFileStore) SyncResponseStatusUpdate2(manifestId int32, failedFi
 }
 
 // RemoveFromManifest removes files from local manifest by path.
-func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath string) error {
+func (s *manifestFileStore) RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error) {
 	pathLikeExpr := removePath + "%"
 	initiatedStatus := manifestFile.Local.String()
 
 	stmt, err := s.db.Prepare("DELETE FROM manifest_files WHERE manifest_id = ? AND source_path LIKE ? AND status = ?")
 	if err != nil {
 		log.Println("Error in RemoveFromManifest (DELETE):", err)
-		return err
+		return models.RemoveFromManifestResponse{}, err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(manifestId, pathLikeExpr, initiatedStatus)
+	deleteResult, err := stmt.Exec(manifestId, pathLikeExpr, initiatedStatus)
 	if err != nil {
 		log.Println("Error executing RemoveFromManifest (DELETE):", err)
-		return err
+		return models.RemoveFromManifestResponse{}, err
+	}
+	deletedCount, err := deleteResult.RowsAffected()
+	if err != nil {
+		log.Println("error getting deleted row count in RemoveFromManifest: ", err)
+		return models.RemoveFromManifestResponse{}, err
+	}
+	response := models.RemoveFromManifestResponse{
+		Deleted: deletedCount,
 	}
 
 	syncStatus := manifestFile.Registered.String()
 	removeStatus := manifestFile.Removed.String()
 
 	queryStr2 := "UPDATE manifest_files SET status = ? WHERE manifest_id = ? AND source_path LIKE ? AND status = ?"
-	_, err = s.db.Exec(queryStr2, removeStatus, manifestId, pathLikeExpr, syncStatus)
+	updateResult, err := s.db.Exec(queryStr2, removeStatus, manifestId, pathLikeExpr, syncStatus)
 	if err != nil {
 		log.Println("Error executing RemoveFromManifest (UPDATE):", err)
-		return err
+		return models.RemoveFromManifestResponse{}, err
 	}
+	updatedCount, err := updateResult.RowsAffected()
+	if err != nil {
+		log.Println("error getting updated row count in RemoveFromManifest: ", err)
+		return models.RemoveFromManifestResponse{}, err
+	}
+	response.Updated = updatedCount
 
-	return nil
+	return response, nil
 }
 
 // ResetStatusForManifest resets all files to status = LOCAL
