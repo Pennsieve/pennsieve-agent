@@ -12,49 +12,65 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var RemoveCmd = &cobra.Command{
-	Use:   "remove <MANIFEST-ID> <ID> [...ID]",
-	Short: "Removes files from an existing manifest.",
-	Long:  `Creates manifest for upload.`,
-	Run: func(cmd *cobra.Command, args []string) {
+var RemoveCmd = NewRemoveCmd()
 
-		manifestId, _ := cmd.Flags().GetInt32("manifest_id")
-		fmt.Println("manifest if ", manifestId)
-		if manifestId == -1 {
-			log.Fatalln("Need to specify manifest id with `manifest_id` flag.")
-		}
+// NewRemoveCmd returns a new manifest remove sub-command.
+// Useful for testing since the re-use of a global ManifestCmd variable in tests causes
+// problems with flag values being retained, and so one test can pollute another when run in parallel.
+func NewRemoveCmd() *cobra.Command {
+	manifestIdFlag := "manifest_id"
 
-		fmt.Println(args[0])
+	cmd := &cobra.Command{
+		Use:   "remove -m MANIFEST-ID SOURCE-PATH",
+		Short: "Removes a file from an existing manifest.",
+		Long:  `Removes a file from an existing manifest.`,
+		// this is the one positional arg, the source path
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
 
-		req := api.RemoveFromManifestRequest{
-			ManifestId: manifestId,
-			RemovePath: args[0],
-		}
+			manifestId, err := cmd.Flags().GetInt32(manifestIdFlag)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			fmt.Println("manifest id:", manifestId)
 
-		port := viper.GetString("agent.port")
+			// Args field in this Command ensures we only get here if len(args) == 1
+			sourcePath := args[0]
 
-		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			fmt.Println("Error connecting to GRPC Server: ", err)
-			return
-		}
-		defer conn.Close()
+			fmt.Println("source path:", sourcePath)
 
-		client := api.NewAgentClient(conn)
-		manifestResponse, err := client.RemoveFromManifest(context.Background(), &req)
-		if err != nil {
-			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Remove Manifest command: %v", err))
-			return
-		}
+			req := api.RemoveFromManifestRequest{
+				ManifestId: manifestId,
+				RemovePath: sourcePath,
+			}
 
-		fmt.Println(manifestResponse.Status)
-	},
-}
+			port := viper.GetString("agent.port")
 
-func init() {
-	RemoveCmd.Flags().Int32P("manifest_id", "m",
-		0, "Manifest ID.")
+			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				fmt.Println("Error connecting to GRPC Server: ", err)
+				return
+			}
+			defer conn.Close()
 
-	RemoveCmd.MarkFlagRequired("manifest_id")
+			client := api.NewAgentClient(conn)
+			manifestResponse, err := client.RemoveFromManifest(context.Background(), &req)
+			if err != nil {
+				shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Remove Manifest command: %v", err))
+				return
+			}
+
+			fmt.Println(manifestResponse.Status)
+		},
+	}
+
+	cmd.Flags().Int32P(manifestIdFlag, "m",
+		0, "Manifest id")
+
+	if err := cmd.MarkFlagRequired(manifestIdFlag); err != nil {
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
+	}
+
+	return cmd
 
 }

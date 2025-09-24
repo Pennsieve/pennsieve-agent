@@ -14,44 +14,7 @@ import (
 	"unicode"
 )
 
-var ManifestCmd = &cobra.Command{
-	Use:   "manifest",
-	Short: "Lists upload sessions.",
-	Long: `Renders a list of upload manifests and their current status. 
-
-This list includes only upload manifests that are initiated from the current machine.`,
-	Run: func(cmd *cobra.Command, args []string) {
-
-		req := api.ListManifestsRequest{}
-
-		port := viper.GetString("agent.port")
-		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			fmt.Println("Error connecting to GRPC Server: ", err)
-			return
-		}
-		defer conn.Close()
-
-		client := api.NewAgentClient(conn)
-		manifestResponse, err := client.ListManifests(context.Background(), &req)
-		if err != nil {
-			st := status.Convert(err)
-			fmt.Println(st.Message())
-			return
-		}
-
-		t := table.NewWriter()
-		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"Upload Manifest", "User Name", "Organization Name", "Dataset ID", "Status", "nodeId"})
-		for _, s := range manifestResponse.Manifests {
-			const maxLength = 100
-			dsName := trimName(s.DatasetName, maxLength)
-			t.AppendRow([]interface{}{s.Id, s.UserName, s.OrganizationName, dsName, s.Status, s.NodeId})
-		}
-
-		t.Render()
-	},
-}
+var ManifestCmd = NewManifestCmd()
 
 func init() {
 	ManifestCmd.AddCommand(ListCmd)
@@ -61,6 +24,50 @@ func init() {
 	ManifestCmd.AddCommand(DeleteCmd)
 	ManifestCmd.AddCommand(SyncCmd)
 	ManifestCmd.AddCommand(ResetCmd)
+}
+
+// NewManifestCmd returns a manifest command without any child commands.
+// Useful for testing since the re-use of a global ManifestCmd variable in tests causes
+// problems with flag values being retained, and so one test can pollute another when run in parallel.
+func NewManifestCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "manifest",
+		Short: "Lists upload manifests.",
+		Long: `Renders a list of upload manifests and their current status. 
+
+This list includes only upload manifests that are initiated from the current machine.`,
+		Run: func(cmd *cobra.Command, args []string) {
+
+			req := api.ListManifestsRequest{}
+
+			port := viper.GetString("agent.port")
+			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				fmt.Println("Error connecting to GRPC Server: ", err)
+				return
+			}
+			defer conn.Close()
+
+			client := api.NewAgentClient(conn)
+			manifestResponse, err := client.ListManifests(context.Background(), &req)
+			if err != nil {
+				st := status.Convert(err)
+				fmt.Println(st.Message())
+				return
+			}
+
+			t := table.NewWriter()
+			t.SetOutputMirror(os.Stdout)
+			t.AppendHeader(table.Row{"Upload Manifest", "User Name", "Organization Name", "Dataset ID", "Status", "nodeId"})
+			for _, s := range manifestResponse.Manifests {
+				const maxLength = 100
+				dsName := trimName(s.DatasetName, maxLength)
+				t.AppendRow([]interface{}{s.Id, s.UserName, s.OrganizationName, dsName, s.Status, s.NodeId})
+			}
+
+			t.Render()
+		},
+	}
 }
 
 func trimName(str string, max int) string {
