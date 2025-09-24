@@ -136,6 +136,8 @@ func (m mockRemoveFromManifest) RemoveFromManifest(ctx context.Context, req *v1.
 	return m.f(ctx, req)
 }
 
+// SetViper sets the given key to the given value in viper. Since viper uses global singletons, a cleanup function is registered
+// on t that restores any previous value associated with key.
 func SetViper(t *testing.T, key string, value any) {
 	old := viper.Get(key)
 	t.Cleanup(func() {
