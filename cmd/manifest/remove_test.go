@@ -1,45 +1,79 @@
 package manifest
 
 import (
+	"bytes"
 	"context"
 	v1 "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"io"
 	"net"
 	"strconv"
 	"testing"
 )
 
+func setupCommand() (removeCmd *cobra.Command, outBuffer *bytes.Buffer, errBuffer *bytes.Buffer) {
+	removeCmd = NewRemoveCmd()
+	var out, err bytes.Buffer
+	outBuffer, errBuffer = &out, &err
+	removeCmd.SetOut(outBuffer)
+	removeCmd.SetErr(errBuffer)
+	return
+}
+
+func readBuffer(t require.TestingT, buffer *bytes.Buffer) string {
+	buffBytes, err := io.ReadAll(buffer)
+	require.NoError(t, err)
+	return string(buffBytes)
+}
+
 func TestRemoveCmd_Help(t *testing.T) {
-	// Must do everything through parent command since running Execute()
-	// on child command runs it from the parent anyway.
-	removeCmd := NewRemoveCmd()
+	removeCmd, outBuffer, errBuffer := setupCommand()
 	removeCmd.SetArgs([]string{"--help"})
 	require.NoError(t, removeCmd.Execute())
+
+	output := readBuffer(t, outBuffer)
+	assert.Contains(t, output, "remove -m MANIFEST-ID SOURCE-PATH")
+
+	assert.Empty(t, errBuffer)
 }
 
 func TestRemoveCmd_BadArgs(t *testing.T) {
 	tests := []struct {
-		scenario string
-		args     []string
+		scenario    string
+		args        []string
+		expectedErr string
 	}{
-		{"no args", []string{}},
-		{"only positional arg", []string{"path/to/file"}},
-		{"only flag, no value", []string{"-m"}},
-		{"wrong manifest id type", []string{"-m", "my-manifest"}},
-		{"wrong flag", []string{"-m", "3", "--not-a-flag"}},
-		{"no path", []string{"-m", "3"}},
-		{"more than one path", []string{"-m", "3", "path/to/file1.txt", "path/to/file2.txt"}},
+		{"no args", []string{}, "accepts 1 arg(s), received 0"},
+		{"only positional arg", []string{"path/to/file"}, `required flag(s) "manifest_id" not set`},
+		{"only flag, no value", []string{"-m"}, "flag needs an argument: 'm' in -m"},
+		{"wrong manifest id type", []string{"-m", "my-manifest"}, `invalid argument "my-manifest" for "-m, --manifest_id" flag: strconv.ParseInt: parsing "my-manifest": invalid syntax`},
+		{"wrong flag", []string{"-m", "3", "--not-a-flag"}, "unknown flag: --not-a-flag"},
+		{"no path", []string{"-m", "3"}, "accepts 1 arg(s), received 0"},
+		{"more than one path", []string{"-m", "3", "path/to/file1.txt", "path/to/file2.txt"}, "accepts 1 arg(s), received 2"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
-			removeCmd := NewRemoveCmd()
+			removeCmd, outBuffer, errBuffer := setupCommand()
 			removeCmd.SetArgs(tt.args)
 			err := removeCmd.Execute()
+
 			assert.Error(t, err)
+			//fmt.Println("err", err)
+			assert.Equal(t, tt.expectedErr, err.Error())
+
+			stdout := readBuffer(t, outBuffer)
+			// fmt.Println("stdout", stdout)
+			assert.Contains(t, stdout, "remove -m MANIFEST-ID SOURCE-PATH")
+
+			stderr := readBuffer(t, errBuffer)
+			//fmt.Println("stderr", stderr)
+			assert.Contains(t, stderr, tt.expectedErr)
+
 		})
 	}
 }
@@ -69,9 +103,16 @@ func TestRemoveCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
-			removeCmd := NewRemoveCmd()
+			removeCmd, outBuffer, errBuffer := setupCommand()
 			removeCmd.SetArgs(tt.args)
 			require.NoError(t, removeCmd.Execute())
+
+			assert.Empty(t, errBuffer)
+
+			out := readBuffer(t, outBuffer)
+			assert.Contains(t, out, manifestIDString)
+			assert.Contains(t, out, path)
+			assert.Contains(t, out, expectedStatus)
 		})
 	}
 

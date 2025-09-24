@@ -5,17 +5,17 @@ import (
 	"fmt"
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"os"
 )
 
 var RemoveCmd = NewRemoveCmd()
 
 // NewRemoveCmd returns a new manifest remove sub-command.
-// Useful for testing since the re-use of a global ManifestCmd variable in tests causes
+// Useful for testing since the re-use of a global *cobra.Command variable in tests causes
 // problems with flag values being retained, and so one test can pollute another when run in parallel.
 func NewRemoveCmd() *cobra.Command {
 	manifestIdFlag := "manifest_id"
@@ -30,14 +30,15 @@ func NewRemoveCmd() *cobra.Command {
 
 			manifestId, err := cmd.Flags().GetInt32(manifestIdFlag)
 			if err != nil {
-				log.Fatalln(err)
+				printErr(cmd, err.Error())
+				os.Exit(1)
 			}
-			fmt.Println("manifest id:", manifestId)
+			printOut(cmd, fmt.Sprintf("manifest id: %d", manifestId))
 
 			// Args field in this Command ensures we only get here if len(args) == 1
 			sourcePath := args[0]
 
-			fmt.Println("source path:", sourcePath)
+			printOut(cmd, fmt.Sprintf("source path: %s", sourcePath))
 
 			req := api.RemoveFromManifestRequest{
 				ManifestId: manifestId,
@@ -48,7 +49,7 @@ func NewRemoveCmd() *cobra.Command {
 
 			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				fmt.Println("Error connecting to GRPC Server: ", err)
+				printOut(cmd, fmt.Sprintf("Error connecting to GRPC Server: %v", err))
 				return
 			}
 			defer conn.Close()
@@ -60,7 +61,7 @@ func NewRemoveCmd() *cobra.Command {
 				return
 			}
 
-			fmt.Println(manifestResponse.Status)
+			printOut(cmd, manifestResponse.Status)
 		},
 	}
 
@@ -68,9 +69,17 @@ func NewRemoveCmd() *cobra.Command {
 		0, "Manifest id")
 
 	if err := cmd.MarkFlagRequired(manifestIdFlag); err != nil {
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
+		printErr(cmd, err.Error())
 	}
 
 	return cmd
 
+}
+
+func printOut(cmd *cobra.Command, msg string) {
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), msg)
+}
+
+func printErr(cmd *cobra.Command, msg string) {
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), msg)
 }
