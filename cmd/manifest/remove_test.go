@@ -146,7 +146,7 @@ func SetViper(t *testing.T, key string, value any) {
 	viper.Set(key, value)
 }
 
-// StartMockGRPC starts a GPRC server that registers mock as the v1.AgentServer
+// StartMockGRPC starts a GPRC server that registers mock as the v1.AgentServer.
 // Server and listener Close() are registered to t's Cleanup() method.
 func StartMockGRPC(t *testing.T, mock v1.AgentServer) (port string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

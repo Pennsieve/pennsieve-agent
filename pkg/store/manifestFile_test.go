@@ -19,9 +19,9 @@ func TestManifestFileStore(t *testing.T) {
 		testFunc func(t *testing.T, fixture *Fixture)
 	}{
 		{"remove from manifest: no manifest found", removeFromManifestFixture, testRemoveFromManifestNoManifest},
-		{"remove from manifest: none found", removeFromManifestFixture, testRemoveFromManifestNoFilesUnderPrefix},
-		{"remove from manifest: one found", removeFromManifestFixture, testRemoveFromManifestOneFileUnderPrefix},
-		{"remove from manifest: multiple files under prefix", removeFromManifestFixture, testRemoveFromManifestMultipleFilesUnderPrefix},
+		{"remove from manifest: no file found under prefix", removeFromManifestFixture, testRemoveFromManifestNoFilesUnderPrefix},
+		{"remove from manifest: one file found under prefix", removeFromManifestFixture, testRemoveFromManifestOneFileUnderPrefix},
+		{"remove from manifest: multiple files found under prefix", removeFromManifestFixture, testRemoveFromManifestMultipleFilesUnderPrefix},
 	}
 
 	for _, tt := range tests {
@@ -93,17 +93,12 @@ func testRemoveFromManifestNoManifest(t *testing.T, fixture *Fixture) {
 	assert.Equal(t, resp.Deleted, int64(0))
 	assert.Equal(t, resp.Updated, int64(0))
 
-	var expectedSourcePaths []string
-	for _, file := range fixture.ManifestFiles {
-		expectedSourcePaths = append(expectedSourcePaths, file.SourcePath)
-	}
-
+	// all files should still be in the manifest with the same status
 	assertions := []ManifestFilesAssertion{ManifestFilesLenAssertion(len(fixture.ManifestFiles))}
 	for _, file := range fixture.ManifestFiles {
 		assertions = append(assertions, ManifestFilesContainsSourcePathAndStatusAssertion(file.SourcePath, file.Status))
 	}
 
-	// all files should still be in the manifest with the same status
 	fixture.AssertManifestFiles(t, assertions...)
 }
 
@@ -114,12 +109,12 @@ func testRemoveFromManifestNoFilesUnderPrefix(t *testing.T, fixture *Fixture) {
 	assert.Equal(t, resp.Deleted, int64(0))
 	assert.Equal(t, resp.Updated, int64(0))
 
+	// all files should still be in the manifest with the same status
 	assertions := []ManifestFilesAssertion{ManifestFilesLenAssertion(len(fixture.ManifestFiles))}
 	for _, file := range fixture.ManifestFiles {
 		assertions = append(assertions, ManifestFilesContainsSourcePathAndStatusAssertion(file.SourcePath, file.Status))
 	}
 
-	// all files should still be in the manifest with the same status
 	fixture.AssertManifestFiles(t, assertions...)
 }
 
@@ -222,6 +217,9 @@ func (f *Fixture) addManifestFiles(t *testing.T, manifestID int32) {
 		vals = append(vals, file.SourcePath, file.TargetPath, file.TargetName, uploadID, file.ManifestId,
 			file.Status.String(), createdAt, updatedAt)
 	}
+	// SQLite makes no guarantee about the order of the returned ids so also return upload_id so that we can
+	// match them up below
+	// https://www.sqlite.org/lang_returning.html
 	fullInsert := fmt.Sprintf("%s %s RETURNING upload_id, id", sqlInsert, strings.Join(inserts, ", "))
 
 	stmt, err := db.Prepare(fullInsert)
@@ -232,8 +230,6 @@ func (f *Fixture) addManifestFiles(t *testing.T, manifestID int32) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, rows.Close()) }()
 
-	//SQLite makes no guarantee about the order of the returned rows so can't assume first id goes with first manifest file.
-	// https://www.sqlite.org/lang_returning.html
 	for rows.Next() {
 		var id int32
 		var uploadID string
