@@ -105,10 +105,6 @@ jobs:
         run: go mod download
       - name: Go Mod Verify
         run: go mod verify
-      - name: Install dependencies
-        run: |
-          go version
-          go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
         run: |
@@ -179,10 +175,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      - name: Install dependencies
-        run: |
-          go version
-          go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
         run: |
@@ -250,10 +242,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      - name: Install dependencies
-        run: |
-          go version
-          go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
         run: |
@@ -373,10 +361,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      - name: Install dependencies
-        run: |
-          go version
-          go get -u golang.org/x/lint/golint
       - name: Build release
         id: build-release
         run: |
