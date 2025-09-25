@@ -5,56 +5,83 @@ import (
 	"fmt"
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"os"
 )
 
-var RemoveCmd = &cobra.Command{
-	Use:   "remove <MANIFEST-ID> <ID> [...ID]",
-	Short: "Removes files from an existing manifest.",
-	Long:  `Creates manifest for upload.`,
-	Run: func(cmd *cobra.Command, args []string) {
+var RemoveCmd = NewRemoveCmd()
 
-		manifestId, _ := cmd.Flags().GetInt32("manifest_id")
-		fmt.Println("manifest if ", manifestId)
-		if manifestId == -1 {
-			log.Fatalln("Need to specify manifest id with `manifest_id` flag.")
-		}
+// NewRemoveCmd returns a new manifest remove sub-command.
+// Useful for testing since the re-use of a global *cobra.Command variable in tests causes
+// problems with flag values being retained, and so one test can pollute another when run in parallel.
+func NewRemoveCmd() *cobra.Command {
+	manifestIdFlag := "manifest_id"
 
-		fmt.Println(args[0])
+	cmd := &cobra.Command{
+		Use:   "remove -m MANIFEST-ID SOURCE-PATH-PREFIX",
+		Short: "Removes files from an existing manifest.",
+		Long: `Removes files from an existing manifest.
+This command will remove any files that have a source path starting with SOURCE-PATH-PREFIX and having status LOCAL from the given manifest.
+If a file in the manifest has a source path starting with SOURCE-PATH-PREFIX and status REGISTERED, then the status will be updated to REMOVED.`,
+		// this is the one positional arg, the source path
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
 
-		req := api.RemoveFromManifestRequest{
-			ManifestId: manifestId,
-			RemovePath: args[0],
-		}
+			manifestId, err := cmd.Flags().GetInt32(manifestIdFlag)
+			if err != nil {
+				printErr(cmd, err.Error())
+				os.Exit(1)
+			}
+			printOut(cmd, fmt.Sprintf("manifest id: %d", manifestId))
 
-		port := viper.GetString("agent.port")
+			// Args field in this Command ensures we only get here if len(args) == 1
+			sourcePath := args[0]
 
-		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			fmt.Println("Error connecting to GRPC Server: ", err)
-			return
-		}
-		defer conn.Close()
+			printOut(cmd, fmt.Sprintf("source path prefix: %s", sourcePath))
 
-		client := api.NewAgentClient(conn)
-		manifestResponse, err := client.RemoveFromManifest(context.Background(), &req)
-		if err != nil {
-			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Remove Manifest command: %v", err))
-			return
-		}
+			req := api.RemoveFromManifestRequest{
+				ManifestId: manifestId,
+				RemovePath: sourcePath,
+			}
 
-		fmt.Println(manifestResponse.Status)
-	},
+			port := viper.GetString("agent.port")
+
+			conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				printOut(cmd, fmt.Sprintf("Error connecting to GRPC Server: %v", err))
+				return
+			}
+			defer conn.Close()
+
+			client := api.NewAgentClient(conn)
+			manifestResponse, err := client.RemoveFromManifest(context.Background(), &req)
+			if err != nil {
+				shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Remove Manifest command: %v", err))
+				return
+			}
+
+			printOut(cmd, manifestResponse.Status)
+		},
+	}
+
+	cmd.Flags().Int32P(manifestIdFlag, "m",
+		0, "Manifest id")
+
+	if err := cmd.MarkFlagRequired(manifestIdFlag); err != nil {
+		printErr(cmd, err.Error())
+	}
+
+	return cmd
+
 }
 
-func init() {
-	RemoveCmd.Flags().Int32P("manifest_id", "m",
-		0, "Manifest ID.")
+func printOut(cmd *cobra.Command, msg string) {
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), msg)
+}
 
-	RemoveCmd.MarkFlagRequired("manifest_id")
-
+func printErr(cmd *cobra.Command, msg string) {
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), msg)
 }

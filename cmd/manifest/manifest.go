@@ -16,7 +16,7 @@ import (
 
 var ManifestCmd = &cobra.Command{
 	Use:   "manifest",
-	Short: "Lists upload sessions.",
+	Short: "Lists upload manifests.",
 	Long: `Renders a list of upload manifests and their current status. 
 
 This list includes only upload manifests that are initiated from the current machine.`,

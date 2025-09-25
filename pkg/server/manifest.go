@@ -151,12 +151,17 @@ func (s *agentServer) AddToManifest(ctx context.Context, request *pb.AddToManife
 // RemoveFromManifest removes one or more files from the index for an existing manifest.
 func (s *agentServer) RemoveFromManifest(ctx context.Context, request *pb.RemoveFromManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	err := s.ManifestService().RemoveFromManifest(request.ManifestId, request.RemovePath)
+	removeResp, err := s.ManifestService().RemoveFromManifest(request.ManifestId, request.RemovePath)
 	if err != nil {
 		return nil, err
 	}
 
-	response := pb.SimpleStatusResponse{Status: "Successfully removed files."}
+	// using uppercase status strings because that's how the user sees them via the CLI manifest list.
+	removeStatus := fmt.Sprintf("Successfully removed %d %s files and %d %s files.",
+		removeResp.Deleted, strings.ToUpper(manifestFile.Local.String()),
+		removeResp.Updated, strings.ToUpper(manifestFile.Registered.String()))
+
+	response := pb.SimpleStatusResponse{Status: removeStatus}
 	return &response, nil
 }
 

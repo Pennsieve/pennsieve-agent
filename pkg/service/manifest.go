@@ -85,7 +85,7 @@ func (s *ManifestService) Add(params store.ManifestParams) (*store.Manifest, err
 	return s.mStore.Add(params)
 }
 
-func (s *ManifestService) RemoveFromManifest(manifestId int32, removePath string) error {
+func (s *ManifestService) RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error) {
 	return s.mfStore.RemoveFromManifest(manifestId, removePath)
 }
 
