@@ -156,7 +156,10 @@ func (s *agentServer) RemoveFromManifest(ctx context.Context, request *pb.Remove
 		return nil, err
 	}
 
-	removeStatus := fmt.Sprintf("Successfully removed %d %s files and %d %s files.", removeResp.Deleted, manifestFile.Local, removeResp.Updated, manifestFile.Registered)
+	// using uppercase status strings because that's how the user sees them via the CLI manifest list.
+	removeStatus := fmt.Sprintf("Successfully removed %d %s files and %d %s files.",
+		removeResp.Deleted, strings.ToUpper(manifestFile.Local.String()),
+		removeResp.Updated, strings.ToUpper(manifestFile.Registered.String()))
 
 	response := pb.SimpleStatusResponse{Status: removeStatus}
 	return &response, nil

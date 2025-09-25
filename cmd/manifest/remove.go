@@ -24,8 +24,8 @@ func NewRemoveCmd() *cobra.Command {
 		Use:   "remove -m MANIFEST-ID SOURCE-PATH-PREFIX",
 		Short: "Removes files from an existing manifest.",
 		Long: `Removes files from an existing manifest.
-This command will remove any files from the manifest with id MANIFEST-ID with status Local and with a source path that starts with SOURCE-PATH-PREFIX.
-If a file in the manifest has a source path starting with SOURCE-PATH-PREFIX and status Registered, then the status will be updated to Removed.`,
+This command will remove any files from the manifest with id MANIFEST-ID with status LOCAL and with a source path that starts with SOURCE-PATH-PREFIX.
+If a file in the manifest has a source path starting with SOURCE-PATH-PREFIX and status REGISTERED, then the status will be updated to Removed.`,
 		// this is the one positional arg, the source path
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
