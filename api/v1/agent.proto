@@ -25,6 +25,7 @@ service Agent {
 	rpc CancelDownload(CancelDownloadRequest) returns (SimpleStatusResponse) {}
 	rpc Map(MapRequest) returns (SimpleStatusResponse) {}
 	rpc Pull(PullRequest) returns (SimpleStatusResponse) {}
+	rpc Push(PushRequest) returns (SimpleStatusResponse) {}
 	rpc GetMapDiff(MapDiffRequest) returns (MapDiffResponse) {}
 
 	// Server Endpoints
@@ -55,6 +56,10 @@ service Agent {
 }
 
 message PullRequest {
+	string path = 1;
+}
+
+message PushRequest {
 	string path = 1;
 }
 

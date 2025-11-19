@@ -1,0 +1,179 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	log "github.com/sirupsen/logrus"
+)
+
+// Push identifies new files in a mapped dataset and uploads them to Pennsieve
+func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.SimpleStatusResponse, error) {
+
+	// Files to ignore during push
+	ignoredFiles := []string{
+		".DS_Store",
+	}
+
+	// Check if the provided path is part of a mapped dataset
+	datasetRoot, found, err := findMappedDatasetRoot(req.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !found {
+		return &api.SimpleStatusResponse{Status: "The provided path is not part of a Pennsieve mapped dataset."}, nil
+	}
+
+	// Read the workspace manifest to get existing files
+	manifestPath := filepath.Join(datasetRoot, ".pennsieve", "manifest.json")
+	workspaceManifest, err := shared.ReadWorkspaceManifest(manifestPath)
+	if err != nil {
+		log.Errorf("Unable to read manifest.json: %v", err)
+		return nil, err
+	}
+
+	// Build a map of files for lookup later
+	manifestFiles := make(map[string]bool)
+	for _, file := range workspaceManifest.Files {
+		if file.FileName.Valid {
+			// Construct the full absolute path for this file
+			absFilePath := filepath.Join(datasetRoot, file.Path, file.FileName.String)
+			manifestFiles[absFilePath] = true
+		}
+	}
+
+	// Walk the directory to find new files
+	var newFiles []string
+	err = filepath.Walk(req.Path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the .pennsieve folder
+		if strings.Contains(path, ".pennsieve") {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Skip ignored files
+		for _, ignored := range ignoredFiles {
+			if info.Name() == ignored {
+				return nil
+			}
+		}
+
+		// Only process files (not directories)
+		if !info.IsDir() {
+			// Check if this file exists in the manifest
+			if !manifestFiles[path] {
+				newFiles = append(newFiles, path)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Errorf("Error scanning directory: %v", err)
+		return nil, err
+	}
+
+	if len(newFiles) == 0 {
+		return &api.SimpleStatusResponse{Status: "No new files to push."}, nil
+	}
+
+	log.Infof("Found %d new file(s) to push", len(newFiles))
+
+	// Create manifest and add files
+	// This runs in a goroutine to prevent blocking
+	go func() {
+		// Create an empty manifest first
+		manifestResponse, err := s.ManifestService().Add(getManifestParams(s))
+		if err != nil {
+			log.Errorf("Error creating manifest: %v", err)
+			s.messageSubscribers(fmt.Sprintf("Error creating manifest: %v", err))
+			return
+		}
+
+		log.Infof("Created manifest %d for push", manifestResponse.Id)
+		s.messageSubscribers(fmt.Sprintf("Created manifest %d with %d file(s) to push", manifestResponse.Id, len(newFiles)))
+
+		// Add each file to the manifest individually with its correct target path
+		successCount := 0
+		for _, filePath := range newFiles {
+			// Get the relative path from dataset root
+			relPath, err := filepath.Rel(datasetRoot, filePath)
+			if err != nil {
+				log.Errorf("Error computing relative path for %s: %v", filePath, err)
+				continue
+			}
+
+			// The target path is the directory part of the relative path
+			targetPath := filepath.Dir(relPath)
+			if targetPath == "." {
+				targetPath = ""
+			}
+			// Convert to forward slashes for target path
+			targetPath = filepath.ToSlash(targetPath)
+
+			// Add this file to the manifest using the existing addToManifest helper
+			_, err = s.addToManifest(filePath, targetPath, nil, manifestResponse.Id)
+			if err != nil {
+				log.Errorf("Error adding file %s to manifest: %v", relPath, err)
+				continue
+			}
+			successCount++
+		}
+
+		log.Infof("Added %d file(s) to manifest %d", successCount, manifestResponse.Id)
+		s.messageSubscribers(fmt.Sprintf("Added %d file(s) to manifest %d", successCount, manifestResponse.Id))
+
+		// Upload the manifest
+		uploadReq := api.UploadManifestRequest{
+			ManifestId: manifestResponse.Id,
+		}
+
+		_, err = s.UploadManifest(context.Background(), &uploadReq)
+		if err != nil {
+			log.Errorf("Error uploading manifest %d: %v", manifestResponse.Id, err)
+			s.messageSubscribers(fmt.Sprintf("Error uploading manifest: %v", err))
+			return
+		}
+
+		s.messageSubscribers(fmt.Sprintf("Upload initiated for manifest %d", manifestResponse.Id))
+		log.Infof("Push complete for manifest %d", manifestResponse.Id)
+	}()
+
+	resp := &api.SimpleStatusResponse{Status: fmt.Sprintf("Push initiated for %d file(s). Use \"pennsieve agent subscribe\" to track progress.", len(newFiles))}
+	return resp, nil
+}
+
+// getManifestParams is a helper to get manifest parameters for creating a new manifest
+func getManifestParams(s *agentServer) store.ManifestParams {
+	// This is a simplified version - you may need to get actual user/dataset info
+	// Similar to how it's done in CreateManifest
+	activeUser, _ := s.UserService().GetActiveUser()
+	curClientSession, _ := s.UserService().GetUserSettings()
+
+	// Get dataset info
+	client, _ := s.PennsieveClient()
+	ds, _ := client.Dataset.Get(context.Background(), curClientSession.UseDatasetId)
+
+	return store.ManifestParams{
+		UserId:           activeUser.Id,
+		UserName:         activeUser.Name,
+		OrganizationId:   activeUser.OrganizationId,
+		OrganizationName: activeUser.OrganizationName,
+		DatasetId:        curClientSession.UseDatasetId,
+		DatasetName:      ds.Content.Name,
+	}
+}
