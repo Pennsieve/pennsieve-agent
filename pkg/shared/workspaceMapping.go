@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	models2 "github.com/pennsieve/pennsieve-agent/pkg/models"
-	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	models2 "github.com/pennsieve/pennsieve-agent/pkg/models"
+	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
+	log "github.com/sirupsen/logrus"
 )
 
 func ReadStateFile(stateFileLocation string) (*models2.MapState, error) {
@@ -101,4 +102,25 @@ func ReadFileIDFromFile(location string) (string, error) {
 	}
 
 	return idStr, nil
+}
+
+// FindManifestFile Looks for .pennsieve/manifest.json starting from the given path
+// and moving up through parent directories until found or root is reached
+func FindManifestFile(startPath string) (string, error) {
+	currentPath := startPath
+
+	for {
+		manifestPath := filepath.Join(currentPath, ".pennsieve", "manifest.json")
+		if _, err := os.Stat(manifestPath); err == nil {
+			return manifestPath, nil
+		}
+
+		// Move up to parent directory
+		parentPath := filepath.Dir(currentPath)
+		if parentPath == currentPath {
+			// We've reached the root
+			return "", fmt.Errorf("manifest.json not found in path hierarchy")
+		}
+		currentPath = parentPath
+	}
 }
