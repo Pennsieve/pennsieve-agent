@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -122,5 +123,51 @@ func FindManifestFile(startPath string) (string, error) {
 			return "", fmt.Errorf("manifest.json not found in path hierarchy")
 		}
 		currentPath = parentPath
+	}
+}
+
+// WriteWorkspaceManifest writes a workspace manifest to the specified location
+func WriteWorkspaceManifest(manifestLocation string, manifest *models.WorkspaceManifest) error {
+	manifestFile, err := os.Create(filepath.FromSlash(manifestLocation))
+	if err != nil {
+		return fmt.Errorf("failed to create manifest file: %s, error: %v", manifestLocation, err)
+	}
+	defer func(manifestFile *os.File) {
+		err := manifestFile.Close()
+		if err != nil {
+			log.Warn("Unable to close manifest file")
+		}
+	}(manifestFile)
+
+	// Write manifest with indentation for readability
+	encoder := json.NewEncoder(manifestFile)
+	encoder.SetIndent("", "    ")
+	if err := encoder.Encode(manifest); err != nil {
+		return fmt.Errorf("failed to encode manifest file: %v", err)
+	}
+
+	return nil
+}
+
+// CreateManifestDTO creates a ManifestDTO entry for a file
+func CreateManifestDTO(fileName string, path string, size int64) models.ManifestDTO {
+	return models.ManifestDTO{
+		PackageNodeId: "",
+		PackageName:   fileName,
+		FileNodeId:    models.NullString{},
+		FileName: models.NullString{
+			NullString: sql.NullString{
+				String: fileName,
+				Valid:  true,
+			},
+		},
+		Path: path,
+		Size: models.NullInt{
+			NullInt64: sql.NullInt64{
+				Int64: size,
+				Valid: true,
+			},
+		},
+		CheckSum: models.NullString{},
 	}
 }

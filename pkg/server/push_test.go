@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -300,4 +301,79 @@ func TestPush_WithNestedFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, resp.Status, "Push initiated")
 	assert.Contains(t, resp.Status, "1 file")
+}
+
+func TestPush_UpdatesLocalManifest(t *testing.T) {
+	// Create a temporary directory structure with manifest
+	tempDir := t.TempDir()
+	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+
+	// Create .pennsieve directory
+	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+
+	// Create an existing file
+	existingFile := filepath.Join(tempDir, "existing.txt")
+	require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0644))
+
+	// Create a new file that will be "uploaded"
+	newFile := filepath.Join(tempDir, "new.txt")
+	require.NoError(t, os.WriteFile(newFile, []byte("new content"), 0644))
+
+	// Create a nested file
+	subDir := filepath.Join(tempDir, "subfolder")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	nestedFile := filepath.Join(subDir, "nested.txt")
+	require.NoError(t, os.WriteFile(nestedFile, []byte("nested content"), 0644))
+
+	// Create manifest that only includes existing file
+	manifest := map[string]interface{}{
+		"datasetNodeId":      "N:dataset:test-123",
+		"organizationNodeId": "N:organization:test-456",
+		"files": []map[string]interface{}{
+			{
+				"packageId":   "N:package:existing-123",
+				"packageName": "existing.txt",
+				"fileId":      "existing-123",
+				"fileName":    "existing.txt",
+				"path":        "",
+				"size":        16,
+			},
+		},
+	}
+
+	manifestJSON, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+
+	// Simulate uploading the new files by calling updateLocalManifest
+	newFiles := []string{newFile, nestedFile}
+	err = updateLocalManifest(manifestPath, tempDir, newFiles)
+	require.NoError(t, err)
+
+	// Read the updated manifest
+	updatedManifest, err := shared.ReadWorkspaceManifest(manifestPath)
+	require.NoError(t, err)
+
+	// Verify the manifest now has 3 files (1 existing + 2 new)
+	assert.Len(t, updatedManifest.Files, 3, "Manifest should have 3 files after update")
+
+	// Verify the new files are in the manifest
+	fileNames := make(map[string]bool)
+	filePaths := make(map[string]string)
+	for _, f := range updatedManifest.Files {
+		if f.FileName.Valid {
+			fileNames[f.FileName.String] = true
+			filePaths[f.FileName.String] = f.Path
+		}
+	}
+
+	assert.True(t, fileNames["existing.txt"], "existing.txt should be in manifest")
+	assert.True(t, fileNames["new.txt"], "new.txt should be in manifest")
+	assert.True(t, fileNames["nested.txt"], "nested.txt should be in manifest")
+
+	// Verify paths are correct
+	assert.Equal(t, "", filePaths["existing.txt"], "existing.txt should have empty path")
+	assert.Equal(t, "", filePaths["new.txt"], "new.txt should have empty path")
+	assert.Equal(t, "subfolder", filePaths["nested.txt"], "nested.txt should have 'subfolder' path")
 }

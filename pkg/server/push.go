@@ -151,6 +151,14 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
 
 		s.messageSubscribers(fmt.Sprintf("Upload initiated for manifest %d", manifestResponse.Id))
 		log.Infof("Push complete for manifest %d", manifestResponse.Id)
+
+		// Update local workspace manifest to include newly uploaded files
+		if err := updateLocalManifest(manifestPath, datasetRoot, newFiles); err != nil {
+			log.Errorf("Error updating local manifest: %v", err)
+			// Don't return - the upload was successful, just log the error
+		} else {
+			log.Infof("Updated local manifest with %d new file(s)", len(newFiles))
+		}
 	}()
 
 	resp := &api.SimpleStatusResponse{Status: fmt.Sprintf("Push initiated for %d file(s). Use \"pennsieve agent subscribe\" to track progress.", len(newFiles))}
@@ -176,4 +184,52 @@ func getManifestParams(s *agentServer) store.ManifestParams {
 		DatasetId:        curClientSession.UseDatasetId,
 		DatasetName:      ds.Content.Name,
 	}
+}
+
+// updateLocalManifest adds newly uploaded files to the local workspace manifest
+// Note: Updating local manifest doesn't create a package ID or a checksum
+func updateLocalManifest(manifestPath string, datasetRoot string, newFiles []string) error {
+	// Get the current manifest
+	workspaceManifest, err := shared.ReadWorkspaceManifest(manifestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read workspace manifest: %w", err)
+	}
+
+	// Add new files
+	for _, filePath := range newFiles {
+		// Get file info
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			log.Warnf("Cannot stat file %s: %v", filePath, err)
+			continue
+		}
+
+		// Get the relative path from dataset root
+		relPath, err := filepath.Rel(datasetRoot, filePath)
+		if err != nil {
+			log.Warnf("Cannot compute relative path for %s: %v", filePath, err)
+			continue
+		}
+
+		// Split into directory path and filename
+		dirPath := filepath.Dir(relPath)
+		if dirPath == "." {
+			dirPath = ""
+		}
+		// Convert to forward slashes for consistency
+		dirPath = filepath.ToSlash(dirPath)
+		fileName := filepath.Base(relPath)
+
+		manifestEntry := shared.CreateManifestDTO(fileName, dirPath, fileInfo.Size())
+
+		// Append to the files list
+		workspaceManifest.Files = append(workspaceManifest.Files, manifestEntry)
+	}
+
+	// Write the updated manifest back to disk
+	if err := shared.WriteWorkspaceManifest(manifestPath, workspaceManifest); err != nil {
+		return fmt.Errorf("failed to write workspace manifest: %w", err)
+	}
+
+	return nil
 }
