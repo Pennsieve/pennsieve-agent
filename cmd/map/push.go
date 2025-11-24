@@ -1,9 +1,13 @@
 package _map
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/cmd/shared"
 	"github.com/spf13/cobra"
@@ -40,11 +44,6 @@ var PushCmd = &cobra.Command{
 			return
 		}
 
-		// Create a push request
-		pushRequest := api.PushRequest{
-			Path: absPath,
-		}
-
 		// Connect to the agent server
 		port := viper.GetString("agent.port")
 		conn, err := grpc.Dial(":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -55,6 +54,35 @@ var PushCmd = &cobra.Command{
 		defer conn.Close()
 
 		client := api.NewAgentClient(conn)
+
+		// Show diff summary for added files
+		newFiles, err := displayAddedFiles(client, absPath)
+		if err != nil {
+			fmt.Println(err)
+			shared.HandleAgentError(err, "Error: Unable to calculate diff before push")
+			return
+		}
+		if newFiles {
+			proceed, err := confirmPush()
+			if err != nil {
+				fmt.Println(err)
+				shared.HandleAgentError(err, "Error: unable to confirm push")
+				return
+			}
+			if !proceed {
+				fmt.Println("Push canceled.")
+				return
+			}
+		} else {
+			fmt.Println("No new local files detected. Nothing to push.")
+			return
+		}
+
+		// Create a push request
+		pushRequest := api.PushRequest{
+			Path: absPath,
+		}
+
 		pushResponse, err := client.Push(context.Background(), &pushRequest)
 		if err != nil {
 			fmt.Println(err)
@@ -68,4 +96,62 @@ var PushCmd = &cobra.Command{
 
 func init() {
 
+}
+
+func displayAddedFiles(client api.AgentClient, path string) (bool, error) {
+	diffResp, err := client.GetMapDiff(context.Background(), &api.MapDiffRequest{Path: path})
+	if err != nil {
+		return false, err
+	}
+
+	var added []*api.PackageStatus
+	for _, status := range diffResp.GetFiles() {
+		if status.GetChangeType() == api.PackageStatus_ADDED {
+			added = append(added, status)
+		}
+	}
+
+	if len(added) == 0 {
+		return false, nil
+	}
+
+	fmt.Println("The following files will be pushed:")
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Path", "File Name", "Update"})
+	for _, status := range added {
+		content := status.GetContent()
+		if content == nil {
+			continue
+		}
+		const maxDisplay = 100
+		pathEntry := content.GetPath()
+		if len(pathEntry) > maxDisplay {
+			pathEntry = pathEntry[:maxDisplay]
+		}
+		nameEntry := content.GetName()
+		if len(nameEntry) > maxDisplay {
+			nameEntry = nameEntry[:maxDisplay]
+		}
+		t.AppendRow(table.Row{pathEntry, nameEntry, status.GetChangeType().String()})
+	}
+	t.Render()
+
+	return true, nil
+}
+
+func confirmPush() (bool, error) {
+	fmt.Print("Proceed with push? (y/n): ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return false, fmt.Errorf("unable to read confirmation: %w", err)
+	}
+
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer != "y" && answer != "yes" {
+		return false, nil
+	}
+
+	return true, nil
 }

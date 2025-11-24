@@ -105,27 +105,6 @@ func ReadFileIDFromFile(location string) (string, error) {
 	return idStr, nil
 }
 
-// FindManifestFile Looks for .pennsieve/manifest.json starting from the given path
-// and moving up through parent directories until found or root is reached
-func FindManifestFile(startPath string) (string, error) {
-	currentPath := startPath
-
-	for {
-		manifestPath := filepath.Join(currentPath, ".pennsieve", "manifest.json")
-		if _, err := os.Stat(manifestPath); err == nil {
-			return manifestPath, nil
-		}
-
-		// Move up to parent directory
-		parentPath := filepath.Dir(currentPath)
-		if parentPath == currentPath {
-			// We've reached the root
-			return "", fmt.Errorf("manifest.json not found in path hierarchy")
-		}
-		currentPath = parentPath
-	}
-}
-
 // WriteWorkspaceManifest writes a workspace manifest to the specified location
 func WriteWorkspaceManifest(manifestLocation string, manifest *models.WorkspaceManifest) error {
 	manifestFile, err := os.Create(filepath.FromSlash(manifestLocation))

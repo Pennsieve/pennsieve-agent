@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -106,9 +108,8 @@ func TestPush_NoNewFiles(t *testing.T) {
 		},
 	}
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+	writeManifestFile(t, manifestPath, manifest)
+	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
 	server := &agentServer{}
@@ -159,9 +160,8 @@ func TestPush_WithNewFiles(t *testing.T) {
 		},
 	}
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+	writeManifestFile(t, manifestPath, manifest)
+	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
 	server := &agentServer{}
@@ -200,9 +200,8 @@ func TestPush_IgnoresSystemFiles(t *testing.T) {
 		"files":              []interface{}{},
 	}
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+	writeManifestFile(t, manifestPath, manifest)
+	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
 	server := &agentServer{}
@@ -240,9 +239,8 @@ func TestPush_SkipsPennsieveFolder(t *testing.T) {
 		"files":              []interface{}{},
 	}
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+	writeManifestFile(t, manifestPath, manifest)
+	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
 	server := &agentServer{}
@@ -282,9 +280,8 @@ func TestPush_WithNestedFiles(t *testing.T) {
 		"files":              []interface{}{},
 	}
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+	writeManifestFile(t, manifestPath, manifest)
+	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
 	server := &agentServer{}
@@ -342,13 +339,11 @@ func TestPush_UpdatesLocalManifest(t *testing.T) {
 		},
 	}
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+	writeManifestFile(t, manifestPath, manifest)
 
 	// Simulate uploading the new files by calling updateLocalManifest
 	newFiles := []string{newFile, nestedFile}
-	err = updateLocalManifest(manifestPath, tempDir, newFiles)
+	err := updateLocalManifest(manifestPath, tempDir, newFiles)
 	require.NoError(t, err)
 
 	// Read the updated manifest
@@ -376,4 +371,35 @@ func TestPush_UpdatesLocalManifest(t *testing.T) {
 	assert.Equal(t, "", filePaths["existing.txt"], "existing.txt should have empty path")
 	assert.Equal(t, "", filePaths["new.txt"], "new.txt should have empty path")
 	assert.Equal(t, "subfolder", filePaths["nested.txt"], "nested.txt should have 'subfolder' path")
+}
+
+func writeManifestFile(t *testing.T, manifestPath string, manifest map[string]interface{}) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Dir(manifestPath), 0755))
+
+	manifestJSON, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+}
+
+func writeStateFile(t *testing.T, datasetRoot string, records []models.MapStateRecord) {
+	t.Helper()
+
+	files := records
+	if files == nil {
+		files = []models.MapStateRecord{}
+	}
+
+	state := models.MapState{
+		LastFetch: time.Now(),
+		LastPull:  time.Now(),
+		Files:     files,
+	}
+
+	stateJSON, err := json.Marshal(state)
+	require.NoError(t, err)
+
+	statePath := filepath.Join(datasetRoot, ".pennsieve", "state.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0755))
+	require.NoError(t, os.WriteFile(statePath, stateJSON, 0644))
 }

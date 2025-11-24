@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
@@ -15,11 +14,6 @@ import (
 
 // Push identifies new files in a mapped dataset and uploads them to Pennsieve
 func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.SimpleStatusResponse, error) {
-
-	// Files to ignore during push
-	ignoredFiles := []string{
-		".DS_Store",
-	}
 
 	// Check if the provided path is part of a mapped dataset
 	datasetRoot, found, err := findMappedDatasetRoot(req.Path)
@@ -31,60 +25,35 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
 		return &api.SimpleStatusResponse{Status: "The provided path is not part of a Pennsieve mapped dataset."}, nil
 	}
 
-	// Read the workspace manifest to get existing files
 	manifestPath := filepath.Join(datasetRoot, ".pennsieve", "manifest.json")
-	workspaceManifest, err := shared.ReadWorkspaceManifest(manifestPath)
+
+	// Use existing diff functionality to find local additions
+	diffResp, err := s.GetMapDiff(ctx, &api.MapDiffRequest{Path: datasetRoot})
 	if err != nil {
-		log.Errorf("Unable to read manifest.json: %v", err)
+		log.Errorf("Unable to calculate diff for push: %v", err)
 		return nil, err
 	}
 
-	// Build a map of files for lookup later
-	manifestFiles := make(map[string]bool)
-	for _, file := range workspaceManifest.Files {
-		if file.FileName.Valid {
-			// Construct the full absolute path for this file
-			absFilePath := filepath.Join(datasetRoot, file.Path, file.FileName.String)
-			manifestFiles[absFilePath] = true
-		}
-	}
-
-	// Walk the directory to find new files
 	var newFiles []string
-	err = filepath.Walk(req.Path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	seen := make(map[string]struct{})
+	for _, fileStatus := range diffResp.GetFiles() {
+		if fileStatus.GetChangeType() != api.PackageStatus_ADDED {
+			continue
 		}
 
-		// Skip the .pennsieve folder
-		if strings.Contains(path, ".pennsieve") {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
+		content := fileStatus.GetContent()
+		if content == nil {
+			continue
 		}
 
-		// Skip ignored files
-		for _, ignored := range ignoredFiles {
-			if info.Name() == ignored {
-				return nil
-			}
+		relDir := filepath.FromSlash(content.GetPath())
+		absPath := filepath.Join(datasetRoot, relDir, content.GetName())
+
+		if _, ok := seen[absPath]; ok {
+			continue
 		}
-
-		// Only process files (not directories)
-		if !info.IsDir() {
-			// Check if this file exists in the manifest
-			if !manifestFiles[path] {
-				newFiles = append(newFiles, path)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		log.Errorf("Error scanning directory: %v", err)
-		return nil, err
+		seen[absPath] = struct{}{}
+		newFiles = append(newFiles, absPath)
 	}
 
 	if len(newFiles) == 0 {
