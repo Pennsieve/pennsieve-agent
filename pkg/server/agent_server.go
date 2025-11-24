@@ -1,18 +1,39 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/service"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"sync"
 )
+
+type manifestService interface {
+	Add(params store.ManifestParams) (*store.Manifest, error)
+	GetManifest(manifestId int32) (*store.Manifest, error)
+	GetAll() ([]store.Manifest, error)
+	RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error)
+	RemoveManifest(manifestId int32) error
+	GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error)
+	VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error
+	ResetStatusForManifest(manifestId int32) error
+	GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error)
+	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile)
+	SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error
+	SetManifestNodeId(m *store.Manifest, nodeId string) error
+	BatchSetFileStatus(uploadIds []string, status manifestFile.Status) error
+	AddFiles(records []store.ManifestFileParams) error
+}
 
 type DependencyContainer interface {
 	SqliteDB() *sql.DB
@@ -22,7 +43,7 @@ type DependencyContainer interface {
 	UserSettingsStore() store.UserSettingsStore
 	UserInfoStore() store.UserInfoStore
 	ManifestStore() store.ManifestStore
-	ManifestService() *service.ManifestService
+	ManifestService() manifestService
 	UserService() *service.UserService
 	AccountService() *service.AccountService
 	messageSubscribers(message string)
@@ -46,10 +67,13 @@ type agentServer struct {
 	manifestStore     store.ManifestStore
 	manifestFileStore store.ManifestFileStore
 
-	manifest          *service.ManifestService
+	manifest          manifestService
 	user              *service.UserService
 	account           *service.AccountService
 	timeseriesService service.TimeseriesService
+
+	getManifestParamsOverride func() (store.ManifestParams, error)
+	uploadManifestOverride    func(context.Context, *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error)
 }
 
 func NewAgentServer(s *grpc.Server) (*agentServer, error) {
@@ -145,7 +169,7 @@ func (s *agentServer) UserService() *service.UserService {
 
 	return s.user
 }
-func (s *agentServer) ManifestService() *service.ManifestService {
+func (s *agentServer) ManifestService() manifestService {
 	if s.manifest == nil {
 		client, err := s.PennsieveClient()
 		if err != nil {

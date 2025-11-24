@@ -65,8 +65,15 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
 	// Create manifest and add files
 	// This runs in a goroutine to prevent blocking
 	go func() {
+		manifestParams, err := s.getManifestParams()
+		if err != nil {
+			log.Errorf("Error retrieving manifest parameters: %v", err)
+			s.messageSubscribers(fmt.Sprintf("Error preparing manifest: %v", err))
+			return
+		}
+
 		// Create an empty manifest first
-		manifestResponse, err := s.ManifestService().Add(getManifestParams(s))
+		manifestResponse, err := s.ManifestService().Add(manifestParams)
 		if err != nil {
 			log.Errorf("Error creating manifest: %v", err)
 			s.messageSubscribers(fmt.Sprintf("Error creating manifest: %v", err))
@@ -111,7 +118,7 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
 			ManifestId: manifestResponse.Id,
 		}
 
-		_, err = s.UploadManifest(context.Background(), &uploadReq)
+		_, err = s.callUploadManifest(context.Background(), &uploadReq)
 		if err != nil {
 			log.Errorf("Error uploading manifest %d: %v", manifestResponse.Id, err)
 			s.messageSubscribers(fmt.Sprintf("Error uploading manifest: %v", err))
@@ -135,15 +142,28 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
 }
 
 // getManifestParams is a helper to get manifest parameters for creating a new manifest
-func getManifestParams(s *agentServer) store.ManifestParams {
-	// This is a simplified version - you may need to get actual user/dataset info
-	// Similar to how it's done in CreateManifest
-	activeUser, _ := s.UserService().GetActiveUser()
-	curClientSession, _ := s.UserService().GetUserSettings()
+func (s *agentServer) getManifestParams() (store.ManifestParams, error) {
+	if s.getManifestParamsOverride != nil {
+		return s.getManifestParamsOverride()
+	}
 
-	// Get dataset info
-	client, _ := s.PennsieveClient()
-	ds, _ := client.Dataset.Get(context.Background(), curClientSession.UseDatasetId)
+	activeUser, err := s.UserService().GetActiveUser()
+	if err != nil {
+		return store.ManifestParams{}, err
+	}
+	curClientSession, err := s.UserService().GetUserSettings()
+	if err != nil {
+		return store.ManifestParams{}, err
+	}
+
+	client, err := s.PennsieveClient()
+	if err != nil {
+		return store.ManifestParams{}, err
+	}
+	ds, err := client.Dataset.Get(context.Background(), curClientSession.UseDatasetId)
+	if err != nil {
+		return store.ManifestParams{}, err
+	}
 
 	return store.ManifestParams{
 		UserId:           activeUser.Id,
@@ -152,7 +172,7 @@ func getManifestParams(s *agentServer) store.ManifestParams {
 		OrganizationName: activeUser.OrganizationName,
 		DatasetId:        curClientSession.UseDatasetId,
 		DatasetName:      ds.Content.Name,
-	}
+	}, nil
 }
 
 // updateLocalManifest adds newly uploaded files to the local workspace manifest
@@ -201,4 +221,11 @@ func updateLocalManifest(manifestPath string, datasetRoot string, newFiles []str
 	}
 
 	return nil
+}
+
+func (s *agentServer) callUploadManifest(ctx context.Context, req *api.UploadManifestRequest) (*api.SimpleStatusResponse, error) {
+	if s.uploadManifestOverride != nil {
+		return s.uploadManifestOverride(ctx, req)
+	}
+	return s.UploadManifest(ctx, req)
 }

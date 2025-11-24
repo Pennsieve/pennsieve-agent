@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
+	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,7 +67,7 @@ func TestPush_NotInMappedDataset(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create a mock agent server (minimal setup)
-	server := &agentServer{}
+	server := newTestPushServer()
 
 	// Create push request for directory without manifest
 	req := &api.PushRequest{
@@ -112,7 +115,7 @@ func TestPush_NoNewFiles(t *testing.T) {
 	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
-	server := &agentServer{}
+	server := newTestPushServer()
 
 	// Create push request
 	req := &api.PushRequest{
@@ -164,7 +167,7 @@ func TestPush_WithNewFiles(t *testing.T) {
 	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
-	server := &agentServer{}
+	server := newTestPushServer()
 
 	// Create push request
 	req := &api.PushRequest{
@@ -204,7 +207,7 @@ func TestPush_IgnoresSystemFiles(t *testing.T) {
 	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
-	server := &agentServer{}
+	server := newTestPushServer()
 
 	// Create push request
 	req := &api.PushRequest{
@@ -243,7 +246,7 @@ func TestPush_SkipsPennsieveFolder(t *testing.T) {
 	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
-	server := &agentServer{}
+	server := newTestPushServer()
 
 	// Create push request
 	req := &api.PushRequest{
@@ -284,7 +287,7 @@ func TestPush_WithNestedFiles(t *testing.T) {
 	writeStateFile(t, tempDir, nil)
 
 	// Create a mock agent server
-	server := &agentServer{}
+	server := newTestPushServer()
 
 	// Create push request
 	req := &api.PushRequest{
@@ -402,4 +405,132 @@ func writeStateFile(t *testing.T, datasetRoot string, records []models.MapStateR
 	statePath := filepath.Join(datasetRoot, ".pennsieve", "state.json")
 	require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0755))
 	require.NoError(t, os.WriteFile(statePath, stateJSON, 0644))
+}
+
+func newTestPushServer() *agentServer {
+	stubService := newStubManifestService()
+	server := &agentServer{
+		manifest: stubService,
+	}
+
+	server.getManifestParamsOverride = func() (store.ManifestParams, error) {
+		return store.ManifestParams{
+			UserId:           "test-user",
+			UserName:         "Test User",
+			OrganizationId:   "test-org",
+			OrganizationName: "Test Org",
+			DatasetId:        "dataset-id",
+			DatasetName:      "Test Dataset",
+		}, nil
+	}
+
+	server.uploadManifestOverride = func(ctx context.Context, req *api.UploadManifestRequest) (*api.SimpleStatusResponse, error) {
+		return &api.SimpleStatusResponse{Status: "Upload initiated."}, nil
+	}
+
+	return server
+}
+
+type stubManifestService struct {
+	mu         sync.Mutex
+	nextID     int32
+	manifests  map[int32]*store.Manifest
+	addedFiles []store.ManifestFileParams
+}
+
+func newStubManifestService() *stubManifestService {
+	return &stubManifestService{
+		manifests: make(map[int32]*store.Manifest),
+	}
+}
+
+func (s *stubManifestService) Add(params store.ManifestParams) (*store.Manifest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.nextID++
+	manifest := &store.Manifest{
+		Id:          s.nextID,
+		DatasetId:   params.DatasetId,
+		DatasetName: params.DatasetName,
+	}
+	s.manifests[manifest.Id] = manifest
+	return manifest, nil
+}
+
+func (s *stubManifestService) GetManifest(manifestId int32) (*store.Manifest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if manifest, ok := s.manifests[manifestId]; ok {
+		return manifest, nil
+	}
+	manifest := &store.Manifest{Id: manifestId}
+	s.manifests[manifestId] = manifest
+	return manifest, nil
+}
+
+func (s *stubManifestService) GetAll() ([]store.Manifest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var manifests []store.Manifest
+	for _, m := range s.manifests {
+		manifests = append(manifests, *m)
+	}
+	return manifests, nil
+}
+
+func (s *stubManifestService) RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error) {
+	return models.RemoveFromManifestResponse{}, nil
+}
+
+func (s *stubManifestService) RemoveManifest(manifestId int32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.manifests, manifestId)
+	return nil
+}
+
+func (s *stubManifestService) GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error) {
+	return nil, nil
+}
+
+func (s *stubManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error {
+	return nil
+}
+
+func (s *stubManifestService) ResetStatusForManifest(manifestId int32) error {
+	return nil
+}
+
+func (s *stubManifestService) GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error) {
+	return 0, nil
+}
+
+func (s *stubManifestService) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile) {
+}
+
+func (s *stubManifestService) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
+	return nil
+}
+
+func (s *stubManifestService) SetManifestNodeId(m *store.Manifest, nodeId string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.manifests[m.Id]
+	if !ok {
+		stored = m
+		s.manifests[m.Id] = stored
+	}
+	stored.NodeId = m.NodeId
+	return nil
+}
+
+func (s *stubManifestService) BatchSetFileStatus(uploadIds []string, status manifestFile.Status) error {
+	return nil
+}
+
+func (s *stubManifestService) AddFiles(records []store.ManifestFileParams) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.addedFiles = append(s.addedFiles, records...)
+	return nil
 }
