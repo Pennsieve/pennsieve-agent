@@ -323,7 +323,7 @@ jobs:
           asset_content_type: application/octet-stream
 
   mac-x86_64-release:
-    runs-on: macos-13
+    runs-on: macos-15
     needs: [ read-tag, create-release ]
     env:
       PENNSIEVE_API_KEY: ${{ secrets.PENNSIEVE_API_KEY }}
