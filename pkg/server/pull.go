@@ -142,7 +142,12 @@ func findMappedDatasetRoot(startPath string) (string, bool, error) {
 			log.Info(fmt.Sprintf("Found manifest in: %s  ", parentPath))
 			break
 		}
-		parentPath = filepath.Dir(parentPath)
+		nextParent := filepath.Dir(parentPath)
+		if nextParent == parentPath {
+			// We've reached a filesystem root (e.g., "C:\" on Windows)
+			break
+		}
+		parentPath = nextParent
 		log.Info(parentPath)
 	}
 
