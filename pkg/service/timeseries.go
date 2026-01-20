@@ -5,17 +5,20 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"slices"
+	"sort"
+	"time"
+
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
-	"io"
-	"math"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 type TimeseriesService interface {
@@ -121,16 +124,6 @@ func (t *TimeseriesServiceImpl) ResetCache(ctx context.Context, packageNodeId st
 	return nil
 }
 
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
-}
-
 // GetRangeBlocksForChannels retrieves
 func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 	ctx context.Context,
@@ -167,7 +160,7 @@ func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 
 		// Only process the channels that were requested --> discard others
 		// TODO: Refactor such that timeseries service can take a list of channels to return urls for
-		if !contains(ChannelNodeIds, ch.ChannelID) {
+		if !slices.Contains(ChannelNodeIds, ch.ChannelID) {
 			continue
 		}
 
@@ -179,7 +172,11 @@ func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 
 		log.Info("Cached Blocks: ", cachedBlocks)
 
-		// I am assuming the ranges are ordered correctly.
+		// Sort ranges by StartTime to ensure correct ordering
+		sort.Slice(ch.Ranges, func(i, j int) bool {
+			return ch.Ranges[i].StartTime < ch.Ranges[j].StartTime
+		})
+
 		for _, r := range ch.Ranges {
 
 			isCached := false
@@ -419,7 +416,7 @@ func BytesToFloat32s(data []byte) []float32 {
 	}
 
 	float32s := make([]float32, len(data)/8)
-	for i := 0; i < len(float32s); i++ {
+	for i := range len(float32s) {
 		bits := binary.BigEndian.Uint64(data[i*8 : (i+1)*8])
 		float32s[i] = float32(math.Float64frombits(bits))
 	}
