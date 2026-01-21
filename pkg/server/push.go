@@ -64,11 +64,7 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
 
     // Create manifest and add files
     // This runs in a goroutine to prevent blocking
-    go func() {
-
-        if s.pushComplete != nil {
-            defer close(s.pushComplete)
-        }
+    work := func() {
 
         manifestParams, err := s.getManifestParams()
         if err != nil {
@@ -140,7 +136,15 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
         } else {
             log.Infof("Updated local manifest with %d new file(s)", len(newFiles))
         }
-    }()
+    }
+
+    // Run synchronously in test mode, async in production.
+    // We need to do this to prevent tests from failing to clean up.
+    if shared.IsSyncMode(ctx) {
+        work()
+    } else {
+        go work()
+    }
 
     resp := &api.SimpleStatusResponse{Status: fmt.Sprintf("Push initiated for %d file(s). Use \"pennsieve agent subscribe\" to track progress.", len(newFiles))}
     return resp, nil
