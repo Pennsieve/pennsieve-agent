@@ -1,536 +1,536 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"sync"
-	"testing"
-	"time"
+    "context"
+    "encoding/json"
+    "os"
+    "path/filepath"
+    "sync"
+    "testing"
+    "time"
 
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
-	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+    api "github.com/pennsieve/pennsieve-agent/api/v1"
+    "github.com/pennsieve/pennsieve-agent/pkg/models"
+    "github.com/pennsieve/pennsieve-agent/pkg/shared"
+    "github.com/pennsieve/pennsieve-agent/pkg/store"
+    "github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
 )
 
 func TestPush_FindMappedDatasetRoot(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
-	subdir1 := filepath.Join(tempDir, "folder_1")
-	subdir2 := filepath.Join(subdir1, "folder_2")
-	testFile := filepath.Join(subdir2, "the_great_hunt.txt")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    subdir1 := filepath.Join(tempDir, "folder_1")
+    subdir2 := filepath.Join(subdir1, "folder_2")
+    testFile := filepath.Join(subdir2, "the_great_hunt.txt")
 
-	// Create directory structure
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
-	require.NoError(t, os.MkdirAll(subdir2, 0755))
-	require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0644))
-	require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0644))
+    // Create directory structure
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    require.NoError(t, os.MkdirAll(subdir2, 0755))
+    require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0644))
+    require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0644))
 
-	// Test finding root from subfolder
-	root, found, err := findMappedDatasetRoot(subdir2)
-	assert.NoError(t, err)
-	assert.True(t, found)
-	assert.Equal(t, tempDir, root,
-		"Should find the manifest file in root folder when starting in subfolder in mapped dataset.")
+    // Test finding root from subfolder
+    root, found, err := findMappedDatasetRoot(subdir2)
+    assert.NoError(t, err)
+    assert.True(t, found)
+    assert.Equal(t, tempDir, root,
+        "Should find the manifest file in root folder when starting in subfolder in mapped dataset.")
 
-	// Test finding root from root folder
-	root, found, err = findMappedDatasetRoot(tempDir)
-	assert.NoError(t, err)
-	assert.True(t, found,
-		"Should find the manifest file in root folder when starting at root")
-	assert.Equal(t, tempDir, root)
+    // Test finding root from root folder
+    root, found, err = findMappedDatasetRoot(tempDir)
+    assert.NoError(t, err)
+    assert.True(t, found,
+        "Should find the manifest file in root folder when starting at root")
+    assert.Equal(t, tempDir, root)
 
-	// Test not finding root when not in mapped dataset
-	tempDirNoManifest := t.TempDir()
-	root, found, err = findMappedDatasetRoot(tempDirNoManifest)
-	assert.NoError(t, err)
-	assert.False(t, found,
-		"Should not find a root if not starting in mapped dataset")
+    // Test not finding root when not in mapped dataset
+    tempDirNoManifest := t.TempDir()
+    root, found, err = findMappedDatasetRoot(tempDirNoManifest)
+    assert.NoError(t, err)
+    assert.False(t, found,
+        "Should not find a root if not starting in mapped dataset")
 
-	// Test finding root when input is a file path
-	root, found, err = findMappedDatasetRoot(testFile)
-	assert.NoError(t, err)
-	assert.True(t, found,
-		"Should find manifest when input is a file-name")
-	assert.Equal(t, tempDir, root)
+    // Test finding root when input is a file path
+    root, found, err = findMappedDatasetRoot(testFile)
+    assert.NoError(t, err)
+    assert.True(t, found,
+        "Should find manifest when input is a file-name")
+    assert.Equal(t, tempDir, root)
 }
 
 func TestPush_NotInMappedDataset(t *testing.T) {
-	// Create a temporary directory with no manifest
-	tempDir := t.TempDir()
+    // Create a temporary directory with no manifest
+    tempDir := t.TempDir()
 
-	// Create a mock agent server (minimal setup)
-	server := newTestPushServer()
+    // Create a mock agent server (minimal setup)
+    server := newTestPushServer()
 
-	// Create push request for directory without manifest
-	req := &api.PushRequest{
-		Path: tempDir,
-	}
+    // Create push request for directory without manifest
+    req := &api.PushRequest{
+        Path: tempDir,
+    }
 
-	// Execute push
-	resp, err := server.Push(context.Background(), req)
+    // Execute push
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
 
-	// Should not error, but should return message about not being in mapped dataset
-	assert.NoError(t, err)
-	assert.Contains(t, resp.Status, "not part of a Pennsieve mapped dataset")
+    // Should not error, but should return message about not being in mapped dataset
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "not part of a Pennsieve mapped dataset")
 }
 
 func TestPush_NoNewFiles(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
 
-	// Create .pennsieve directory
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    // Create .pennsieve directory
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
 
-	// Create a test file
-	testFile := filepath.Join(tempDir, "test.txt")
-	require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0644))
+    // Create a test file
+    testFile := filepath.Join(tempDir, "test.txt")
+    require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0644))
 
-	// Create manifest that includes the test file
-	manifest := map[string]interface{}{
-		"datasetNodeId":      "N:dataset:test-123",
-		"organizationNodeId": "N:organization:test-456",
-		"files": []map[string]interface{}{
-			{
-				"packageId":   "N:package:test-789",
-				"packageName": "test.txt",
-				"fileId":      "test-789",
-				"fileName":    "test.txt",
-				"path":        "",
-				"size":        12,
-			},
-		},
-	}
+    // Create manifest that includes the test file
+    manifest := map[string]interface{}{
+        "datasetNodeId":      "N:dataset:test-123",
+        "organizationNodeId": "N:organization:test-456",
+        "files": []map[string]interface{}{
+            {
+                "packageId":   "N:package:test-789",
+                "packageName": "test.txt",
+                "fileId":      "test-789",
+                "fileName":    "test.txt",
+                "path":        "",
+                "size":        12,
+            },
+        },
+    }
 
-	writeManifestFile(t, manifestPath, manifest)
-	writeStateFile(t, tempDir, nil)
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
 
-	// Create a mock agent server
-	server := newTestPushServer()
+    // Create a mock agent server
+    server := newTestPushServer()
 
-	// Create push request
-	req := &api.PushRequest{
-		Path: tempDir,
-	}
+    // Create push request
+    req := &api.PushRequest{
+        Path: tempDir,
+    }
 
-	// Execute push
-	resp, err := server.Push(context.Background(), req)
+    // Execute push
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
 
-	// Should not error and should report no new files
-	assert.NoError(t, err)
-	assert.Contains(t, resp.Status, "No new files to push")
+    // Should not error and should report no new files
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "No new files to push")
 }
 
 func TestPush_WithNewFiles(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
 
-	// Create .pennsieve directory
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    // Create .pennsieve directory
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
 
-	// Create an existing file (in manifest)
-	existingFile := filepath.Join(tempDir, "existing.txt")
-	require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0644))
+    // Create an existing file (in manifest)
+    existingFile := filepath.Join(tempDir, "existing.txt")
+    require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0644))
 
-	// Create a new file (not in manifest)
-	newFile := filepath.Join(tempDir, "new.txt")
-	require.NoError(t, os.WriteFile(newFile, []byte("new content"), 0644))
+    // Create a new file (not in manifest)
+    newFile := filepath.Join(tempDir, "new.txt")
+    require.NoError(t, os.WriteFile(newFile, []byte("new content"), 0644))
 
-	// Create manifest that only includes existing file
-	manifest := map[string]interface{}{
-		"datasetNodeId":      "N:dataset:test-123",
-		"organizationNodeId": "N:organization:test-456",
-		"files": []map[string]interface{}{
-			{
-				"packageId":   "N:package:test-789",
-				"packageName": "existing.txt",
-				"fileId":      "test-789",
-				"fileName":    "existing.txt",
-				"path":        "",
-				"size":        16,
-			},
-		},
-	}
+    // Create manifest that only includes existing file
+    manifest := map[string]interface{}{
+        "datasetNodeId":      "N:dataset:test-123",
+        "organizationNodeId": "N:organization:test-456",
+        "files": []map[string]interface{}{
+            {
+                "packageId":   "N:package:test-789",
+                "packageName": "existing.txt",
+                "fileId":      "test-789",
+                "fileName":    "existing.txt",
+                "path":        "",
+                "size":        16,
+            },
+        },
+    }
 
-	writeManifestFile(t, manifestPath, manifest)
-	writeStateFile(t, tempDir, nil)
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
 
-	// Create a mock agent server
-	server := newTestPushServer()
+    // Create a mock agent server
+    server := newTestPushServer()
 
-	// Create push request
-	req := &api.PushRequest{
-		Path: tempDir,
-	}
+    // Create push request
+    req := &api.PushRequest{
+        Path: tempDir,
+    }
 
-	// Execute push
-	resp, err := server.Push(context.Background(), req)
+    // Execute push
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
 
-	// Should not error and should report files to push
-	assert.NoError(t, err)
-	assert.Contains(t, resp.Status, "Push initiated")
-	assert.Contains(t, resp.Status, "1 file")
+    // Should not error and should report files to push
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "Push initiated")
+    assert.Contains(t, resp.Status, "1 file")
 }
 
 func TestPush_IgnoresSystemFiles(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
 
-	// Create .pennsieve directory
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    // Create .pennsieve directory
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
 
-	// Create a .DS_Store file (should be ignored)
-	dsStoreFile := filepath.Join(tempDir, ".DS_Store")
-	require.NoError(t, os.WriteFile(dsStoreFile, []byte("mac system file"), 0644))
+    // Create a .DS_Store file (should be ignored)
+    dsStoreFile := filepath.Join(tempDir, ".DS_Store")
+    require.NoError(t, os.WriteFile(dsStoreFile, []byte("mac system file"), 0644))
 
-	// Create manifest with no files
-	manifest := map[string]interface{}{
-		"datasetNodeId":      "N:dataset:test-123",
-		"organizationNodeId": "N:organization:test-456",
-		"files":              []interface{}{},
-	}
+    // Create manifest with no files
+    manifest := map[string]interface{}{
+        "datasetNodeId":      "N:dataset:test-123",
+        "organizationNodeId": "N:organization:test-456",
+        "files":              []interface{}{},
+    }
 
-	writeManifestFile(t, manifestPath, manifest)
-	writeStateFile(t, tempDir, nil)
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
 
-	// Create a mock agent server
-	server := newTestPushServer()
+    // Create a mock agent server
+    server := newTestPushServer()
 
-	// Create push request
-	req := &api.PushRequest{
-		Path: tempDir,
-	}
+    // Create push request
+    req := &api.PushRequest{
+        Path: tempDir,
+    }
 
-	// Execute push
-	resp, err := server.Push(context.Background(), req)
+    // Execute push
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
 
-	// Should not error and should report no new files (DS_Store ignored)
-	assert.NoError(t, err)
-	assert.Contains(t, resp.Status, "No new files to push")
+    // Should not error and should report no new files (DS_Store ignored)
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "No new files to push")
 }
 
 func TestPush_SkipsPennsieveFolder(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
 
-	// Create .pennsieve directory
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    // Create .pennsieve directory
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
 
-	// Create a file inside .pennsieve folder (should be ignored)
-	pennsieveFile := filepath.Join(pennsieveDir, "some-file.json")
-	require.NoError(t, os.WriteFile(pennsieveFile, []byte("internal file"), 0644))
+    // Create a file inside .pennsieve folder (should be ignored)
+    pennsieveFile := filepath.Join(pennsieveDir, "some-file.json")
+    require.NoError(t, os.WriteFile(pennsieveFile, []byte("internal file"), 0644))
 
-	// Create manifest with no files
-	manifest := map[string]interface{}{
-		"datasetNodeId":      "N:dataset:test-123",
-		"organizationNodeId": "N:organization:test-456",
-		"files":              []interface{}{},
-	}
+    // Create manifest with no files
+    manifest := map[string]interface{}{
+        "datasetNodeId":      "N:dataset:test-123",
+        "organizationNodeId": "N:organization:test-456",
+        "files":              []interface{}{},
+    }
 
-	writeManifestFile(t, manifestPath, manifest)
-	writeStateFile(t, tempDir, nil)
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
 
-	// Create a mock agent server
-	server := newTestPushServer()
+    // Create a mock agent server
+    server := newTestPushServer()
 
-	// Create push request
-	req := &api.PushRequest{
-		Path: tempDir,
-	}
+    // Create push request
+    req := &api.PushRequest{
+        Path: tempDir,
+    }
 
-	// Execute push
-	resp, err := server.Push(context.Background(), req)
+    // Execute push
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
 
-	// Should not error and should report no new files (.pennsieve folder ignored)
-	assert.NoError(t, err)
-	assert.Contains(t, resp.Status, "No new files to push")
+    // Should not error and should report no new files (.pennsieve folder ignored)
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "No new files to push")
 }
 
 func TestPush_WithNestedFiles(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
-	subDir := filepath.Join(tempDir, "subfolder")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    subDir := filepath.Join(tempDir, "subfolder")
 
-	// Create directories
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
-	require.NoError(t, os.MkdirAll(subDir, 0755))
+    // Create directories
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    require.NoError(t, os.MkdirAll(subDir, 0755))
 
-	// Create a new file in subfolder (not in manifest)
-	newFile := filepath.Join(subDir, "nested.txt")
-	require.NoError(t, os.WriteFile(newFile, []byte("nested content"), 0644))
+    // Create a new file in subfolder (not in manifest)
+    newFile := filepath.Join(subDir, "nested.txt")
+    require.NoError(t, os.WriteFile(newFile, []byte("nested content"), 0644))
 
-	// Create manifest with no files
-	manifest := map[string]interface{}{
-		"datasetNodeId":      "N:dataset:test-123",
-		"organizationNodeId": "N:organization:test-456",
-		"files":              []interface{}{},
-	}
+    // Create manifest with no files
+    manifest := map[string]interface{}{
+        "datasetNodeId":      "N:dataset:test-123",
+        "organizationNodeId": "N:organization:test-456",
+        "files":              []interface{}{},
+    }
 
-	writeManifestFile(t, manifestPath, manifest)
-	writeStateFile(t, tempDir, nil)
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
 
-	// Create a mock agent server
-	server := newTestPushServer()
+    // Create a mock agent server
+    server := newTestPushServer()
 
-	// Create push request
-	req := &api.PushRequest{
-		Path: tempDir,
-	}
+    // Create push request
+    req := &api.PushRequest{
+        Path: tempDir,
+    }
 
-	// Execute push
-	resp, err := server.Push(context.Background(), req)
+    // Execute push
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
 
-	// Should not error and should find the nested file
-	assert.NoError(t, err)
-	assert.Contains(t, resp.Status, "Push initiated")
-	assert.Contains(t, resp.Status, "1 file")
+    // Should not error and should find the nested file
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "Push initiated")
+    assert.Contains(t, resp.Status, "1 file")
 }
 
 func TestPush_UpdatesLocalManifest(t *testing.T) {
-	// Create a temporary directory structure with manifest
-	tempDir := t.TempDir()
-	pennsieveDir := filepath.Join(tempDir, ".pennsieve")
-	manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+    // Create a temporary directory structure with manifest
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
 
-	// Create .pennsieve directory
-	require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+    // Create .pennsieve directory
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
 
-	// Create an existing file
-	existingFile := filepath.Join(tempDir, "existing.txt")
-	require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0644))
+    // Create an existing file
+    existingFile := filepath.Join(tempDir, "existing.txt")
+    require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0644))
 
-	// Create a new file that will be "uploaded"
-	newFile := filepath.Join(tempDir, "new.txt")
-	require.NoError(t, os.WriteFile(newFile, []byte("new content"), 0644))
+    // Create a new file that will be "uploaded"
+    newFile := filepath.Join(tempDir, "new.txt")
+    require.NoError(t, os.WriteFile(newFile, []byte("new content"), 0644))
 
-	// Create a nested file
-	subDir := filepath.Join(tempDir, "subfolder")
-	require.NoError(t, os.MkdirAll(subDir, 0755))
-	nestedFile := filepath.Join(subDir, "nested.txt")
-	require.NoError(t, os.WriteFile(nestedFile, []byte("nested content"), 0644))
+    // Create a nested file
+    subDir := filepath.Join(tempDir, "subfolder")
+    require.NoError(t, os.MkdirAll(subDir, 0755))
+    nestedFile := filepath.Join(subDir, "nested.txt")
+    require.NoError(t, os.WriteFile(nestedFile, []byte("nested content"), 0644))
 
-	// Create manifest that only includes existing file
-	manifest := map[string]interface{}{
-		"datasetNodeId":      "N:dataset:test-123",
-		"organizationNodeId": "N:organization:test-456",
-		"files": []map[string]interface{}{
-			{
-				"packageId":   "N:package:existing-123",
-				"packageName": "existing.txt",
-				"fileId":      "existing-123",
-				"fileName":    "existing.txt",
-				"path":        "",
-				"size":        16,
-			},
-		},
-	}
+    // Create manifest that only includes existing file
+    manifest := map[string]interface{}{
+        "datasetNodeId":      "N:dataset:test-123",
+        "organizationNodeId": "N:organization:test-456",
+        "files": []map[string]interface{}{
+            {
+                "packageId":   "N:package:existing-123",
+                "packageName": "existing.txt",
+                "fileId":      "existing-123",
+                "fileName":    "existing.txt",
+                "path":        "",
+                "size":        16,
+            },
+        },
+    }
 
-	writeManifestFile(t, manifestPath, manifest)
+    writeManifestFile(t, manifestPath, manifest)
 
-	// Simulate uploading the new files by calling updateLocalManifest
-	newFiles := []string{newFile, nestedFile}
-	err := updateLocalManifest(manifestPath, tempDir, newFiles)
-	require.NoError(t, err)
+    // Simulate uploading the new files by calling updateLocalManifest
+    newFiles := []string{newFile, nestedFile}
+    err := updateLocalManifest(manifestPath, tempDir, newFiles)
+    require.NoError(t, err)
 
-	// Read the updated manifest
-	updatedManifest, err := shared.ReadWorkspaceManifest(manifestPath)
-	require.NoError(t, err)
+    // Read the updated manifest
+    updatedManifest, err := shared.ReadWorkspaceManifest(manifestPath)
+    require.NoError(t, err)
 
-	// Verify the manifest now has 3 files (1 existing + 2 new)
-	assert.Len(t, updatedManifest.Files, 3, "Manifest should have 3 files after update")
+    // Verify the manifest now has 3 files (1 existing + 2 new)
+    assert.Len(t, updatedManifest.Files, 3, "Manifest should have 3 files after update")
 
-	// Verify the new files are in the manifest
-	fileNames := make(map[string]bool)
-	filePaths := make(map[string]string)
-	for _, f := range updatedManifest.Files {
-		if f.FileName.Valid {
-			fileNames[f.FileName.String] = true
-			filePaths[f.FileName.String] = f.Path
-		}
-	}
+    // Verify the new files are in the manifest
+    fileNames := make(map[string]bool)
+    filePaths := make(map[string]string)
+    for _, f := range updatedManifest.Files {
+        if f.FileName.Valid {
+            fileNames[f.FileName.String] = true
+            filePaths[f.FileName.String] = f.Path
+        }
+    }
 
-	assert.True(t, fileNames["existing.txt"], "existing.txt should be in manifest")
-	assert.True(t, fileNames["new.txt"], "new.txt should be in manifest")
-	assert.True(t, fileNames["nested.txt"], "nested.txt should be in manifest")
+    assert.True(t, fileNames["existing.txt"], "existing.txt should be in manifest")
+    assert.True(t, fileNames["new.txt"], "new.txt should be in manifest")
+    assert.True(t, fileNames["nested.txt"], "nested.txt should be in manifest")
 
-	// Verify paths are correct
-	assert.Equal(t, "", filePaths["existing.txt"], "existing.txt should have empty path")
-	assert.Equal(t, "", filePaths["new.txt"], "new.txt should have empty path")
-	assert.Equal(t, "subfolder", filePaths["nested.txt"], "nested.txt should have 'subfolder' path")
+    // Verify paths are correct
+    assert.Equal(t, "", filePaths["existing.txt"], "existing.txt should have empty path")
+    assert.Equal(t, "", filePaths["new.txt"], "new.txt should have empty path")
+    assert.Equal(t, "subfolder", filePaths["nested.txt"], "nested.txt should have 'subfolder' path")
 }
 
 func writeManifestFile(t *testing.T, manifestPath string, manifest map[string]interface{}) {
-	t.Helper()
-	require.NoError(t, os.MkdirAll(filepath.Dir(manifestPath), 0755))
+    t.Helper()
+    require.NoError(t, os.MkdirAll(filepath.Dir(manifestPath), 0755))
 
-	manifestJSON, err := json.Marshal(manifest)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
+    manifestJSON, err := json.Marshal(manifest)
+    require.NoError(t, err)
+    require.NoError(t, os.WriteFile(manifestPath, manifestJSON, 0644))
 }
 
 func writeStateFile(t *testing.T, datasetRoot string, records []models.MapStateRecord) {
-	t.Helper()
+    t.Helper()
 
-	files := records
-	if files == nil {
-		files = []models.MapStateRecord{}
-	}
+    files := records
+    if files == nil {
+        files = []models.MapStateRecord{}
+    }
 
-	state := models.MapState{
-		LastFetch: time.Now(),
-		LastPull:  time.Now(),
-		Files:     files,
-	}
+    state := models.MapState{
+        LastFetch: time.Now(),
+        LastPull:  time.Now(),
+        Files:     files,
+    }
 
-	stateJSON, err := json.Marshal(state)
-	require.NoError(t, err)
+    stateJSON, err := json.Marshal(state)
+    require.NoError(t, err)
 
-	statePath := filepath.Join(datasetRoot, ".pennsieve", "state.json")
-	require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0755))
-	require.NoError(t, os.WriteFile(statePath, stateJSON, 0644))
+    statePath := filepath.Join(datasetRoot, ".pennsieve", "state.json")
+    require.NoError(t, os.MkdirAll(filepath.Dir(statePath), 0755))
+    require.NoError(t, os.WriteFile(statePath, stateJSON, 0644))
 }
 
 func newTestPushServer() *agentServer {
-	stubService := newStubManifestService()
-	server := &agentServer{
-		manifest: stubService,
-	}
+    stubService := newStubManifestService()
+    server := &agentServer{
+        manifest: stubService,
+    }
 
-	server.getManifestParamsOverride = func() (store.ManifestParams, error) {
-		return store.ManifestParams{
-			UserId:           "test-user",
-			UserName:         "Test User",
-			OrganizationId:   "test-org",
-			OrganizationName: "Test Org",
-			DatasetId:        "dataset-id",
-			DatasetName:      "Test Dataset",
-		}, nil
-	}
+    server.getManifestParamsOverride = func() (store.ManifestParams, error) {
+        return store.ManifestParams{
+            UserId:           "test-user",
+            UserName:         "Test User",
+            OrganizationId:   "test-org",
+            OrganizationName: "Test Org",
+            DatasetId:        "dataset-id",
+            DatasetName:      "Test Dataset",
+        }, nil
+    }
 
-	server.uploadManifestOverride = func(ctx context.Context, req *api.UploadManifestRequest) (*api.SimpleStatusResponse, error) {
-		return &api.SimpleStatusResponse{Status: "Upload initiated."}, nil
-	}
+    server.uploadManifestOverride = func(ctx context.Context, req *api.UploadManifestRequest) (*api.SimpleStatusResponse, error) {
+        return &api.SimpleStatusResponse{Status: "Upload initiated."}, nil
+    }
 
-	return server
+    return server
 }
 
 type stubManifestService struct {
-	mu         sync.Mutex
-	nextID     int32
-	manifests  map[int32]*store.Manifest
-	addedFiles []store.ManifestFileParams
+    mu         sync.Mutex
+    nextID     int32
+    manifests  map[int32]*store.Manifest
+    addedFiles []store.ManifestFileParams
 }
 
 func newStubManifestService() *stubManifestService {
-	return &stubManifestService{
-		manifests: make(map[int32]*store.Manifest),
-	}
+    return &stubManifestService{
+        manifests: make(map[int32]*store.Manifest),
+    }
 }
 
 func (s *stubManifestService) Add(params store.ManifestParams) (*store.Manifest, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.nextID++
-	manifest := &store.Manifest{
-		Id:          s.nextID,
-		DatasetId:   params.DatasetId,
-		DatasetName: params.DatasetName,
-	}
-	s.manifests[manifest.Id] = manifest
-	return manifest, nil
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    s.nextID++
+    manifest := &store.Manifest{
+        Id:          s.nextID,
+        DatasetId:   params.DatasetId,
+        DatasetName: params.DatasetName,
+    }
+    s.manifests[manifest.Id] = manifest
+    return manifest, nil
 }
 
 func (s *stubManifestService) GetManifest(manifestId int32) (*store.Manifest, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if manifest, ok := s.manifests[manifestId]; ok {
-		return manifest, nil
-	}
-	manifest := &store.Manifest{Id: manifestId}
-	s.manifests[manifestId] = manifest
-	return manifest, nil
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    if manifest, ok := s.manifests[manifestId]; ok {
+        return manifest, nil
+    }
+    manifest := &store.Manifest{Id: manifestId}
+    s.manifests[manifestId] = manifest
+    return manifest, nil
 }
 
 func (s *stubManifestService) GetAll() ([]store.Manifest, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var manifests []store.Manifest
-	for _, m := range s.manifests {
-		manifests = append(manifests, *m)
-	}
-	return manifests, nil
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    var manifests []store.Manifest
+    for _, m := range s.manifests {
+        manifests = append(manifests, *m)
+    }
+    return manifests, nil
 }
 
 func (s *stubManifestService) RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error) {
-	return models.RemoveFromManifestResponse{}, nil
+    return models.RemoveFromManifestResponse{}, nil
 }
 
 func (s *stubManifestService) RemoveManifest(manifestId int32) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.manifests, manifestId)
-	return nil
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    delete(s.manifests, manifestId)
+    return nil
 }
 
 func (s *stubManifestService) GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error) {
-	return nil, nil
+    return nil, nil
 }
 
 func (s *stubManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error {
-	return nil
+    return nil
 }
 
 func (s *stubManifestService) ResetStatusForManifest(manifestId int32) error {
-	return nil
+    return nil
 }
 
 func (s *stubManifestService) GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error) {
-	return 0, nil
+    return 0, nil
 }
 
 func (s *stubManifestService) ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile) {
 }
 
 func (s *stubManifestService) SyncResponseStatusUpdate(manifestId int32, statusList []manifestFile.FileStatusDTO) error {
-	return nil
+    return nil
 }
 
 func (s *stubManifestService) SetManifestNodeId(m *store.Manifest, nodeId string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	stored, ok := s.manifests[m.Id]
-	if !ok {
-		stored = m
-		s.manifests[m.Id] = stored
-	}
-	stored.NodeId = m.NodeId
-	return nil
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    stored, ok := s.manifests[m.Id]
+    if !ok {
+        stored = m
+        s.manifests[m.Id] = stored
+    }
+    stored.NodeId = m.NodeId
+    return nil
 }
 
 func (s *stubManifestService) BatchSetFileStatus(uploadIds []string, status manifestFile.Status) error {
-	return nil
+    return nil
 }
 
 func (s *stubManifestService) AddFiles(records []store.ManifestFileParams) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.addedFiles = append(s.addedFiles, records...)
-	return nil
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    s.addedFiles = append(s.addedFiles, records...)
+    return nil
 }
