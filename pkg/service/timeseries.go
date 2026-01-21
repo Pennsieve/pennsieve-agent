@@ -323,8 +323,11 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
 
 		} else if intBlockStart < startTime && intBlockEnd > endTime {
 			// Crop from beginning and end
+			log.Info(fmt.Sprintf("Start Time: %d", startTime))
+			log.Info(fmt.Sprintf("End Time: %d", endTime))
+
 			cropIndex1 := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-			cropIndex2 := 8 * (int64((float64(endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
+			cropIndex2 := 8 * (int64(float64((endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
 			log.Info(fmt.Sprintf("2START %d - %d -- %d - %d", cropIndex1, cropIndex2, intBlockEnd-intBlockStart, len(fileContents)))
 			croppedSlice = fileContents[cropIndex1:cropIndex2]
 			log.Info(fmt.Sprintf("cropped slice %d", len(croppedSlice)))
