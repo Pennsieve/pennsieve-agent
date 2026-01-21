@@ -19,6 +19,10 @@ import (
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
 )
 
 type TimeseriesService interface {
@@ -136,10 +140,8 @@ func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 ) error {
 
 	// Check which blocks are available on server
-	log.Info(fmt.Sprintf("d: %s, p: %s", DatasetNodeId, PackagenodeId))
-	log.Info(fmt.Sprintf("Channel Node Ids: %v", ChannelNodeIds))
-
-	start := time.Now()
+	log.Debug(fmt.Sprintf("d: %s, p: %s", DatasetNodeId, PackagenodeId))
+	log.Debug(fmt.Sprintf("Channel Node Ids: %v", ChannelNodeIds))
 
 	// Get ranges for all channels
 	result, err := t.client.Timeseries.GetRangeBlocks(ctx, DatasetNodeId, PackagenodeId, StartTime, EndTime, "")
@@ -147,14 +149,6 @@ func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 		log.Error(err)
 		return err
 	}
-
-	//// Check which Blocks are already cached on the local machine
-	//cachedBlocks, err := t.tsStore.GetRangeBlocksForChannels(ctx, []string{ChannelNodeId}, StartTime, EndTime)
-	//if err != nil {
-	//	return err
-	//}
-
-	log.Printf("Binomial took %s", time.Since(start))
 
 	for _, ch := range result.Channels {
 
@@ -170,7 +164,7 @@ func (t *TimeseriesServiceImpl) GetRangeBlocksForChannels(
 			return err
 		}
 
-		log.Info("Cached Blocks: ", cachedBlocks)
+		log.Debug("Cached Blocks: ", cachedBlocks)
 
 		// Sort ranges by StartTime to ensure correct ordering
 		sort.Slice(ch.Ranges, func(i, j int) bool {
@@ -295,7 +289,7 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
 	stream api.Agent_GetTimeseriesRangeForChannelsServer) error {
 
 	for block := range blocks {
-		log.Info(fmt.Sprintf("StreamBlocksToClient called - %s", block.BlockNodeId))
+		log.Debug(fmt.Sprintf("StreamBlocksToClient called - %s", block.BlockNodeId))
 
 		fileContents, err := readGzFile(block.Location)
 		if err != nil {
@@ -313,33 +307,36 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
 		if intBlockStart < startTime && intBlockEnd < endTime {
 			// Crop from beginning
 			cropIndex := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-			log.Info(fmt.Sprintf("1START %d -- %d - %d", cropIndex, intBlockEnd-intBlockStart, len(fileContents)))
+			log.Debug(fmt.Sprintf("1START %d -- %d - %d", cropIndex, intBlockEnd-intBlockStart, len(fileContents)))
 
 			croppedSlice = fileContents[cropIndex:]
 			croppedStart = startTime
 
 		} else if intBlockStart < startTime && intBlockEnd > endTime {
 			// Crop from beginning and end
+			log.Debug(fmt.Sprintf("Start Time: %d", startTime))
+			log.Debug(fmt.Sprintf("End Time: %d", endTime))
+
 			cropIndex1 := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-			cropIndex2 := 8 * (int64((float64(endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-			log.Info(fmt.Sprintf("2START %d - %d -- %d - %d", cropIndex1, cropIndex2, intBlockEnd-intBlockStart, len(fileContents)))
+			cropIndex2 := 8 * (int64(float64((endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
+			log.Debug(fmt.Sprintf("2START %d - %d -- %d - %d", cropIndex1, cropIndex2, intBlockEnd-intBlockStart, len(fileContents)))
 			croppedSlice = fileContents[cropIndex1:cropIndex2]
-			log.Info(fmt.Sprintf("cropped slice %d", len(croppedSlice)))
+			log.Debug(fmt.Sprintf("cropped slice %d", len(croppedSlice)))
 
 			croppedStart = startTime
 			croppedEnd = endTime
 
 		} else if intBlockEnd > endTime {
 			// Crop from end
-			log.Info(fmt.Sprintf("3START %d - %d -- %d - %d", intBlockStart, intBlockEnd, intBlockEnd-intBlockStart, len(fileContents)))
+			log.Debug(fmt.Sprintf("3START %d - %d -- %d - %d", intBlockStart, intBlockEnd, intBlockEnd-intBlockStart, len(fileContents)))
 			cropIndex := 8 * (int64((float64(endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
 			croppedSlice = fileContents[:cropIndex]
 
 			croppedEnd = endTime
 
-			log.Info(fmt.Sprintf("3CROP END +%d - %d", len(croppedSlice), cropIndex))
+			log.Debug(fmt.Sprintf("3CROP END +%d - %d", len(croppedSlice), cropIndex))
 		} else {
-			log.Info("4CROP ALL")
+			log.Debug("4CROP ALL")
 			croppedSlice = fileContents
 		}
 

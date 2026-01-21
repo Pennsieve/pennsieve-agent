@@ -158,7 +158,7 @@ func (s *timeseriesStore) StoreChannelsForPackage(
 	PackageNodeId string,
 	Channels []models.TsChannel) error {
 
-	sqlStr := "REPLACE INTO ts_channel(node_id,package_id,name,start_time,end_time,unit,rate) VALUES "
+	sqlStr := `INSERT INTO ts_channel(node_id, package_id, name, start_time, end_time, unit, rate) VALUES `
 	var vals []interface{}
 
 	for _, channel := range Channels {
@@ -168,6 +168,15 @@ func (s *timeseriesStore) StoreChannelsForPackage(
 	}
 
 	sqlStr = strings.TrimSuffix(sqlStr, ",")
+
+	// Add ON CONFLICT clause to update existing rows instead of replacing
+	sqlStr += ` ON CONFLICT(node_id) DO UPDATE SET 
+		package_id = excluded.package_id,
+		name = excluded.name,
+		start_time = excluded.start_time,
+		end_time = excluded.end_time,
+		unit = excluded.unit,
+		rate = excluded.rate`
 
 	stmt, err := s.db.PrepareContext(ctx, sqlStr)
 	if err != nil {
@@ -185,9 +194,7 @@ func (s *timeseriesStore) StoreChannelsForPackage(
 	log.Info("Successfully stored channels for package: ", PackageNodeId)
 
 	return nil
-
 }
-
 func (s *timeseriesStore) GetChannelsForPackage(
 	ctx context.Context,
 	packageNodeId string,
