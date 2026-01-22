@@ -274,6 +274,36 @@ func (t *TimeseriesServiceImpl) GetChannelsForPackage(
     return cachedChannels, nil
 }
 
+// calculateCropIndices calculates the byte indices for cropping timeseries data blocks
+// based on the requested time range. Returns the start and end byte indices.
+func calculateCropIndices(blockStart, blockEnd, requestStart, requestEnd uint64, rate float64) (startIdx, endIdx int64) {
+	// Case 1: No cropping needed - use entire block
+	if blockStart >= requestStart && blockEnd <= requestEnd {
+		return 0, -1 // -1 means use entire slice
+	}
+
+	startIdx = 0
+	endIdx = -1
+
+	// Case 2: Crop from beginning
+	if blockStart < requestStart {
+		timeDiffMicros := float64(requestStart - blockStart)
+		timeDiffSeconds := timeDiffMicros / 1000000.0
+		samplesToSkip := int64(timeDiffSeconds * rate)
+		startIdx = samplesToSkip * 8 // Each sample is 8 bytes (float64)
+	}
+
+	// Case 3: Crop from end
+	if blockEnd > requestEnd {
+		timeDiffMicros := float64(requestEnd - blockStart)
+		timeDiffSeconds := timeDiffMicros / 1000000.0
+		samplesToInclude := int64(timeDiffSeconds * rate)
+		endIdx = samplesToInclude * 8
+	}
+
+	return startIdx, endIdx
+}
+
 // StreamBlocksToClient streams blocks of data from local cache to the client application over gRPC
 // It assumes that the blocks are locally available.
 func (t *TimeseriesServiceImpl) StreamBlocksToClient(
@@ -289,50 +319,56 @@ func (t *TimeseriesServiceImpl) StreamBlocksToClient(
         fileContents, err := readGzFile(block.Location)
         if err != nil {
             fileContents, err = os.ReadFile(block.Location)
-            log.Error(err)
+            if err != nil {
+                log.Error("Failed to read block file: ", err)
+                return err
+            }
         }
 
-        // Crop block if needed
-        var croppedSlice []byte
+        // Calculate crop indices using the extracted function
         intBlockStart := uint64(block.StartTime)
         intBlockEnd := uint64(block.EndTime)
-
+        
+        startIdx, endIdx := calculateCropIndices(intBlockStart, intBlockEnd, startTime, endTime, block.Rate)
+        
+        // Apply cropping based on calculated indices
+        var croppedSlice []byte
         croppedStart := intBlockStart
         croppedEnd := intBlockEnd
-        if intBlockStart < startTime && intBlockEnd < endTime {
-            // Crop from beginning
-            cropIndex := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-            log.Debug(fmt.Sprintf("1START %d -- %d - %d", cropIndex, intBlockEnd-intBlockStart, len(fileContents)))
-
-            croppedSlice = fileContents[cropIndex:]
-            croppedStart = startTime
-
-        } else if intBlockStart < startTime && intBlockEnd > endTime {
-            // Crop from beginning and end
-            log.Debug(fmt.Sprintf("Start Time: %d", startTime))
-            log.Debug(fmt.Sprintf("End Time: %d", endTime))
-
-            cropIndex1 := 8 * (int64(float64((startTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-            cropIndex2 := 8 * (int64(float64((endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-            log.Debug(fmt.Sprintf("2START %d - %d -- %d - %d", cropIndex1, cropIndex2, intBlockEnd-intBlockStart, len(fileContents)))
-            croppedSlice = fileContents[cropIndex1:cropIndex2]
-            log.Debug(fmt.Sprintf("cropped slice %d", len(croppedSlice)))
-
-            croppedStart = startTime
-            croppedEnd = endTime
-
-        } else if intBlockEnd > endTime {
-            // Crop from end
-            log.Debug(fmt.Sprintf("3START %d - %d -- %d - %d", intBlockStart, intBlockEnd, intBlockEnd-intBlockStart, len(fileContents)))
-            cropIndex := 8 * (int64((float64(endTime-intBlockStart)/1000000)*block.Rate*8) / 8)
-            croppedSlice = fileContents[:cropIndex]
-
-            croppedEnd = endTime
-
-            log.Debug(fmt.Sprintf("3CROP END +%d - %d", len(croppedSlice), cropIndex))
-        } else {
-            log.Debug("4CROP ALL")
+        
+        if startIdx == 0 && endIdx == -1 {
+            // No cropping needed
+            log.Debug("No cropping needed - using entire block")
             croppedSlice = fileContents
+        } else {
+            // Validate indices are within bounds
+            fileLen := int64(len(fileContents))
+            if startIdx > fileLen {
+                log.Error(fmt.Sprintf("Start index %d exceeds file length %d", startIdx, fileLen))
+                return fmt.Errorf("invalid crop indices: start index exceeds file length")
+            }
+            if endIdx > fileLen {
+                log.Warn(fmt.Sprintf("End index %d exceeds file length %d, clamping to file length", endIdx, fileLen))
+                endIdx = fileLen
+            }
+            
+            // Apply cropping
+            if startIdx > 0 {
+                croppedStart = startTime
+            }
+            if endIdx > 0 {
+                croppedEnd = endTime
+                if startIdx >= endIdx {
+                    log.Error(fmt.Sprintf("Invalid crop range: start %d >= end %d", startIdx, endIdx))
+                    return fmt.Errorf("invalid crop indices: start >= end")
+                }
+                croppedSlice = fileContents[startIdx:endIdx]
+                log.Debug(fmt.Sprintf("Cropping from %d to %d (bytes: %d to %d)", croppedStart, croppedEnd, startIdx, endIdx))
+            } else {
+                // Only crop from beginning
+                croppedSlice = fileContents[startIdx:]
+                log.Debug(fmt.Sprintf("Cropping from %d (byte offset: %d)", croppedStart, startIdx))
+            }
         }
 
         data := BytesToFloat32s(croppedSlice)
