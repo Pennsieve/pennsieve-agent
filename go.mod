@@ -6,8 +6,6 @@ go 1.23.0
 
 //replace github.com/pennsieve/pennsieve-go-core => ../pennsieve-go-core
 
-//replace github.com/pennsieve/pennsieve-go-api => ../pennsieve-go-api
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.17.8
 	github.com/aws/aws-sdk-go-v2/config v1.18.14
@@ -18,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty/v6 v6.5.9
 	github.com/mattn/go-sqlite3 v1.14.23
-	github.com/pennsieve/pennsieve-go v1.3.9
+	github.com/pennsieve/pennsieve-go v1.3.11
 	github.com/pennsieve/pennsieve-go-core v1.13.3
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
