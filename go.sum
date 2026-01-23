@@ -127,6 +127,10 @@ github.com/pelletier/go-toml/v2 v2.2.2 h1:aYUidT7k73Pcl9nb2gScu7NSrKCSHIDE89b3+6
 github.com/pelletier/go-toml/v2 v2.2.2/go.mod h1:1t835xjRzz80PqgE6HHgN2JOsmgYu/h4qDAS4n929Rs=
 github.com/pennsieve/pennsieve-go v1.3.9 h1:BkPPlWDCXE/zOUbLsEw+7riB+pLmc01dGWp5UW1VC5g=
 github.com/pennsieve/pennsieve-go v1.3.9/go.mod h1:9HpyaoXalqGjLt8+z7PsObsrdmMDlgs4YDxxlFExQKo=
+github.com/pennsieve/pennsieve-go v1.3.10 h1:7KJPvOksY1eOL1mIOgqSLAqlHJ9zl9ctIoqnuP9VOqw=
+github.com/pennsieve/pennsieve-go v1.3.10/go.mod h1:9HpyaoXalqGjLt8+z7PsObsrdmMDlgs4YDxxlFExQKo=
+github.com/pennsieve/pennsieve-go v1.3.11 h1:HX7oRVZM1cp+ubwfSVDECihDdKGdXu7QWZ4Ri3CxxHA=
+github.com/pennsieve/pennsieve-go v1.3.11/go.mod h1:9HpyaoXalqGjLt8+z7PsObsrdmMDlgs4YDxxlFExQKo=
 github.com/pennsieve/pennsieve-go-core v1.13.3 h1:bdk07K6KnHuphDswWjSSxqvTyRDHbFfFIXGglFQeBHw=
 github.com/pennsieve/pennsieve-go-core v1.13.3/go.mod h1:MeMDPuGOXkY8q+opOES8r7ib3EAt5dveB+PMjgtLNKM=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
