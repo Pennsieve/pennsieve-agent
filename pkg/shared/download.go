@@ -92,7 +92,7 @@ func (s *downloader) DownloadWorker(ctx context.Context, workerId int,
             log.Error("Cannot find file in returned presigned url array")
         }
 
-        fileLocation := filepath.Join(targetFolder, record.FileName.String)
+        fileLocation := filepath.Join(targetFolder, record.Path, record.FileName.String)
         _, err = s.DownloadFileFromPresignedUrl(ctx, preURL, fileLocation, record.PackageNodeId)
         if err != nil {
             log.Errorf("Download failed: %v", err)
