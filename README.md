@@ -68,6 +68,16 @@ for Python, use:
 make compile-python
 ```
 
+### Requires installation of the following:
+**protoc**, **protoc-gen-go**, **protoc-gen-go-grpc**
+
+MacOS with [Homebrew](https://brew.sh/)
+```
+brew install protobuf
+brew install protoc-gen-go
+brew install protoc-gen-go-grpc
+```
+
 ## Pennsieve Configuration File
 The CLI depends on a configuration file in the ~/.pennsieve folder. You can initialize this file 
 with the ```pennsieve-agent config wizard``` command. 
