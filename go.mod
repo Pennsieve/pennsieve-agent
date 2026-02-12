@@ -17,7 +17,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.5.9
 	github.com/mattn/go-sqlite3 v1.14.23
 	github.com/pennsieve/pennsieve-go v1.3.11
-	github.com/pennsieve/pennsieve-go-core v1.13.3
+	github.com/pennsieve/pennsieve-go-core v1.13.7
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
