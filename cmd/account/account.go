@@ -31,4 +31,12 @@ func init() {
 		"AWS", "Account Type")
 	RegisterCmd.Flags().String("profile",
 		"default", "CLI profile")
+
+	AccountCmd.AddCommand(DeregisterCmd)
+	DeregisterCmd.Flags().String("type",
+		"AWS", "Account Type")
+	DeregisterCmd.Flags().String("profile",
+		"default", "CLI profile")
+	DeregisterCmd.Flags().Bool("force",
+		false, "Force deregister even if compute nodes exist")
 }

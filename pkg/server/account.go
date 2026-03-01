@@ -18,3 +18,14 @@ func (s *agentServer) Register(ctx context.Context, req *api.RegisterRequest) (*
 		return nil, errors.New(fmt.Sprintf("unsupported accountType: %s", accountType))
 	}
 }
+
+func (s *agentServer) Deregister(ctx context.Context, req *api.DeregisterRequest) (*api.DeregisterResponse, error) {
+	accountType := req.Account.Type.String()
+
+	switch accountType {
+	case "AWS":
+		return s.AccountService().DeregisterAWS(req.Credentials.Profile, accountType, req.Force)
+	default:
+		return nil, errors.New(fmt.Sprintf("unsupported accountType: %s", accountType))
+	}
+}
