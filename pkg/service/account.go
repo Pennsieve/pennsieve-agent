@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	api "github.com/pennsieve/pennsieve-agent/api/v1"
 	"github.com/pennsieve/pennsieve-agent/internal/aws"
@@ -35,6 +36,14 @@ func (a *AccountService) PostAccounts(accountId string, accountType string, role
 	return resp.Uuid, nil
 }
 
+func (a *AccountService) RequestEcrAccess(accountId string, accountType string) error {
+	err := a.Client.Account.RequestEcrAccess(context.Background(), accountId, accountType)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
 	pennsieveAccountId, err := a.GetPennsieveAccounts(accountType)
 	if err != nil {
@@ -59,6 +68,11 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 	_, err = a.PostAccounts(externalAccountId, accountType, roleName, "")
 	if err != nil {
 		return nil, err
+	}
+
+	// Request ECR pull access for the newly registered account.
+	if err := a.RequestEcrAccess(externalAccountId, accountType); err != nil {
+		log.Printf("warning: failed to request ECR access for account %s: %v", externalAccountId, err)
 	}
 
 	return &api.RegisterResponse{AccountId: externalAccountId}, nil
