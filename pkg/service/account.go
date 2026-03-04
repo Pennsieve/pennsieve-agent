@@ -71,7 +71,6 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 	}
 
 	// Request ECR pull access for the newly registered account.
-	// Failure is non-fatal since the account and IAM role are already created.
 	if err := a.RequestEcrAccess(externalAccountId, accountType); err != nil {
 		log.Printf("warning: failed to request ECR access for account %s: %v", externalAccountId, err)
 	}
