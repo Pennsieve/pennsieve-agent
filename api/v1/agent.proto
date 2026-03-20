@@ -48,6 +48,7 @@ service Agent {
 
 	// Account Endpoints
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
+	rpc Deregister(DeregisterRequest) returns (DeregisterResponse){}
 
 	// Timeseries Endpoints
 	rpc GetTimeseriesChannels(GetTimeseriesChannelsRequest) returns (GetTimeseriesChannelsResponse) {}
@@ -398,6 +399,16 @@ message RegisterRequest{
 }
 message RegisterResponse{
 	string account_id = 1;
+}
+
+message DeregisterRequest{
+	Account account = 1;
+	Credentials credentials = 2;
+	bool force = 3;
+}
+message DeregisterResponse{
+	string account_id = 1;
+	string role_name = 2;
 }
 
 message Account {

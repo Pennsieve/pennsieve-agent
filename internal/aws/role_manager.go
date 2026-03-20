@@ -14,13 +14,14 @@ import (
 )
 
 type AWSRoleManager struct {
-	AccountId string
-	Profile   string
-	RoleName  string
+	Profile          string
+	RoleName         string
+	TrustPolicy      string
+	PermissionPolicy string
 }
 
-func NewAWSRoleManager(pennsieveAccountId string, profile string, roleName string) account.Registration {
-	return &AWSRoleManager{AccountId: pennsieveAccountId, Profile: profile, RoleName: roleName}
+func NewAWSRoleManager(profile string, roleName string, trustPolicy string, permissionPolicy string) account.Registration {
+	return &AWSRoleManager{Profile: profile, RoleName: roleName, TrustPolicy: trustPolicy, PermissionPolicy: permissionPolicy}
 }
 
 func (r *AWSRoleManager) GetAccountId() (string, error) {
@@ -40,6 +41,57 @@ func (r *AWSRoleManager) GetAccountId() (string, error) {
 	return strings.TrimSpace(outb.String()), nil
 }
 
+func (r *AWSRoleManager) Delete() error {
+	// Delete the inline policy first (keyed by RoleName to avoid collisions
+	// when multiple accounts share the same AWS account)
+	policyName := fmt.Sprintf("POLICY-%s", r.RoleName)
+	cmd := exec.Command("aws",
+		"--profile", r.Profile,
+		"iam", "delete-role-policy",
+		"--policy-name", policyName,
+		"--role-name", r.RoleName)
+	var errb bytes.Buffer
+	cmd.Stderr = &errb
+	err := cmd.Run()
+	if err != nil {
+		// If policy doesn't exist, that's fine - continue to delete the role
+		if !strings.Contains(errb.String(), "NoSuchEntity") {
+			return fmt.Errorf("error deleting role policy: %s", errb.String())
+		}
+	}
+
+	// Delete the role
+	deleteCmd := exec.Command("aws",
+		"--profile", r.Profile,
+		"iam", "delete-role",
+		"--role-name", r.RoleName)
+	var deleteErrb bytes.Buffer
+	deleteCmd.Stderr = &deleteErrb
+	err = deleteCmd.Run()
+	if err != nil {
+		if !strings.Contains(deleteErrb.String(), "NoSuchEntity") {
+			return fmt.Errorf("error deleting role: %s", deleteErrb.String())
+		}
+	}
+
+	// Clean up trust policy file
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Println("warning: could not get home directory to clean up policy files:", err)
+		return nil
+	}
+	trustPolicyFile := filepath.Join(home, ".pennsieve", fmt.Sprintf("TRUST_POLICY_%s.json", r.RoleName))
+	if err := os.Remove(trustPolicyFile); err != nil && !os.IsNotExist(err) {
+		log.Printf("warning: could not remove trust policy file %s: %v", trustPolicyFile, err)
+	}
+	permissionPolicyFile := filepath.Join(home, ".pennsieve", fmt.Sprintf("PERMISSION_POLICY_%s.json", r.RoleName))
+	if err := os.Remove(permissionPolicyFile); err != nil && !os.IsNotExist(err) {
+		log.Printf("warning: could not remove permission policy file %s: %v", permissionPolicyFile, err)
+	}
+
+	return nil
+}
+
 func (r *AWSRoleManager) Create() ([]byte, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -48,43 +100,21 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 	}
 	pennsieveFolder := filepath.Join(home, ".pennsieve")
 
-	// create trust policy
-	trustPolicy := fmt.Sprintf(`{
-			"Version": "2012-10-17",
-			"Statement": [
-				{
-					"Effect": "Allow",
-					"Principal": {
-						"AWS": "%s"
-					},
-					"Action": "sts:AssumeRole"
-				}
-			]
-		}`, r.AccountId)
-	trustPolicyFile := fmt.Sprintf("TRUST_POLICY_%s.json", r.AccountId)
+	// write trust policy (provided by account-service)
+	trustPolicyFile := fmt.Sprintf("TRUST_POLICY_%s.json", r.RoleName)
 
-	trustPolicyFileLocation := fmt.Sprintf("%s/%s", pennsieveFolder, trustPolicyFile)
-	err = os.WriteFile(trustPolicyFileLocation, []byte(trustPolicy), 0644)
+	trustPolicyFileLocation := filepath.Join(pennsieveFolder, trustPolicyFile)
+	err = os.WriteFile(trustPolicyFileLocation, []byte(r.TrustPolicy), 0644)
 	if err != nil {
 		log.Println("error writing trust policy data:", err)
 		return nil, err
 	}
 
-	// create permission policy
-	permissionPolicy := `{
-		"Version": "2012-10-17",
-    	"Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "*",
-            "Resource": "*"
-        }
-    ]
-	}`
-	permissionPolicyFile := "PERMISSION_POLICY.json"
+	// create permission policy (keyed by RoleName to avoid races between concurrent registrations)
+	permissionPolicyFile := fmt.Sprintf("PERMISSION_POLICY_%s.json", r.RoleName)
 
-	permissionPolicyFileLocation := fmt.Sprintf("%s/%s", pennsieveFolder, permissionPolicyFile)
-	err = os.WriteFile(permissionPolicyFileLocation, []byte(permissionPolicy), 0644)
+	permissionPolicyFileLocation := filepath.Join(pennsieveFolder, permissionPolicyFile)
+	err = os.WriteFile(permissionPolicyFileLocation, []byte(r.PermissionPolicy), 0644)
 	if err != nil {
 		log.Println("error writing permission policy data:", err)
 		return nil, err
@@ -95,7 +125,8 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 		"--profile", r.Profile,
 		"iam", "create-role",
 		"--role-name", r.RoleName,
-		"--assume-role-policy-document", fmt.Sprintf("file://%s", trustPolicyFileLocation))
+		"--assume-role-policy-document", fmt.Sprintf("file://%s", trustPolicyFileLocation),
+		"--max-session-duration", "7200")
 	var outb, errb bytes.Buffer
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
@@ -108,8 +139,8 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 		return nil, errors.New(errb.String())
 	}
 
-	// attach inline permissions
-	policyName := fmt.Sprintf("POLICY-%s", r.AccountId)
+	// attach inline permissions (keyed by RoleName for uniqueness)
+	policyName := fmt.Sprintf("POLICY-%s", r.RoleName)
 	permissionsCmd := exec.Command("aws",
 		"--profile", r.Profile,
 		"iam", "put-role-policy",
