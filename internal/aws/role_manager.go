@@ -14,14 +14,14 @@ import (
 )
 
 type AWSRoleManager struct {
-	AccountId        string
 	Profile          string
 	RoleName         string
+	TrustPolicy      string
 	PermissionPolicy string
 }
 
-func NewAWSRoleManager(pennsieveAccountId string, profile string, roleName string, permissionPolicy string) account.Registration {
-	return &AWSRoleManager{AccountId: pennsieveAccountId, Profile: profile, RoleName: roleName, PermissionPolicy: permissionPolicy}
+func NewAWSRoleManager(profile string, roleName string, trustPolicy string, permissionPolicy string) account.Registration {
+	return &AWSRoleManager{Profile: profile, RoleName: roleName, TrustPolicy: trustPolicy, PermissionPolicy: permissionPolicy}
 }
 
 func (r *AWSRoleManager) GetAccountId() (string, error) {
@@ -42,8 +42,9 @@ func (r *AWSRoleManager) GetAccountId() (string, error) {
 }
 
 func (r *AWSRoleManager) Delete() error {
-	// Delete the inline policy first
-	policyName := fmt.Sprintf("POLICY-%s", r.AccountId)
+	// Delete the inline policy first (keyed by RoleName to avoid collisions
+	// when multiple accounts share the same AWS account)
+	policyName := fmt.Sprintf("POLICY-%s", r.RoleName)
 	cmd := exec.Command("aws",
 		"--profile", r.Profile,
 		"iam", "delete-role-policy",
@@ -79,9 +80,13 @@ func (r *AWSRoleManager) Delete() error {
 		log.Println("warning: could not get home directory to clean up policy files:", err)
 		return nil
 	}
-	trustPolicyFile := filepath.Join(home, ".pennsieve", fmt.Sprintf("TRUST_POLICY_%s.json", r.AccountId))
+	trustPolicyFile := filepath.Join(home, ".pennsieve", fmt.Sprintf("TRUST_POLICY_%s.json", r.RoleName))
 	if err := os.Remove(trustPolicyFile); err != nil && !os.IsNotExist(err) {
 		log.Printf("warning: could not remove trust policy file %s: %v", trustPolicyFile, err)
+	}
+	permissionPolicyFile := filepath.Join(home, ".pennsieve", fmt.Sprintf("PERMISSION_POLICY_%s.json", r.RoleName))
+	if err := os.Remove(permissionPolicyFile); err != nil && !os.IsNotExist(err) {
+		log.Printf("warning: could not remove permission policy file %s: %v", permissionPolicyFile, err)
 	}
 
 	return nil
@@ -95,32 +100,20 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 	}
 	pennsieveFolder := filepath.Join(home, ".pennsieve")
 
-	// create trust policy
-	trustPolicy := fmt.Sprintf(`{
-			"Version": "2012-10-17",
-			"Statement": [
-				{
-					"Effect": "Allow",
-					"Principal": {
-						"AWS": "%s"
-					},
-					"Action": "sts:AssumeRole"
-				}
-			]
-		}`, r.AccountId)
-	trustPolicyFile := fmt.Sprintf("TRUST_POLICY_%s.json", r.AccountId)
+	// write trust policy (provided by account-service)
+	trustPolicyFile := fmt.Sprintf("TRUST_POLICY_%s.json", r.RoleName)
 
-	trustPolicyFileLocation := fmt.Sprintf("%s/%s", pennsieveFolder, trustPolicyFile)
-	err = os.WriteFile(trustPolicyFileLocation, []byte(trustPolicy), 0644)
+	trustPolicyFileLocation := filepath.Join(pennsieveFolder, trustPolicyFile)
+	err = os.WriteFile(trustPolicyFileLocation, []byte(r.TrustPolicy), 0644)
 	if err != nil {
 		log.Println("error writing trust policy data:", err)
 		return nil, err
 	}
 
-	// create permission policy
-	permissionPolicyFile := "PERMISSION_POLICY.json"
+	// create permission policy (keyed by RoleName to avoid races between concurrent registrations)
+	permissionPolicyFile := fmt.Sprintf("PERMISSION_POLICY_%s.json", r.RoleName)
 
-	permissionPolicyFileLocation := fmt.Sprintf("%s/%s", pennsieveFolder, permissionPolicyFile)
+	permissionPolicyFileLocation := filepath.Join(pennsieveFolder, permissionPolicyFile)
 	err = os.WriteFile(permissionPolicyFileLocation, []byte(r.PermissionPolicy), 0644)
 	if err != nil {
 		log.Println("error writing permission policy data:", err)
@@ -146,8 +139,8 @@ func (r *AWSRoleManager) Create() ([]byte, error) {
 		return nil, errors.New(errb.String())
 	}
 
-	// attach inline permissions
-	policyName := fmt.Sprintf("POLICY-%s", r.AccountId)
+	// attach inline permissions (keyed by RoleName for uniqueness)
+	policyName := fmt.Sprintf("POLICY-%s", r.RoleName)
 	permissionsCmd := exec.Command("aws",
 		"--profile", r.Profile,
 		"iam", "put-role-policy",

@@ -14,8 +14,9 @@ import (
 
 // roleConfig is the response from the account-service /role-policy endpoint.
 type roleConfig struct {
-	RoleName       string          `json:"roleName"`
-	PolicyDocument json.RawMessage `json:"policyDocument"`
+	RoleName            string          `json:"roleName"`
+	PolicyDocument      json.RawMessage `json:"policyDocument"`
+	TrustPolicyDocument json.RawMessage `json:"trustPolicyDocument"`
 }
 
 type AccountService struct {
@@ -24,15 +25,6 @@ type AccountService struct {
 
 func NewAccountService(client *pennsieve.Client) *AccountService {
 	return &AccountService{Client: client}
-}
-
-func (a *AccountService) GetPennsieveAccounts(accountType string) (string, error) {
-	resp, err := a.Client.Account.GetPennsieveAccounts(context.Background(), accountType)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.AccountId, nil
 }
 
 func (a *AccountService) PostAccounts(accountId string, accountType string, roleName string, externalId string) (string, error) {
@@ -78,26 +70,20 @@ func (a *AccountService) fetchRoleConfig() (*roleConfig, error) {
 }
 
 func (a *AccountService) DeregisterAWS(profile string, accountType string, force bool) (*api.DeregisterResponse, error) {
-	// 1. Get the Pennsieve provisioner account ID
-	pennsieveAccountId, err := a.GetPennsieveAccounts(accountType)
-	if err != nil {
-		return nil, fmt.Errorf("getting Pennsieve account: %w", err)
-	}
-
-	// 2. Get the external AWS account ID via STS
-	tempManager := aws.NewAWSRoleManager(pennsieveAccountId, profile, "", "")
+	// 1. Get the external AWS account ID via STS
+	tempManager := aws.NewAWSRoleManager(profile, "", "", "")
 	externalAccountId, err := tempManager.GetAccountId()
 	if err != nil {
 		return nil, fmt.Errorf("getting AWS account ID: %w", err)
 	}
 
-	// 3. Get user's registered accounts
+	// 2. Get user's registered accounts
 	accounts, err := a.Client.Account.GetAccounts(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("getting registered accounts: %w", err)
 	}
 
-	// 4. Find the account matching the external AWS account ID
+	// 3. Find the account matching the external AWS account ID
 	var matchedUuid string
 	var matchCount int
 	for _, acct := range accounts {
@@ -114,14 +100,14 @@ func (a *AccountService) DeregisterAWS(profile string, accountType string, force
 		return nil, fmt.Errorf("multiple registered accounts found for AWS account %s; please contact support", externalAccountId)
 	}
 
-	// 5. Delete the Pennsieve account record
+	// 4. Delete the Pennsieve account record
 	deleteResp, err := a.Client.Account.DeleteAccount(context.Background(), matchedUuid, force)
 	if err != nil {
 		return nil, err
 	}
 
-	// 6. Delete the IAM role
-	registration := aws.NewAWSRoleManager(pennsieveAccountId, profile, deleteResp.RoleName, "")
+	// 5. Delete the IAM role
+	registration := aws.NewAWSRoleManager(profile, deleteResp.RoleName, "", "")
 	if err := registration.Delete(); err != nil {
 		// Pennsieve record is already deleted — warn but don't fail
 		fmt.Printf("Warning: Pennsieve account record deleted, but failed to delete IAM role %s: %v\n", deleteResp.RoleName, err)
@@ -135,19 +121,15 @@ func (a *AccountService) DeregisterAWS(profile string, accountType string, force
 }
 
 func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
-	pennsieveAccountId, err := a.GetPennsieveAccounts(accountType)
-	if err != nil {
-		return nil, err
-	}
-
 	config, err := a.fetchRoleConfig()
 	if err != nil {
 		return nil, fmt.Errorf("fetching role config: %w", err)
 	}
 
 	roleName := config.RoleName
+	trustPolicy := string(config.TrustPolicyDocument)
 	permissionPolicy := string(config.PolicyDocument)
-	registration := aws.NewAWSRoleManager(pennsieveAccountId, profile, roleName, permissionPolicy)
+	registration := aws.NewAWSRoleManager(profile, roleName, trustPolicy, permissionPolicy)
 
 	// Get External AccountId
 	externalAccountId, err := registration.GetAccountId()

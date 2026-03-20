@@ -7,12 +7,12 @@ import (
 )
 
 func TestRoleManager(t *testing.T) {
-	accountId := "someAccountId"
 	profile := "someProfile"
 	roleName := "someRoleName"
+	trustPolicy := "someTrustPolicy"
 	permissionPolicy := "somePermissionPolicy"
 
-	roleManager := NewAWSRoleManager(accountId, profile, roleName, permissionPolicy)
+	roleManager := NewAWSRoleManager(profile, roleName, trustPolicy, permissionPolicy)
 
 	_, err := roleManager.Create()
 	assert.Error(t, err)
