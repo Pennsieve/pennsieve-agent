@@ -103,18 +103,8 @@ func (a *AccountService) DeregisterAWS(profile string, accountType string, force
 
 	// 4. Delete the Pennsieve account record
 	deleteResp, err := a.Client.Account.DeleteAccount(context.Background(), matchedUuid, force)
-func (a *AccountService) RequestEcrAccess(accountId string, accountType string) error {
-	err := a.Client.Account.RequestEcrAccess(context.Background(), accountId, accountType)
 	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
-	pennsieveAccountId, err := a.GetPennsieveAccounts(accountType)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("deleting account record: %w", err)
 	}
 
 	// 5. Delete the IAM role
@@ -129,6 +119,14 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 		AccountId: externalAccountId,
 		RoleName:  deleteResp.RoleName,
 	}, nil
+}
+
+func (a *AccountService) RequestEcrAccess(accountId string, accountType string) error {
+	err := a.Client.Account.RequestEcrAccess(context.Background(), accountId, accountType)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
