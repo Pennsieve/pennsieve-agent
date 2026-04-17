@@ -505,7 +505,10 @@ func (s *agentServer) finalizeBatcher(
 	in <-chan finalizeJob,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 ) {
-	const maxBatch = 500
+	// Keep in sync with maxFinalizeBatch in the upload-service-v2 finalize
+	// handler and the OpenAPI spec's maxItems — the server rejects oversized
+	// batches with 400.
+	const maxBatch = 250
 	const flushInterval = 5 * time.Second
 
 	ticker := time.NewTicker(flushInterval)
