@@ -234,23 +234,52 @@ func (s *agentServer) uploadProcessor(
 
 	}()
 
+	// Try to get direct-to-storage credentials. If the endpoint returns 404
+	// (older server), silently fall back to the Cognito + upload-bucket path
+	// so old agents keep working against old servers and vice versa.
+	directCreds, directMode := s.tryGetDirectStorageCredentials(ctx, pennsieveClient, manifest)
+
 	// Upload Handler
 	go func() {
-		cfg, err := config.LoadDefaultConfig(
-			ctx,
-			config.WithRegion("us-east-1"),
-			config.WithCredentialsProvider(
-				pennsieve.AWSCredentialProviderWithExpiration{
-					AuthService: pennsieveClient.Authentication,
-				},
-			),
-			config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
-				o.ExpiryWindow = 5 * time.Minute
-			}),
-		)
+		var cfg aws.Config
+		var bucket, keyPrefix string
 
-		if err != nil {
-			log.Fatal(err)
+		if directMode {
+			c, err := config.LoadDefaultConfig(
+				ctx,
+				config.WithRegion(directCreds.Region()),
+				config.WithCredentialsProvider(directCreds),
+				config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
+					o.ExpiryWindow = 5 * time.Minute
+				}),
+			)
+			if err != nil {
+				log.Fatal(err)
+			}
+			cfg = c
+			bucket, keyPrefix = directCreds.BucketAndPrefix()
+			log.Infof("Direct-to-storage upload enabled: bucket=%s prefix=%s", bucket, keyPrefix)
+		} else {
+			c, err := config.LoadDefaultConfig(
+				ctx,
+				config.WithRegion("us-east-1"),
+				config.WithCredentialsProvider(
+					pennsieve.AWSCredentialProviderWithExpiration{
+						AuthService: pennsieveClient.Authentication,
+					},
+				),
+				config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
+					o.ExpiryWindow = 5 * time.Minute
+				}),
+			)
+			if err != nil {
+				log.Fatal(err)
+			}
+			cfg = c
+			bucket = pennsieveClient.GetAPIParams().UploadBucket
+			// Legacy path keys by manifestNodeId — no O{org}/D{ds} prefix.
+			keyPrefix = manifest.NodeId.String
+			log.Info("Direct-to-storage unavailable, using legacy upload-bucket path")
 		}
 
 		// For each file found walking, upload it to Amazon S3
@@ -272,6 +301,21 @@ func (s *agentServer) uploadProcessor(
 
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_INIT)
 
+		// Direct-to-storage path: pipe successful uploads through a finalize
+		// batcher that reports completion to the server (two-phase upload).
+		// Legacy path has no finalize channel — the upload lambda handles it
+		// via S3 events.
+		var finalizeCh chan finalizeJob
+		var finalizeWg sync.WaitGroup
+		if directMode {
+			finalizeCh = make(chan finalizeJob, 1000)
+			finalizeWg.Add(1)
+			go func() {
+				defer finalizeWg.Done()
+				s.finalizeBatcher(ctx, pennsieveClient, manifest, finalizeCh, statusUpdates)
+			}()
+		}
+
 		// Initiate the upload workers
 		for worker := 1; worker <= uploadWorkers; worker++ {
 			uploadWg.Add(1)
@@ -283,7 +327,7 @@ func (s *agentServer) uploadProcessor(
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, workerId, walker, statusUpdates, manifest.NodeId.String, uploader, cfg, pennsieveClient.GetAPIParams().UploadBucket, manifest.DatasetId, manifest.OrganizationId)
+				err := s.uploadWorker(ctx, workerId, walker, statusUpdates, finalizeCh, keyPrefix, uploader, cfg, bucket, manifest.DatasetId, manifest.OrganizationId)
 				if err != nil {
 					log.Println("error in upload worker:", workerId, err)
 				}
@@ -291,10 +335,138 @@ func (s *agentServer) uploadProcessor(
 		}
 
 		uploadWg.Wait()
+		if finalizeCh != nil {
+			close(finalizeCh)
+			finalizeWg.Wait()
+		}
 		log.Println("Upload Completed")
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_COMPLETE)
 		log.Println("Returned from uploader for manifest: ", manifest.Id)
 	}()
+}
+
+// finalizeJob is one upload-complete event fed to the finalize batcher.
+type finalizeJob struct {
+	UploadID string
+	Size     int64
+	SHA256   string
+}
+
+// tryGetDirectStorageCredentials attempts to obtain STS credentials scoped to
+// the manifest's destination storage bucket. Returns (nil, false) on HTTP 404
+// so the caller can fall back to the Cognito path. Other errors are logged
+// and treated as fallback as well — the legacy path remains fully functional.
+func (s *agentServer) tryGetDirectStorageCredentials(
+	ctx context.Context,
+	client *pennsieve.Client,
+	manifest *store.Manifest,
+) (*pennsieve.StorageCredentialsProvider, bool) {
+	if !manifest.NodeId.Valid {
+		return nil, false
+	}
+	provider := &pennsieve.StorageCredentialsProvider{
+		Manifest:       client.Manifest,
+		DatasetID:      manifest.DatasetId,
+		ManifestNodeID: manifest.NodeId.String,
+	}
+	// Force an initial fetch so we can detect 404 before spinning up workers.
+	if _, err := provider.Retrieve(ctx); err != nil {
+		var httpErr *pennsieve.HTTPError
+		if errors.As(err, &httpErr) && (httpErr.StatusCode == 404 || httpErr.StatusCode == 409) {
+			return nil, false
+		}
+		log.Warnf("storage-credentials fetch failed, falling back: %v", err)
+		return nil, false
+	}
+	return provider, true
+}
+
+// finalizeBatcher groups successful uploads into bounded batches (500 files or
+// 5 seconds) and calls POST /manifest/files/finalize. Per-file success becomes
+// a local Finalized status update; per-file failures keep local status at
+// Uploaded so they are retried on the next agent run.
+func (s *agentServer) finalizeBatcher(
+	ctx context.Context,
+	client *pennsieve.Client,
+	manifest *store.Manifest,
+	in <-chan finalizeJob,
+	statusUpdates chan<- models.UploadStatusUpdateMessage,
+) {
+	const maxBatch = 500
+	const flushInterval = 5 * time.Second
+
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
+
+	batch := make([]pennsieve.FinalizeFile, 0, maxBatch)
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		s.callFinalize(ctx, client, manifest, batch, statusUpdates)
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case job, ok := <-in:
+			if !ok {
+				flush()
+				return
+			}
+			batch = append(batch, pennsieve.FinalizeFile{
+				UploadID: job.UploadID,
+				Size:     job.Size,
+				SHA256:   job.SHA256,
+			})
+			if len(batch) >= maxBatch {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
+		case <-ctx.Done():
+			flush()
+			return
+		}
+	}
+}
+
+// callFinalize executes one POST /manifest/files/finalize call and persists
+// the per-file response directly to the local SQLite store. Writes directly
+// (rather than through statusUpdates channel) so there's no chance of the
+// later Finalized status landing in the same batch as the earlier Uploaded
+// status for the same uploadId.
+func (s *agentServer) callFinalize(
+	ctx context.Context,
+	client *pennsieve.Client,
+	manifest *store.Manifest,
+	batch []pennsieve.FinalizeFile,
+	statusUpdates chan<- models.UploadStatusUpdateMessage,
+) {
+	resp, err := client.Manifest.FinalizeManifestFiles(ctx, manifest.DatasetId, manifest.NodeId.String, batch)
+	if err != nil {
+		// Whole-batch failure — leave local status at Uploaded so files are
+		// retried on the next agent restart via ResetStatusForManifest /
+		// VerifyFinalizedStatus plumbing. Surface via log.
+		log.Errorf("finalize batch failed (%d files): %v", len(batch), err)
+		return
+	}
+
+	var finalizedIDs []string
+	for _, r := range resp.Results {
+		switch r.Status {
+		case "finalized":
+			finalizedIDs = append(finalizedIDs, r.UploadID)
+		default: // "failed"
+			log.Warnf("finalize failed for upload %s: %s", r.UploadID, r.Error)
+			// Leave local status as Uploaded → retried on next run.
+		}
+	}
+	if len(finalizedIDs) > 0 {
+		if err := s.ManifestService().BatchSetFileStatus(finalizedIDs, manifestFile.Finalized); err != nil {
+			log.Errorf("BatchSetFileStatus Finalized (%d items): %v", len(finalizedIDs), err)
+		}
+	}
 }
 
 func (s *agentServer) uploadWorker(
@@ -302,7 +474,8 @@ func (s *agentServer) uploadWorker(
 	workerId int32,
 	jobs <-chan store.ManifestFile,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
-	manifestNodeId string,
+	finalizeCh chan<- finalizeJob,
+	keyPrefix string,
 	uploader *manager.Uploader,
 	cfg aws.Config,
 	uploadBucket string,
@@ -331,10 +504,13 @@ func (s *agentServer) uploadWorker(
 			s:        s,
 		}
 
-		s3Key := aws.String(fmt.Sprintf("%s/%s", manifestNodeId, record.UploadId))
+		// keyPrefix is either the manifest node id (legacy upload bucket) or
+		// O{orgId}/D{datasetId}/{manifestId} (direct-to-storage). Both use
+		// {prefix}/{uploadId} as the object key.
+		s3Key := aws.String(fmt.Sprintf("%s/%s", keyPrefix, record.UploadId))
 		tags := fmt.Sprintf("OrgId=%s&DatasetId=%s", organizationId, datasetId)
 
-		_, err = uploader.Upload(ctx, &s3.PutObjectInput{
+		uploadOut, err := uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:            aws.String(uploadBucket),
 			Key:               s3Key,
 			Body:              reader,
@@ -421,6 +597,26 @@ func (s *agentServer) uploadWorker(
 		statusUpdates <- models.UploadStatusUpdateMessage{
 			UploadID: record.UploadId.String(),
 			Status:   manifestFile.Uploaded,
+		}
+
+		// Direct-to-storage: hand off to the finalize batcher so the server
+		// can create Postgres rows and mark the file Finalized. Legacy path
+		// has no finalize channel — the upload lambda handles it via S3 events.
+		if finalizeCh != nil {
+			// SHA256 is required on finalize so the server can verify
+			// content integrity against what S3 stored. For multipart
+			// uploads this is the checksum-of-checksums (suffixed with
+			// the part count, e.g. "base64==-42"); the server compares
+			// it to HEAD's ChecksumSHA256, so this round-trip is exact.
+			var sha256 string
+			if uploadOut != nil && uploadOut.ChecksumSHA256 != nil {
+				sha256 = *uploadOut.ChecksumSHA256
+			}
+			finalizeCh <- finalizeJob{
+				UploadID: record.UploadId.String(),
+				Size:     fileInfo.Size(),
+				SHA256:   sha256,
+			}
 		}
 	}
 
