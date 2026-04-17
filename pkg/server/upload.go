@@ -139,6 +139,18 @@ func (s *agentServer) UploadManifest(
 		}
 		s.cancelFncs.Store(request.GetManifestId(), session)
 
+		// Obtain the manifest node id up front. Both tryGetDirectStorageCredentials
+		// and the legacy-path keyPrefix depend on manifest.NodeId — if we let
+		// sync populate it asynchronously, there's a race window where upload
+		// workers upload to the WRONG key (empty prefix → key "/{uploadId}")
+		// and the server-side upload lambda treats those as orphan files and
+		// deletes them. getCreateManifestId is idempotent (early-returns when
+		// NodeId is already set) so sync's later call is a no-op.
+		if err := s.getCreateManifestId(manifest); err != nil {
+			log.Errorf("failed to obtain manifest node id: %v", err)
+			return
+		}
+
 		// Run sync and upload in parallel. Sync flushes each 250-file batch
 		// to SQLite as the server confirms it, so upload workers can start
 		// picking up Registered files seconds after UploadManifest is
