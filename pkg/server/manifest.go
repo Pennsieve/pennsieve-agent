@@ -385,19 +385,14 @@ func (s *agentServer) syncProcessor(ctx context.Context, m *store.Manifest) (*sy
 		log.Info("All sync workers complete --> closing syncResults channel")
 	}()
 
-	// Handling results from sync handlers.
-	// This for loop with continuously add responses from service to array of updated files.
-	// It stops when syncResults is closed, which happens when all sync handlers have finished.
-	var allStatusUpdates []manifestFile.FileStatusDTO
+	// Drain results (syncWorker already persisted to SQLite per-batch).
+	// We still iterate so the final summary count reflects every sync batch.
+	nrUpdated := 0
 	for result := range syncResults {
-		allStatusUpdates = append(allStatusUpdates, result...)
+		nrUpdated += len(result)
 	}
 
-	// Update file status for synchronized manifest.
-	log.Info("Updating local database with status results.")
-	s.ManifestService().SyncResponseStatusUpdate(m.Id, allStatusUpdates)
-
-	return &syncSummary{nrFilesUpdated: len(allStatusUpdates)}, nil
+	return &syncSummary{nrFilesUpdated: nrUpdated}, nil
 }
 
 // getCreateManifestId takes a manifest and ensures the manifest has a node-id.
@@ -439,7 +434,12 @@ func (s *agentServer) getCreateManifestId(m *store.Manifest) error {
 }
 
 // syncWorker fetches rows from crawler and syncs with the service by batch.
-// This function is called as a go-routine and typically runs multiple instances in parallel
+// This function is called as a go-routine and typically runs multiple instances in parallel.
+//
+// Each completed batch is written straight through to the local SQLite store
+// (not accumulated) so that upload workers running in parallel can start
+// picking up Registered files as soon as the first sync batch returns,
+// rather than waiting for the entire manifest to register.
 func (s *agentServer) syncWorker(
 	_ context.Context,
 	workerId int32,
@@ -458,6 +458,25 @@ func (s *agentServer) syncWorker(
 		return errors.New("error: Cannot call syncWorker on manifest that has no manifest node id")
 	}
 
+	flush := func(files []manifestFile.FileDTO) {
+		if len(files) == 0 {
+			return
+		}
+		response, err := s.syncItems(files, m.NodeId.String, m)
+		if err != nil {
+			return
+		}
+		// Persist status transitions immediately so uploadProcessor's walker
+		// can pick up newly Registered files without waiting for the rest of
+		// the manifest to sync.
+		if err := s.ManifestService().SyncResponseStatusUpdate(m.Id, response.UpdatedFiles); err != nil {
+			log.Errorf("SyncResponseStatusUpdate error for batch of %d: %v", len(response.UpdatedFiles), err)
+		}
+		// Still publish to the result channel so syncProcessor can emit
+		// progress updates and compute the final summary.
+		result <- response.UpdatedFiles
+	}
+
 	var requestFiles []manifestFile.FileDTO
 	for {
 		item, ok := <-syncWalker
@@ -465,12 +484,7 @@ func (s *agentServer) syncWorker(
 			// Final batch of items
 			s.syncUpdateSubscribers(totalNrRows, int64(len(requestFiles)), workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
 			log.Debug("Nr Items:", len(requestFiles))
-			response, err := s.syncItems(requestFiles, m.NodeId.String, m)
-			if err != nil {
-				requestFiles = nil
-				continue
-			}
-			result <- response.UpdatedFiles
+			flush(requestFiles)
 			requestFiles = nil
 			break
 		}
@@ -489,13 +503,7 @@ func (s *agentServer) syncWorker(
 
 		if len(requestFiles) == pageSize {
 			s.syncUpdateSubscribers(totalNrRows, pageSize, workerId, pb.SubscribeResponse_SyncResponse_IN_PROGRESS)
-			response, err := s.syncItems(requestFiles, m.NodeId.String, m)
-			if err != nil {
-				requestFiles = nil
-				continue
-			}
-			result <- response.UpdatedFiles
-
+			flush(requestFiles)
 			requestFiles = nil
 		}
 

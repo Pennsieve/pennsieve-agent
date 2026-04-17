@@ -139,11 +139,21 @@ func (s *agentServer) UploadManifest(
 		}
 		s.cancelFncs.Store(request.GetManifestId(), session)
 
-		// Step 1 & 2. synchronize all files and wait for sync to complete
-		s.syncProcessor(ctx, manifest)
+		// Run sync and upload in parallel. Sync flushes each 250-file batch
+		// to SQLite as the server confirms it, so upload workers can start
+		// picking up Registered files seconds after UploadManifest is
+		// invoked — rather than waiting for the entire manifest (potentially
+		// 100k+ files) to register up-front. Closes syncDone when sync
+		// completes so the upload walker knows it's safe to stop polling
+		// for newly-registered rows.
+		syncDone := make(chan struct{})
+		go func() {
+			defer close(syncDone)
+			s.syncProcessor(ctx, manifest)
+		}()
 
 		// Step 3. upload all files
-		s.uploadProcessor(ctx, manifest, &uploadWg, statusUpdates)
+		s.uploadProcessor(ctx, manifest, &uploadWg, statusUpdates, syncDone)
 
 		// continue syncing files for 15 minutes after uploads complete
 		// make sure all upload workers have completed first
@@ -214,6 +224,7 @@ func (s *agentServer) uploadProcessor(
 	manifest *store.Manifest,
 	uploadWg *sync.WaitGroup,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
+	syncDone <-chan struct{},
 ) {
 	uploadWorkers := viper.GetInt("agent.upload_workers")
 	chunkSize := viper.GetInt64("agent.upload_chunk_size")
@@ -224,14 +235,60 @@ func (s *agentServer) uploadProcessor(
 		log.Error("Cannot get Pennsieve client")
 	}
 
-	// Database crawler to fetch rows
+	// Polling walker. Re-queries SQLite for Registered rows every pollInterval
+	// so uploads can start as soon as the first sync batch lands, without
+	// waiting for the whole manifest to register. Emits each uploadId at most
+	// once via an in-memory claim set — sync flushes to SQLite faster than
+	// upload-worker status writes, so the same row could otherwise be
+	// re-queried before its status transitions out of Registered.
 	go func() {
 		defer close(walker)
 
+		const pollInterval = 1 * time.Second
+		claimed := make(map[string]struct{})
 		requestStatus := []manifestFile.Status{manifestFile.Registered}
 
-		s.ManifestService().ManifestFilesToChannel(ctx, manifest.Id, requestStatus, walker)
+		drain := func() int {
+			tmp := make(chan store.ManifestFile, 256)
+			go func() {
+				defer close(tmp)
+				s.ManifestService().ManifestFilesToChannel(ctx, manifest.Id, requestStatus, tmp)
+			}()
+			n := 0
+			for mf := range tmp {
+				uid := mf.UploadId.String()
+				if _, ok := claimed[uid]; ok {
+					continue
+				}
+				claimed[uid] = struct{}{}
+				select {
+				case walker <- mf:
+					n++
+				case <-ctx.Done():
+					return n
+				}
+			}
+			return n
+		}
 
+		ticker := time.NewTicker(pollInterval)
+		defer ticker.Stop()
+		syncFinished := false
+		for {
+			emitted := drain()
+			if syncFinished && emitted == 0 {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-syncDone:
+				syncFinished = true
+				// Loop once more to drain anything written by the final sync
+				// batch, then exit if no new rows appear.
+			case <-ticker.C:
+			}
+		}
 	}()
 
 	// Try to get direct-to-storage credentials. If the endpoint returns 404
