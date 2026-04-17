@@ -139,15 +139,15 @@ func (s *agentServer) UploadManifest(
 		}
 		s.cancelFncs.Store(request.GetManifestId(), session)
 
-		// Obtain the manifest node id up front. Both tryGetDirectStorageCredentials
-		// and the legacy-path keyPrefix depend on manifest.NodeId — if we let
-		// sync populate it asynchronously, there's a race window where upload
-		// workers upload to the WRONG key (empty prefix → key "/{uploadId}")
-		// and the server-side upload lambda treats those as orphan files and
-		// deletes them. getCreateManifestId is idempotent (early-returns when
-		// NodeId is already set) so sync's later call is a no-op.
-		if err := s.getCreateManifestId(manifest); err != nil {
-			log.Errorf("failed to obtain manifest node id: %v", err)
+		// Obtain the manifest node id up front and wrap into a syncedManifest.
+		// Having a non-empty node id is a prerequisite for the credential
+		// fetch, the legacy-path keyPrefix, and the finalize calls; by making
+		// syncedManifest the only type those functions accept, the compiler
+		// enforces the invariant that callers have registered the manifest
+		// first.
+		syncedM, err := s.prepareForUpload(manifest)
+		if err != nil {
+			log.Errorf("prepareForUpload: %v", err)
 			return
 		}
 
@@ -165,7 +165,7 @@ func (s *agentServer) UploadManifest(
 		}()
 
 		// Step 3. upload all files
-		s.uploadProcessor(ctx, manifest, &uploadWg, statusUpdates, syncDone)
+		s.uploadProcessor(ctx, syncedM, &uploadWg, statusUpdates, syncDone)
 
 		// continue syncing files for 15 minutes after uploads complete
 		// make sure all upload workers have completed first
@@ -233,7 +233,7 @@ func (s *agentServer) startStatusUpdateBatchWriter(statusUpdates <-chan models.U
 
 func (s *agentServer) uploadProcessor(
 	ctx context.Context,
-	manifest *store.Manifest,
+	manifest *syncedManifest,
 	uploadWg *sync.WaitGroup,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 	syncDone <-chan struct{},
@@ -264,7 +264,7 @@ func (s *agentServer) uploadProcessor(
 			tmp := make(chan store.ManifestFile, 256)
 			go func() {
 				defer close(tmp)
-				s.ManifestService().ManifestFilesToChannel(ctx, manifest.Id, requestStatus, tmp)
+				s.ManifestService().ManifestFilesToChannel(ctx, manifest.ID(), requestStatus, tmp)
 			}()
 			n := 0
 			for mf := range tmp {
@@ -347,17 +347,17 @@ func (s *agentServer) uploadProcessor(
 			cfg = c
 			bucket = pennsieveClient.GetAPIParams().UploadBucket
 			// Legacy path keys by manifestNodeId — no O{org}/D{ds} prefix.
-			keyPrefix = manifest.NodeId.String
+			keyPrefix = manifest.NodeID()
 			log.Info("Direct-to-storage unavailable, using legacy upload-bucket path")
 		}
 
 		// For each file found walking, upload it to Amazon S3
 		ctx, cancelFnc := context.WithCancel(ctx)
 		session := uploadSession{
-			manifestId: manifest.Id,
+			manifestId: manifest.ID(),
 			cancelFnc:  cancelFnc,
 		}
-		s.cancelFncs.Store(manifest.Id, session)
+		s.cancelFncs.Store(manifest.ID(), session)
 		defer cancelFnc()
 
 		// Create an S3 Client with the config
@@ -396,7 +396,7 @@ func (s *agentServer) uploadProcessor(
 					uploadWg.Done()
 				}()
 
-				err := s.uploadWorker(ctx, workerId, walker, statusUpdates, finalizeCh, keyPrefix, uploader, cfg, bucket, manifest.DatasetId, manifest.OrganizationId)
+				err := s.uploadWorker(ctx, workerId, walker, statusUpdates, finalizeCh, keyPrefix, uploader, cfg, bucket, manifest.DatasetID(), manifest.OrganizationID())
 				if err != nil {
 					log.Println("error in upload worker:", workerId, err)
 				}
@@ -410,7 +410,7 @@ func (s *agentServer) uploadProcessor(
 		}
 		log.Println("Upload Completed")
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_COMPLETE)
-		log.Println("Returned from uploader for manifest: ", manifest.Id)
+		log.Println("Returned from uploader for manifest: ", manifest.ID())
 	}()
 }
 
@@ -421,6 +421,53 @@ type finalizeJob struct {
 	SHA256   string
 }
 
+// syncedManifest wraps a store.Manifest with the compile-time guarantee that
+// the manifest has been registered with the server and has a non-empty node
+// id. The upload flow's credential fetch, key-prefix construction, and
+// finalize calls all depend on that invariant; encoding it in the type rules
+// out a whole class of "forgot to call getCreateManifestId first" bugs.
+//
+// Construct only via prepareForUpload — the struct fields are private so code
+// can't bypass that path.
+type syncedManifest struct {
+	id             int32
+	nodeID         string // guaranteed non-empty
+	datasetID      string
+	organizationID string
+	store          *store.Manifest
+}
+
+func (m *syncedManifest) ID() int32              { return m.id }
+func (m *syncedManifest) NodeID() string         { return m.nodeID }
+func (m *syncedManifest) DatasetID() string      { return m.datasetID }
+func (m *syncedManifest) OrganizationID() string { return m.organizationID }
+
+// Underlying returns the backing store.Manifest for code that still needs the
+// raw struct (notably syncProcessor, which also runs getCreateManifestId as a
+// no-op on the already-synced pointer).
+func (m *syncedManifest) Underlying() *store.Manifest { return m.store }
+
+// prepareForUpload registers the manifest with the server if needed and
+// returns a syncedManifest, or an error if registration fails or returns an
+// empty node id. This is the only supported construction path for
+// syncedManifest; callers that operate on upload-related flows (credential
+// fetch, key construction, finalize) must go through it.
+func (s *agentServer) prepareForUpload(m *store.Manifest) (*syncedManifest, error) {
+	if err := s.getCreateManifestId(m); err != nil {
+		return nil, fmt.Errorf("get manifest node id: %w", err)
+	}
+	if !m.NodeId.Valid || m.NodeId.String == "" {
+		return nil, errors.New("manifest node id still empty after getCreateManifestId")
+	}
+	return &syncedManifest{
+		id:             m.Id,
+		nodeID:         m.NodeId.String,
+		datasetID:      m.DatasetId,
+		organizationID: m.OrganizationId,
+		store:          m,
+	}, nil
+}
+
 // tryGetDirectStorageCredentials attempts to obtain STS credentials scoped to
 // the manifest's destination storage bucket. Returns (nil, false) on HTTP 404
 // so the caller can fall back to the Cognito path. Other errors are logged
@@ -428,15 +475,12 @@ type finalizeJob struct {
 func (s *agentServer) tryGetDirectStorageCredentials(
 	ctx context.Context,
 	client *pennsieve.Client,
-	manifest *store.Manifest,
+	manifest *syncedManifest,
 ) (*pennsieve.StorageCredentialsProvider, bool) {
-	if !manifest.NodeId.Valid {
-		return nil, false
-	}
 	provider := &pennsieve.StorageCredentialsProvider{
 		Manifest:       client.Manifest,
-		DatasetID:      manifest.DatasetId,
-		ManifestNodeID: manifest.NodeId.String,
+		DatasetID:      manifest.DatasetID(),
+		ManifestNodeID: manifest.NodeID(),
 	}
 	// Force an initial fetch so we can detect 404 before spinning up workers.
 	if _, err := provider.Retrieve(ctx); err != nil {
@@ -457,7 +501,7 @@ func (s *agentServer) tryGetDirectStorageCredentials(
 func (s *agentServer) finalizeBatcher(
 	ctx context.Context,
 	client *pennsieve.Client,
-	manifest *store.Manifest,
+	manifest *syncedManifest,
 	in <-chan finalizeJob,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 ) {
@@ -508,11 +552,11 @@ func (s *agentServer) finalizeBatcher(
 func (s *agentServer) callFinalize(
 	ctx context.Context,
 	client *pennsieve.Client,
-	manifest *store.Manifest,
+	manifest *syncedManifest,
 	batch []pennsieve.FinalizeFile,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 ) {
-	resp, err := client.Manifest.FinalizeManifestFiles(ctx, manifest.DatasetId, manifest.NodeId.String, batch)
+	resp, err := client.Manifest.FinalizeManifestFiles(ctx, manifest.DatasetID(), manifest.NodeID(), batch)
 	if err != nil {
 		// Whole-batch failure — leave local status at Uploaded so files are
 		// retried on the next agent restart via ResetStatusForManifest /
