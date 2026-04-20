@@ -61,6 +61,15 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			log.Println("Workflow error: ", err)
 		}
+
+		onConflict, _ := cmd.Flags().GetString("on-conflict")
+		switch onConflict {
+		case "", "keepBoth", "replace", "fail":
+			// valid
+		default:
+			log.Printf("Error: --on-conflict must be one of: keepBoth, replace, fail (got %q)", onConflict)
+			return
+		}
 		WrkFlwReq := api.StartWorkflowRequest{
 			ManifestId:   manifestId,
 			WorkflowFlag: workflowPath,
@@ -78,7 +87,7 @@ var ManifestCmd = &cobra.Command{
 			}
 		}
 
-		req := api.UploadManifestRequest{ManifestId: manifestId}
+		req := api.UploadManifestRequest{ManifestId: manifestId, OnConflict: onConflict}
 
 		defer conn.Close()
 
