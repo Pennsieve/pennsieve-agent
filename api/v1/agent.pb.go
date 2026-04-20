@@ -2217,9 +2217,9 @@ type UploadManifestRequest struct {
 	ManifestId int32 `protobuf:"varint,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
 	// on_conflict controls server-side name-collision resolution during
 	// finalize. Accepted values: "keepBoth" (default, auto-rename new
-	// upload to " (N)"), "replace" (soft-delete predecessor and record
-	// provenance), "fail" (abort with an error listing conflicts).
-	// Empty string is treated as "keepBoth" for backward compatibility.
+	// upload to " (N)") or "replace" (soft-delete predecessor and record
+	// provenance). Empty string is treated as "keepBoth" for backward
+	// compatibility.
 	OnConflict string `protobuf:"bytes,2,opt,name=on_conflict,json=onConflict,proto3" json:"on_conflict,omitempty"`
 }
 
