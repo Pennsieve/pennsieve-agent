@@ -36,5 +36,8 @@ func init() {
 	UploadCmd.AddCommand(ManifestCmd)
 	ManifestCmd.Flags().String("workflow", "", "Add a workflow to the upload process")
 	ManifestCmd.Flags().String("workflowOpts", "", "Pass in workflow options")
+	// on-conflict controls server-side name-collision resolution during
+	// finalize. Values: keepBoth (default) | replace | fail. Empty == keepBoth.
+	ManifestCmd.Flags().String("on-conflict", "", "How to resolve name collisions with existing packages: keepBoth (default), replace, or fail")
 
 }

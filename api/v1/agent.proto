@@ -321,6 +321,12 @@ message ListManifestFilesResponse{
 
 message UploadManifestRequest{
 	int32 manifest_id = 1;
+	// on_conflict controls server-side name-collision resolution during
+	// finalize. Accepted values: "keepBoth" (default, auto-rename new
+	// upload to " (N)"), "replace" (soft-delete predecessor and record
+	// provenance), "fail" (abort with an error listing conflicts).
+	// Empty string is treated as "keepBoth" for backward compatibility.
+	string on_conflict = 2;
 }
 
 message GetUserRequest {

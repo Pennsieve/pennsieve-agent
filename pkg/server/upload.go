@@ -165,7 +165,7 @@ func (s *agentServer) UploadManifest(
 		}()
 
 		// Step 3. upload all files
-		s.uploadProcessor(ctx, syncedM, &uploadWg, statusUpdates, syncDone)
+		s.uploadProcessor(ctx, syncedM, &uploadWg, statusUpdates, syncDone, request.GetOnConflict())
 
 		// continue syncing files for 15 minutes after uploads complete
 		// make sure all upload workers have completed first
@@ -237,6 +237,7 @@ func (s *agentServer) uploadProcessor(
 	uploadWg *sync.WaitGroup,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 	syncDone <-chan struct{},
+	onConflict string,
 ) {
 	uploadWorkers := viper.GetInt("agent.upload_workers")
 	chunkSize := viper.GetInt64("agent.upload_chunk_size")
@@ -381,7 +382,7 @@ func (s *agentServer) uploadProcessor(
 			finalizeWg.Add(1)
 			go func() {
 				defer finalizeWg.Done()
-				s.finalizeBatcher(ctx, pennsieveClient, manifest, finalizeCh, statusUpdates)
+				s.finalizeBatcher(ctx, pennsieveClient, manifest, finalizeCh, statusUpdates, onConflict)
 			}()
 		}
 
@@ -504,6 +505,7 @@ func (s *agentServer) finalizeBatcher(
 	manifest *syncedManifest,
 	in <-chan finalizeJob,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
+	onConflict string,
 ) {
 	// Keep in sync with maxFinalizeBatch in the upload-service-v2 finalize
 	// handler and the OpenAPI spec's maxItems — the server rejects oversized
@@ -519,7 +521,7 @@ func (s *agentServer) finalizeBatcher(
 		if len(batch) == 0 {
 			return
 		}
-		s.callFinalize(ctx, client, manifest, batch, statusUpdates)
+		s.callFinalize(ctx, client, manifest, batch, statusUpdates, onConflict)
 		batch = batch[:0]
 	}
 
@@ -558,8 +560,13 @@ func (s *agentServer) callFinalize(
 	manifest *syncedManifest,
 	batch []pennsieve.FinalizeFile,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
+	onConflict string,
 ) {
-	resp, err := client.Manifest.FinalizeManifestFiles(ctx, manifest.DatasetID(), manifest.NodeID(), batch)
+	var opts []pennsieve.FinalizeOption
+	if onConflict != "" {
+		opts = append(opts, pennsieve.WithOnConflict(onConflict))
+	}
+	resp, err := client.Manifest.FinalizeManifestFiles(ctx, manifest.DatasetID(), manifest.NodeID(), batch, opts...)
 	if err != nil {
 		// Whole-batch failure — leave local status at Uploaded so files are
 		// retried on the next agent restart via ResetStatusForManifest /
