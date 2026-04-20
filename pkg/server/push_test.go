@@ -261,6 +261,70 @@ func TestPush_SkipsPennsieveFolder(t *testing.T) {
     assert.Contains(t, resp.Status, "No new files to push")
 }
 
+func TestPush_UsesMappedDatasetId(t *testing.T) {
+    // Map-targeted push should use the dataset id from the workspace
+    // manifest (mapped dataset) and NOT the agent's currently-active dataset.
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+
+    newFile := filepath.Join(tempDir, "derivative.csv")
+    require.NoError(t, os.WriteFile(newFile, []byte("csv content"), 0644))
+
+    const mappedDatasetId = "N:dataset:mapped-abc"
+    manifest := map[string]interface{}{
+        "datasetNodeId":      mappedDatasetId,
+        "organizationNodeId": "N:organization:test-456",
+        "files":              []interface{}{},
+    }
+
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
+
+    server, capture := newTestPushServerWithCapture()
+
+    req := &api.PushRequest{Path: tempDir}
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
+
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "Push initiated")
+    assert.Equal(t, mappedDatasetId, capture.lastManifestDatasetId,
+        "Push should resolve the dataset from the workspace manifest, not the active session")
+}
+
+func TestPush_FallsBackWhenManifestHasNoDatasetId(t *testing.T) {
+    // Older workspace manifests without a datasetNodeId should fall through
+    // to the override / active-dataset behavior (datasetNodeId="").
+    tempDir := t.TempDir()
+    pennsieveDir := filepath.Join(tempDir, ".pennsieve")
+    manifestPath := filepath.Join(pennsieveDir, "manifest.json")
+
+    require.NoError(t, os.MkdirAll(pennsieveDir, 0755))
+
+    newFile := filepath.Join(tempDir, "derivative.csv")
+    require.NoError(t, os.WriteFile(newFile, []byte("csv content"), 0644))
+
+    manifest := map[string]interface{}{
+        "organizationNodeId": "N:organization:test-456",
+        "files":              []interface{}{},
+    }
+
+    writeManifestFile(t, manifestPath, manifest)
+    writeStateFile(t, tempDir, nil)
+
+    server, capture := newTestPushServerWithCapture()
+
+    req := &api.PushRequest{Path: tempDir}
+    resp, err := server.Push(shared.ContextWithSyncMode(context.Background()), req)
+
+    assert.NoError(t, err)
+    assert.Contains(t, resp.Status, "Push initiated")
+    assert.Empty(t, capture.lastManifestDatasetId,
+        "Empty datasetNodeId should be passed through so getManifestParams can fall back")
+}
+
 func TestPush_WithNestedFiles(t *testing.T) {
     // Create a temporary directory structure with manifest
     tempDir := t.TempDir()
@@ -407,19 +471,36 @@ func writeStateFile(t *testing.T, datasetRoot string, records []models.MapStateR
     require.NoError(t, os.WriteFile(statePath, stateJSON, 0644))
 }
 
+// pushTestCapture records values passed through stubs during a push so tests
+// can assert on them without adding test-only fields to agentServer.
+type pushTestCapture struct {
+    lastManifestDatasetId string
+}
+
 func newTestPushServer() *agentServer {
+    server, _ := newTestPushServerWithCapture()
+    return server
+}
+
+func newTestPushServerWithCapture() (*agentServer, *pushTestCapture) {
     stubService := newStubManifestService()
+    capture := &pushTestCapture{}
     server := &agentServer{
         manifest: stubService,
     }
 
-    server.getManifestParamsOverride = func() (store.ManifestParams, error) {
+    server.getManifestParamsOverride = func(datasetNodeId string) (store.ManifestParams, error) {
+        capture.lastManifestDatasetId = datasetNodeId
+        id := datasetNodeId
+        if id == "" {
+            id = "dataset-id"
+        }
         return store.ManifestParams{
             UserId:           "test-user",
             UserName:         "Test User",
             OrganizationId:   "test-org",
             OrganizationName: "Test Org",
-            DatasetId:        "dataset-id",
+            DatasetId:        id,
             DatasetName:      "Test Dataset",
         }, nil
     }
@@ -428,7 +509,7 @@ func newTestPushServer() *agentServer {
         return &api.SimpleStatusResponse{Status: "Upload initiated."}, nil
     }
 
-    return server
+    return server, capture
 }
 
 type stubManifestService struct {

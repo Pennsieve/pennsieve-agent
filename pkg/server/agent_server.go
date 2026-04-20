@@ -72,7 +72,7 @@ type agentServer struct {
 	account           *service.AccountService
 	timeseriesService service.TimeseriesService
 
-	getManifestParamsOverride func() (store.ManifestParams, error)
+	getManifestParamsOverride func(datasetNodeId string) (store.ManifestParams, error)
 	uploadManifestOverride    func(context.Context, *pb.UploadManifestRequest) (*pb.SimpleStatusResponse, error)
 }
 

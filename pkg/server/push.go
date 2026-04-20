@@ -66,7 +66,18 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
     // This runs in a goroutine to prevent blocking
     work := func() {
 
-        manifestParams, err := s.getManifestParams()
+        // Read the workspace manifest so we can target the mapped dataset
+        // (not whatever dataset the agent happens to have active via
+        // `dataset use` right now). Without this, derivatives can land in
+        // the wrong dataset silently.
+        workspaceManifest, err := shared.ReadWorkspaceManifest(manifestPath)
+        if err != nil {
+            log.Errorf("Error reading workspace manifest: %v", err)
+            s.messageSubscribers(fmt.Sprintf("Error reading workspace manifest: %v", err))
+            return
+        }
+
+        manifestParams, err := s.getManifestParams(workspaceManifest.DatasetNodeId)
         if err != nil {
             log.Errorf("Error retrieving manifest parameters: %v", err)
             s.messageSubscribers(fmt.Sprintf("Error preparing manifest: %v", err))
@@ -150,26 +161,36 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
     return resp, nil
 }
 
-// getManifestParams is a helper to get manifest parameters for creating a new manifest
-func (s *agentServer) getManifestParams() (store.ManifestParams, error) {
+// getManifestParams builds ManifestParams for a push. The caller passes the
+// mapped dataset's node id from the workspace manifest so uploads land in the
+// dataset that was mapped, not whatever dataset the agent currently has
+// active. An empty datasetNodeId falls back to the active dataset — this is
+// defensive in case an older workspace manifest without a datasetNodeId is
+// encountered.
+func (s *agentServer) getManifestParams(datasetNodeId string) (store.ManifestParams, error) {
     if s.getManifestParamsOverride != nil {
-        return s.getManifestParamsOverride()
+        return s.getManifestParamsOverride(datasetNodeId)
     }
 
     activeUser, err := s.UserService().GetActiveUser()
     if err != nil {
         return store.ManifestParams{}, err
     }
-    curClientSession, err := s.UserService().GetUserSettings()
-    if err != nil {
-        return store.ManifestParams{}, err
+
+    if datasetNodeId == "" {
+        curClientSession, err := s.UserService().GetUserSettings()
+        if err != nil {
+            return store.ManifestParams{}, err
+        }
+        log.Warn("Workspace manifest has no datasetNodeId; falling back to active dataset")
+        datasetNodeId = curClientSession.UseDatasetId
     }
 
     client, err := s.PennsieveClient()
     if err != nil {
         return store.ManifestParams{}, err
     }
-    ds, err := client.Dataset.Get(context.Background(), curClientSession.UseDatasetId)
+    ds, err := client.Dataset.Get(context.Background(), datasetNodeId)
     if err != nil {
         return store.ManifestParams{}, err
     }
@@ -179,7 +200,7 @@ func (s *agentServer) getManifestParams() (store.ManifestParams, error) {
         UserName:         activeUser.Name,
         OrganizationId:   activeUser.OrganizationId,
         OrganizationName: activeUser.OrganizationName,
-        DatasetId:        curClientSession.UseDatasetId,
+        DatasetId:        datasetNodeId,
         DatasetName:      ds.Content.Name,
     }, nil
 }
