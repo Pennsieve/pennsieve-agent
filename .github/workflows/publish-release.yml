@@ -109,7 +109,7 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/v2/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/v2/pkg/server.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:
@@ -185,7 +185,7 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -o pennsieve.exe -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o pennsieve.exe -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/v2/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/v2/pkg/server.Version=$VERSION'"
       - name: Set path for candle and light
         run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
         shell: bash
@@ -252,7 +252,7 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/v2/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/v2/pkg/server.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:
@@ -371,7 +371,7 @@ jobs:
         id: build-release
         run: |
           VERSION=${{needs.read-tag.outputs.tag}}
-          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/pkg/server.Version=$VERSION'"
+          go build -o ${{ env.PACKAGE_BINARY_NAME }} -ldflags "-s -X 'github.com/pennsieve/pennsieve-agent/v2/cmd/version.Version=$VERSION' -X 'github.com/pennsieve/pennsieve-agent/v2/pkg/server.Version=$VERSION'"
       - name: Package assets
         id: package-assets
         env:
