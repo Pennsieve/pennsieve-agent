@@ -64,10 +64,10 @@ var ManifestCmd = &cobra.Command{
 
 		onConflict, _ := cmd.Flags().GetString("on-conflict")
 		switch onConflict {
-		case "", "keepBoth", "replace", "fail":
+		case "", "keepBoth", "replace":
 			// valid
 		default:
-			log.Printf("Error: --on-conflict must be one of: keepBoth, replace, fail (got %q)", onConflict)
+			log.Printf("Error: --on-conflict must be one of: keepBoth, replace (got %q)", onConflict)
 			return
 		}
 		WrkFlwReq := api.StartWorkflowRequest{
