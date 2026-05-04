@@ -118,7 +118,13 @@ jobs:
         run: |
           echo "BUILD_DIR=$BUILD_DIR"
           echo "PS_VERSION=$PS_VERSION"
-          echo "::set-output name=asset-file::pennsieve_${{ env.PS_VERSION }}_amd64.deb"
+          # Debian version field must start with a digit, so strip the
+          # leading "v" if present. Required since v2.0.0 onward (Go SIV
+          # mandates the v prefix on tags); pre-v2 tags happened to be
+          # unprefixed and dodged this.
+          DEB_VERSION="${PS_VERSION#v}"
+          echo "DEB_VERSION=$DEB_VERSION"
+          echo "asset-file=pennsieve_${DEB_VERSION}_amd64.deb" >> "$GITHUB_OUTPUT"
           cp ./${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}
           mv ${{ env.BUILD_DIR }}/${{ env.PACKAGE_BINARY_NAME }} ${{ env.BUILD_DIR }}/bin/${{ env.PACKAGE_BINARY_NAME }}
           cp ./resources/config* ${{ env.BUILD_DIR }}
@@ -131,10 +137,10 @@ jobs:
             --deb-no-default-config-files \
             -n "${{ env.PACKAGE_BINARY_NAME }}" \
             --after-install ci/unix/linux_post_install.sh \
-            -v ${{ env.PS_VERSION }} \
+            -v "$DEB_VERSION" \
             --template-scripts \
             --template-value ps_path=/opt/pennsieve \
-            --template-value ps_version="${{ env.PS_VERSION }}" \
+            --template-value ps_version="$DEB_VERSION" \
             --template-value ps_release_name=pennsieve \
             --template-value ps_executable=/opt/pennsieve/pennsieve \
             pennsieve=/opt/pennsieve/pennsieve
