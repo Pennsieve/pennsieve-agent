@@ -4,11 +4,10 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
-	log "github.com/sirupsen/logrus"
 )
 
 type ManifestService struct {
@@ -23,54 +22,6 @@ func NewManifestService(ms store.ManifestStore, mfs store.ManifestFileStore, cli
 		mfStore: mfs,
 		client:  client,
 	}
-}
-
-// VerifyFinalizedStatus checks if files are in "Finalized" state on server and sets to "Verified"
-func (s *ManifestService) VerifyFinalizedStatus(
-	ctx context.Context,
-	manifest *store.Manifest,
-	statusUpdates chan<- models.UploadStatusUpdateMessage,
-) error {
-	log.Debug("Verifying files")
-
-	response, err := s.client.Manifest.GetFilesForStatus(ctx, manifest.NodeId.String, manifestFile.Finalized, "", true)
-	if err != nil {
-		log.Error("Error getting files for status, here is why: ", err)
-		return err
-	}
-
-	log.Debug("Number of responses: ", len(response.Files))
-	if len(response.Files) > 0 {
-		for _, file := range response.Files {
-			statusUpdates <- models.UploadStatusUpdateMessage{
-				UploadID: file,
-				Status:   manifestFile.Verified,
-			}
-		}
-	}
-
-	for {
-		if len(response.ContinuationToken) > 0 {
-			log.Debug("Getting another set of files ")
-			response, err = s.client.Manifest.GetFilesForStatus(ctx, manifest.NodeId.String, manifestFile.Finalized, response.ContinuationToken, true)
-			if err != nil {
-				log.Error("Error getting files for status, here is why: ", err)
-				return err
-			}
-			if len(response.Files) > 0 {
-				for _, file := range response.Files {
-					statusUpdates <- models.UploadStatusUpdateMessage{
-						UploadID: file,
-						Status:   manifestFile.Verified,
-					}
-				}
-			}
-		} else {
-			break
-		}
-	}
-
-	return nil
 }
 
 func (s *ManifestService) GetManifest(manifestId int32) (*store.Manifest, error) {

@@ -3,7 +3,7 @@ package manifest
 import (
 	"bytes"
 	"context"
-	v1 "github.com/pennsieve/pennsieve-agent/api/v1"
+	v1 "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"

@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"sync"
 
-	pb "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/config"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/service"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	pb "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/service"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
@@ -25,7 +25,6 @@ type manifestService interface {
 	RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error)
 	RemoveManifest(manifestId int32) error
 	GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error)
-	VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error
 	ResetStatusForManifest(manifestId int32) error
 	GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error)
 	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile)
@@ -53,9 +52,8 @@ type DependencyContainer interface {
 type agentServer struct {
 	pb.UnimplementedAgentServer
 
-	subscribers    sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFncs     sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
-	syncCancelFncs sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
+	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
 
 	grpcServer *grpc.Server
 	client     *pennsieve.Client

@@ -12,7 +12,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )

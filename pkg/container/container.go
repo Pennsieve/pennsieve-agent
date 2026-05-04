@@ -1,9 +1,10 @@
 package container
 
 import (
+	"context"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/server"
+	"github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -41,6 +42,12 @@ func (c *agentServerContainer) StartAgent() error {
 	GRPCServer := grpc.NewServer()
 	serverImplementation, _ := server.NewAgentServer(GRPCServer)
 	v1.RegisterAgentServer(GRPCServer, serverImplementation)
+
+	// Reconciler shares the gRPC server's lifetime: cancel on Serve return so
+	// the goroutine exits cleanly instead of leaking.
+	reconcilerCtx, cancelReconciler := context.WithCancel(context.Background())
+	defer cancelReconciler()
+	go serverImplementation.StartReconciler(reconcilerCtx)
 
 	fmt.Printf("GRPC server listening on: %s", lis.Addr())
 

@@ -3,8 +3,8 @@ package _map
 import (
 	"context"
 	"fmt"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/cmd/shared"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/cmd/shared"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

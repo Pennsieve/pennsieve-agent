@@ -15,7 +15,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared/test"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared/test"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/authentication"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/organization"

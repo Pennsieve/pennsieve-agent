@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
 	log "github.com/sirupsen/logrus"
 	"strings"
 )

@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	pb "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"

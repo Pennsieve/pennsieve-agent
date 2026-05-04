@@ -1,7 +1,7 @@
 package server
 
 import (
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

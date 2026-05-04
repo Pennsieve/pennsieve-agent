@@ -9,10 +9,10 @@ import (
     "testing"
     "time"
 
-    api "github.com/pennsieve/pennsieve-agent/api/v1"
-    "github.com/pennsieve/pennsieve-agent/pkg/models"
-    "github.com/pennsieve/pennsieve-agent/pkg/shared"
-    "github.com/pennsieve/pennsieve-agent/pkg/store"
+    api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/store"
     "github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
@@ -491,10 +491,6 @@ func (s *stubManifestService) RemoveManifest(manifestId int32) error {
 
 func (s *stubManifestService) GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error) {
     return nil, nil
-}
-
-func (s *stubManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error {
-    return nil
 }
 
 func (s *stubManifestService) ResetStatusForManifest(manifestId int32) error {

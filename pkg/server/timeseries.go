@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
 	log "github.com/sirupsen/logrus"
 	"slices"
 	"sync"

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"log"
 
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/internal/aws"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/internal/aws"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 )
 

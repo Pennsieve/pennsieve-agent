@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	v1 "github.com/pennsieve/pennsieve-agent/api/v1"
+	v1 "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/stretchr/testify/suite"
 	"testing"
 )

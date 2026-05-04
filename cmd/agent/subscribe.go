@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/subscriber"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"math/rand"

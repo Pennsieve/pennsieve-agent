@@ -2,7 +2,7 @@ package store
 
 import (
 	"context"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

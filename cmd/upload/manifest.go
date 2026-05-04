@@ -18,9 +18,9 @@ package upload
 import (
 	"context"
 	"fmt"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/cmd/shared"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/subscriber"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -61,6 +61,15 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			log.Println("Workflow error: ", err)
 		}
+
+		onConflict, _ := cmd.Flags().GetString("on-conflict")
+		switch onConflict {
+		case "", "keepBoth", "replace", "fail":
+			// valid
+		default:
+			log.Printf("Error: --on-conflict must be one of: keepBoth, replace, fail (got %q)", onConflict)
+			return
+		}
 		WrkFlwReq := api.StartWorkflowRequest{
 			ManifestId:   manifestId,
 			WorkflowFlag: workflowPath,
@@ -78,7 +87,7 @@ var ManifestCmd = &cobra.Command{
 			}
 		}
 
-		req := api.UploadManifestRequest{ManifestId: manifestId}
+		req := api.UploadManifestRequest{ManifestId: manifestId, OnConflict: onConflict}
 
 		defer conn.Close()
 
