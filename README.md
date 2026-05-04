@@ -39,9 +39,9 @@ Download the latest installer for your operating system: https://github.com/Penn
 ## Releasing a new version
 
 1. Merge updates into the main branch
-2. Create a new tag in main and name the tag: x.x.x following [semantic versioning](https://semver.org/).
+2. Create an annotated tag in main of the form `vMAJOR.MINOR.PATCH` (note the leading `v`):
 
-    e.g ```git tag -a 0.0.1 -m "Initial release"```
+    e.g ```git tag -a v2.1.0 -m "v2.1.0"```
 
     Given a version number MAJOR.MINOR.PATCH, increment the:
 
@@ -49,11 +49,17 @@ Download the latest installer for your operating system: https://github.com/Penn
     - MINOR version when you add functionality in a backwards compatible manner, and
     - PATCH version when you make backwards compatible bug fixes.
 
+    The `v` prefix is required:
+    - Go's [semantic import versioning](https://go.dev/ref/mod#major-version-suffixes) only resolves `v`-prefixed tags. For v2+ the module path is `github.com/pennsieve/pennsieve-agent/v2`; tags without the `v` won't resolve through `go get`.
+    - When making a major-version bump (e.g. v2 → v3), update the `/vN` suffix in `go.mod`, every Go import, and `option go_package` in `api/v1/agent.proto` before tagging. Re-run `make compile` to regenerate the Go protobuf bindings.
+
 3. Push the tag to GitHub
 
-    eg. ```git push origin 0.0.1```
-    
-This will trigger Github Actions to create a new release with the same name.
+    eg. ```git push origin v2.1.0```
+
+This triggers GitHub Actions to publish a release with the same name and build installers for Mac (arm64 + x86_64), Windows, Linux (.deb), and a Docker image.
+
+> Note: Debian's package version field must start with a digit, so `fpm` strips the leading `v` when building the `.deb`. The Linux asset is therefore named `pennsieve_MAJOR.MINOR.PATCH_amd64.deb` (no `v`, underscores per Debian convention) while Mac/Windows assets keep the `v` prefix and use hyphens. The publish workflow handles this asymmetry.
 
 
 ## Building the GRPC Protobuf 
