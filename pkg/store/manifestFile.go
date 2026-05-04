@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
 	"strings"
 	"time"
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 )

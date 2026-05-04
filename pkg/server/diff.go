@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 	"errors"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	models2 "github.com/pennsieve/pennsieve-agent/pkg/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	models2 "github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
 	log "github.com/sirupsen/logrus"
 	"os"

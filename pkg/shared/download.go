@@ -3,7 +3,7 @@ package shared
 import (
     "context"
     "fmt"
-    api "github.com/pennsieve/pennsieve-agent/api/v1"
+    api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
     "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
     "github.com/pennsieve/pennsieve-go/pkg/pennsieve"
     log "github.com/sirupsen/logrus"

@@ -12,10 +12,10 @@ import (
     "slices"
     "sort"
 
-    api "github.com/pennsieve/pennsieve-agent/api/v1"
-    "github.com/pennsieve/pennsieve-agent/pkg/models"
-    "github.com/pennsieve/pennsieve-agent/pkg/shared"
-    "github.com/pennsieve/pennsieve-agent/pkg/store"
+    api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/store"
     "github.com/pennsieve/pennsieve-go/pkg/pennsieve"
     log "github.com/sirupsen/logrus"
 )

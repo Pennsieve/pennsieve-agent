@@ -2,8 +2,8 @@ package server
 
 import (
 	"database/sql"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
 	"github.com/stretchr/testify/assert"
 	"path"

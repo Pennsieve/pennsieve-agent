@@ -13,9 +13,9 @@ import (
 	"strings"
 	"sync"
 
-	pb "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	pb "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	log "github.com/sirupsen/logrus"

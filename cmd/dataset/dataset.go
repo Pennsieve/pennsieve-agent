@@ -3,8 +3,8 @@ package dataset
 import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pennsieve/pennsieve-agent/pkg/config"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

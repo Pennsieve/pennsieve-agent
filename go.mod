@@ -1,4 +1,4 @@
-module github.com/pennsieve/pennsieve-agent
+module github.com/pennsieve/pennsieve-agent/v2
 
 go 1.23.0
 

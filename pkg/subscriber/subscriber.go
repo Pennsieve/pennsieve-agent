@@ -3,7 +3,7 @@ package subscriber
 import (
 	"context"
 	"fmt"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vbauerster/mpb/v8"

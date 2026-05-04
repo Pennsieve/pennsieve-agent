@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/pennsieve/pennsieve-agent/pkg/reconciler"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/reconciler"
 )
 
 // reconcilerInterval is the period between reconciliation passes. Chosen

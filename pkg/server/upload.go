@@ -16,15 +16,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest/manifestFile"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	pb "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	log "github.com/sirupsen/logrus"
 )
 

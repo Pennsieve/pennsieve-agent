@@ -6,9 +6,9 @@ import (
     "os"
     "path/filepath"
 
-    api "github.com/pennsieve/pennsieve-agent/api/v1"
-    "github.com/pennsieve/pennsieve-agent/pkg/shared"
-    "github.com/pennsieve/pennsieve-agent/pkg/store"
+    api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+    "github.com/pennsieve/pennsieve-agent/v2/pkg/store"
     log "github.com/sirupsen/logrus"
 )
 

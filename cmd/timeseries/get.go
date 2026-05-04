@@ -3,9 +3,9 @@ package timeseries
 import (
 	"encoding/csv"
 	"fmt"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/config"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/config"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

@@ -17,7 +17,7 @@ package main
 
 import (
 	"embed"
-	"github.com/pennsieve/pennsieve-agent/cmd"
+	"github.com/pennsieve/pennsieve-agent/v2/cmd"
 )
 
 //go:embed db/migrations/*

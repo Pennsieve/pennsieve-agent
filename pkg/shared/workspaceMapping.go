@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	models2 "github.com/pennsieve/pennsieve-agent/pkg/models"
+	models2 "github.com/pennsieve/pennsieve-agent/v2/pkg/models"
 	models "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
 	log "github.com/sirupsen/logrus"
 )

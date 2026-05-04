@@ -1,6 +1,6 @@
 package shared
 
-import pb "github.com/pennsieve/pennsieve-agent/api/v1"
+import pb "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 
 type Sub struct {
 	Stream   pb.Agent_SubscribeServer // Stream is the server side of the RPC Stream

@@ -11,7 +11,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pennsieve/pennsieve-agent/pkg/shared/test"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared/test"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"

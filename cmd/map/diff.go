@@ -4,7 +4,7 @@ import (
     "context"
     "fmt"
     "github.com/jedib0t/go-pretty/v6/table"
-    api "github.com/pennsieve/pennsieve-agent/api/v1"
+    api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
     "google.golang.org/grpc"

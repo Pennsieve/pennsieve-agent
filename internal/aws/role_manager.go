@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pennsieve/pennsieve-agent/internal/account"
+	"github.com/pennsieve/pennsieve-agent/v2/internal/account"
 )
 
 type AWSRoleManager struct {

@@ -18,9 +18,9 @@ package upload
 import (
 	"context"
 	"fmt"
-	api "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/cmd/shared"
-	"github.com/pennsieve/pennsieve-agent/pkg/subscriber"
+	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/cmd/shared"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/subscriber"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"

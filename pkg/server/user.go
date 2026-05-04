@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"errors"
-	pb "github.com/pennsieve/pennsieve-agent/api/v1"
+	pb "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	log "github.com/sirupsen/logrus"
 )
 

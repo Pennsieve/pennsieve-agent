@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"encoding/json"
-	v1 "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/store"
+	v1 "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/dataset"
 	"github.com/stretchr/testify/suite"
 	"net/http"
