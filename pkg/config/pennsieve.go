@@ -175,6 +175,12 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 
 		}
 
+		// Always populate OrganizationNodeId on the client. The cold-init
+		// path above sets it directly, but the existing-info paths only set
+		// the session token — leaving callers that read client.OrganizationNodeId
+		// (X-ORGANIZATION-ID header, reconciler org filter) silently empty.
+		client.OrganizationNodeId = info.OrganizationId
+
 	} else {
 		// USE ENVIRONMENT VARIABLES
 		fmt.Println("USE ENVIRONMENT VARIABLES")

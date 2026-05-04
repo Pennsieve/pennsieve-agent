@@ -493,10 +493,6 @@ func (s *stubManifestService) GetFiles(manifestId int32, limit int32, offset int
     return nil, nil
 }
 
-func (s *stubManifestService) VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error {
-    return nil
-}
-
 func (s *stubManifestService) ResetStatusForManifest(manifestId int32) error {
     return nil
 }

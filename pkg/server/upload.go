@@ -90,48 +90,26 @@ func (s *agentServer) UploadManifest(
 	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
 	go s.startStatusUpdateBatchWriter(statusUpdates)
 
-	tickerDone := make(chan bool)
-	ticker := time.NewTicker(10 * time.Second)
-
-	// Ticker to get status updates from the server periodically
-	var tickerWg sync.WaitGroup
-	tickerWg.Add(1)
-	go func() {
-		// on return stop the ticker and close the status update channel
-		defer func() {
-			ticker.Stop()
-			tickerWg.Done()
-			log.Println("Stopped syncing manifest: ", manifest.Id)
-		}()
-
-		for {
-			select {
-			case <-tickerDone:
-				return
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// Checking status of files on server and verify.
-				// This should return a list of files that have recently been finalized and then set the status of
-				// those files to "Verified" on the server.
-				log.Println("Verifying status for manifest: ", manifest.Id)
-				err := s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
-				if err != nil {
-					log.Error("failed to verify manifest file statuses", err)
-				}
-
-			}
-		}
-	}()
+	// Post-upload reconciliation between local state and server-side
+	// Finalized status is handled by pkg/reconciler, which runs for the
+	// lifetime of the agent daemon — not bolted into the upload-session
+	// goroutine, where its context dies the moment this handler returns.
 
 	// Manager:
 	// 1. Create thread to sync
 	// 2. Wait for sync to be done
 	// 3. Create thread for upload
+	//
+	// uploadProcessor takes ownership of statusUpdates from here on — it
+	// closes the channel inside the upload-handler goroutine after workers
+	// finish and the finalize batcher drains. The manager goroutine is
+	// fire-and-forget; if it tried to wait+close itself, the wait group it
+	// observed would be empty (uploadWg.Add happens inside the
+	// upload-handler goroutine that uploadProcessor spawns), so the close
+	// would race ahead of worker sends and panic.
 	go func() {
 		// Create Context and store cancel function in server object.
 		ctx, cancelFnc := context.WithCancel(context.Background())
-		var uploadWg sync.WaitGroup
 
 		session := uploadSession{
 			manifestId: request.GetManifestId(),
@@ -141,13 +119,13 @@ func (s *agentServer) UploadManifest(
 
 		// Obtain the manifest node id up front and wrap into a syncedManifest.
 		// Having a non-empty node id is a prerequisite for the credential
-		// fetch, the legacy-path keyPrefix, and the finalize calls; by making
-		// syncedManifest the only type those functions accept, the compiler
-		// enforces the invariant that callers have registered the manifest
-		// first.
+		// fetch and the finalize calls; by making syncedManifest the only
+		// type those functions accept, the compiler enforces the invariant
+		// that callers have registered the manifest first.
 		syncedM, err := s.prepareForUpload(manifest)
 		if err != nil {
 			log.Errorf("prepareForUpload: %v", err)
+			close(statusUpdates) // batch writer goroutine would otherwise leak
 			return
 		}
 
@@ -165,26 +143,7 @@ func (s *agentServer) UploadManifest(
 		}()
 
 		// Step 3. upload all files
-		s.uploadProcessor(ctx, syncedM, &uploadWg, statusUpdates, syncDone, request.GetOnConflict())
-
-		// continue syncing files for 15 minutes after uploads complete
-		// make sure all upload workers have completed first
-		syncTimerDelay := 15 * time.Minute
-		if _, isPresent := s.syncCancelFncs.Load(manifest.Id); !isPresent {
-			syncTimer := time.NewTimer(syncTimerDelay)
-			defer syncTimer.Stop()
-			cancel := make(chan struct{})
-			s.syncCancelFncs.Store(manifest.Id, cancel)
-			select {
-			case <-syncTimer.C:
-			case <-cancel:
-			}
-			uploadWg.Wait()
-			tickerDone <- true
-			tickerWg.Wait()
-			close(statusUpdates)
-			s.syncCancelFncs.Delete(manifest.Id)
-		}
+		s.uploadProcessor(ctx, syncedM, statusUpdates, syncDone, request.GetOnConflict())
 	}()
 
 	response := pb.SimpleStatusResponse{Status: "Upload initiated."}
@@ -231,10 +190,14 @@ func (s *agentServer) startStatusUpdateBatchWriter(statusUpdates <-chan models.U
 	}
 }
 
+// uploadProcessor takes ownership of statusUpdates and is responsible for
+// closing it when no more writes can happen (after workers finish and the
+// finalize batcher drains). All early-error paths must close it too — the
+// batch-writer goroutine on the other end blocks on it and would otherwise
+// leak.
 func (s *agentServer) uploadProcessor(
 	ctx context.Context,
 	manifest *syncedManifest,
-	uploadWg *sync.WaitGroup,
 	statusUpdates chan<- models.UploadStatusUpdateMessage,
 	syncDone <-chan struct{},
 	onConflict string,
@@ -242,11 +205,24 @@ func (s *agentServer) uploadProcessor(
 	uploadWorkers := viper.GetInt("agent.upload_workers")
 	chunkSize := viper.GetInt64("agent.upload_chunk_size")
 
-	walker := make(chan store.ManifestFile, uploadWorkers)
 	pennsieveClient, err := s.PennsieveClient()
 	if err != nil {
-		log.Error("Cannot get Pennsieve client")
+		log.Errorf("Cannot get Pennsieve client: %v", err)
+		close(statusUpdates)
+		return
 	}
+
+	// Fetch credentials before launching the walker so any failure aborts
+	// cleanly rather than leaking the walker goroutine.
+	creds, err := s.getStorageCredentials(ctx, pennsieveClient, manifest)
+	if err != nil {
+		log.Errorf("get storage credentials: %v", err)
+		s.messageSubscribers("Upload failed: unable to obtain storage credentials.")
+		close(statusUpdates)
+		return
+	}
+
+	walker := make(chan store.ManifestFile, uploadWorkers)
 
 	// Polling walker. Re-queries SQLite for Registered rows every pollInterval
 	// so uploads can start as soon as the first sync batch lands, without
@@ -304,53 +280,21 @@ func (s *agentServer) uploadProcessor(
 		}
 	}()
 
-	// Try to get direct-to-storage credentials. If the endpoint returns 404
-	// (older server), silently fall back to the Cognito + upload-bucket path
-	// so old agents keep working against old servers and vice versa.
-	directCreds, directMode := s.tryGetDirectStorageCredentials(ctx, pennsieveClient, manifest)
-
 	// Upload Handler
 	go func() {
-		var cfg aws.Config
-		var bucket, keyPrefix string
-
-		if directMode {
-			c, err := config.LoadDefaultConfig(
-				ctx,
-				config.WithRegion(directCreds.Region()),
-				config.WithCredentialsProvider(directCreds),
-				config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
-					o.ExpiryWindow = 5 * time.Minute
-				}),
-			)
-			if err != nil {
-				log.Fatal(err)
-			}
-			cfg = c
-			bucket, keyPrefix = directCreds.BucketAndPrefix()
-			log.Infof("Direct-to-storage upload enabled: bucket=%s prefix=%s", bucket, keyPrefix)
-		} else {
-			c, err := config.LoadDefaultConfig(
-				ctx,
-				config.WithRegion("us-east-1"),
-				config.WithCredentialsProvider(
-					pennsieve.AWSCredentialProviderWithExpiration{
-						AuthService: pennsieveClient.Authentication,
-					},
-				),
-				config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
-					o.ExpiryWindow = 5 * time.Minute
-				}),
-			)
-			if err != nil {
-				log.Fatal(err)
-			}
-			cfg = c
-			bucket = pennsieveClient.GetAPIParams().UploadBucket
-			// Legacy path keys by manifestNodeId — no O{org}/D{ds} prefix.
-			keyPrefix = manifest.NodeID()
-			log.Info("Direct-to-storage unavailable, using legacy upload-bucket path")
+		cfg, err := config.LoadDefaultConfig(
+			ctx,
+			config.WithRegion(creds.Region()),
+			config.WithCredentialsProvider(creds),
+			config.WithCredentialsCacheOptions(func(o *aws.CredentialsCacheOptions) {
+				o.ExpiryWindow = 5 * time.Minute
+			}),
+		)
+		if err != nil {
+			log.Fatal(err)
 		}
+		bucket, keyPrefix := creds.BucketAndPrefix()
+		log.Infof("Direct-to-storage upload: bucket=%s prefix=%s", bucket, keyPrefix)
 
 		// For each file found walking, upload it to Amazon S3
 		ctx, cancelFnc := context.WithCancel(ctx)
@@ -371,22 +315,22 @@ func (s *agentServer) uploadProcessor(
 
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_INIT)
 
-		// Direct-to-storage path: pipe successful uploads through a finalize
-		// batcher that reports completion to the server (two-phase upload).
-		// Legacy path has no finalize channel — the upload lambda handles it
-		// via S3 events.
-		var finalizeCh chan finalizeJob
+		// Pipe successful uploads through a finalize batcher that reports
+		// completion to the server (two-phase upload).
+		finalizeCh := make(chan finalizeJob, 1000)
 		var finalizeWg sync.WaitGroup
-		if directMode {
-			finalizeCh = make(chan finalizeJob, 1000)
-			finalizeWg.Add(1)
-			go func() {
-				defer finalizeWg.Done()
-				s.finalizeBatcher(ctx, pennsieveClient, manifest, finalizeCh, statusUpdates, onConflict)
-			}()
-		}
+		finalizeWg.Add(1)
+		go func() {
+			defer finalizeWg.Done()
+			s.finalizeBatcher(ctx, pennsieveClient, manifest, finalizeCh, statusUpdates, onConflict)
+		}()
 
-		// Initiate the upload workers
+		// Initiate the upload workers. uploadWg is local to this goroutine so
+		// the wait group is fully populated before any Wait() can observe it
+		// — earlier wiring put the Wait in the caller goroutine, which would
+		// race ahead of the Add()s here and let close(statusUpdates) fire
+		// while workers were still sending.
+		var uploadWg sync.WaitGroup
 		for worker := 1; worker <= uploadWorkers; worker++ {
 			uploadWg.Add(1)
 			workerId := int32(worker)
@@ -405,10 +349,11 @@ func (s *agentServer) uploadProcessor(
 		}
 
 		uploadWg.Wait()
-		if finalizeCh != nil {
-			close(finalizeCh)
-			finalizeWg.Wait()
-		}
+		close(finalizeCh)
+		finalizeWg.Wait()
+		// All writers to statusUpdates (workers + finalize batcher) have
+		// stopped — safe to close so the batch writer drains and exits.
+		close(statusUpdates)
 		log.Println("Upload Completed")
 		s.updateSubscribers(0, 0, "", 0, pb.SubscribeResponse_UploadResponse_COMPLETE)
 		log.Println("Returned from uploader for manifest: ", manifest.ID())
@@ -469,30 +414,23 @@ func (s *agentServer) prepareForUpload(m *store.Manifest) (*syncedManifest, erro
 	}, nil
 }
 
-// tryGetDirectStorageCredentials attempts to obtain STS credentials scoped to
-// the manifest's destination storage bucket. Returns (nil, false) on HTTP 404
-// so the caller can fall back to the Cognito path. Other errors are logged
-// and treated as fallback as well — the legacy path remains fully functional.
-func (s *agentServer) tryGetDirectStorageCredentials(
+// getStorageCredentials returns STS credentials scoped to the manifest's
+// destination storage bucket, force-fetching once so callers can surface
+// failures before spinning up upload workers.
+func (s *agentServer) getStorageCredentials(
 	ctx context.Context,
 	client *pennsieve.Client,
 	manifest *syncedManifest,
-) (*pennsieve.StorageCredentialsProvider, bool) {
+) (*pennsieve.StorageCredentialsProvider, error) {
 	provider := &pennsieve.StorageCredentialsProvider{
 		Manifest:       client.Manifest,
 		DatasetID:      manifest.DatasetID(),
 		ManifestNodeID: manifest.NodeID(),
 	}
-	// Force an initial fetch so we can detect 404 before spinning up workers.
 	if _, err := provider.Retrieve(ctx); err != nil {
-		var httpErr *pennsieve.HTTPError
-		if errors.As(err, &httpErr) && (httpErr.StatusCode == 404 || httpErr.StatusCode == 409) {
-			return nil, false
-		}
-		log.Warnf("storage-credentials fetch failed, falling back: %v", err)
-		return nil, false
+		return nil, fmt.Errorf("retrieve storage credentials: %w", err)
 	}
-	return provider, true
+	return provider, nil
 }
 
 // finalizeBatcher groups successful uploads into bounded batches (500 files or
@@ -568,9 +506,9 @@ func (s *agentServer) callFinalize(
 	}
 	resp, err := client.Manifest.FinalizeManifestFiles(ctx, manifest.DatasetID(), manifest.NodeID(), batch, opts...)
 	if err != nil {
-		// Whole-batch failure — leave local status at Uploaded so files are
-		// retried on the next agent restart via ResetStatusForManifest /
-		// VerifyFinalizedStatus plumbing. Surface via log.
+		// Whole-batch failure — leave local status at Uploaded so the
+		// reconciler can converge it once the server reports Finalized
+		// (or so the user can ResetStatusForManifest and retry).
 		log.Errorf("finalize batch failed (%d files): %v", len(batch), err)
 		return
 	}
@@ -627,9 +565,8 @@ func (s *agentServer) uploadWorker(
 			s:        s,
 		}
 
-		// keyPrefix is either the manifest node id (legacy upload bucket) or
-		// O{orgId}/D{datasetId}/{manifestId} (direct-to-storage). Both use
-		// {prefix}/{uploadId} as the object key.
+		// keyPrefix is O{orgId}/D{datasetId}/{manifestId}; the object key is
+		// {prefix}/{uploadId}.
 		s3Key := aws.String(fmt.Sprintf("%s/%s", keyPrefix, record.UploadId))
 		tags := fmt.Sprintf("OrgId=%s&DatasetId=%s", organizationId, datasetId)
 
@@ -722,24 +659,19 @@ func (s *agentServer) uploadWorker(
 			Status:   manifestFile.Uploaded,
 		}
 
-		// Direct-to-storage: hand off to the finalize batcher so the server
-		// can create Postgres rows and mark the file Finalized. Legacy path
-		// has no finalize channel — the upload lambda handles it via S3 events.
-		if finalizeCh != nil {
-			// SHA256 is required on finalize so the server can verify
-			// content integrity against what S3 stored. For multipart
-			// uploads this is the checksum-of-checksums (suffixed with
-			// the part count, e.g. "base64==-42"); the server compares
-			// it to HEAD's ChecksumSHA256, so this round-trip is exact.
-			var sha256 string
-			if uploadOut != nil && uploadOut.ChecksumSHA256 != nil {
-				sha256 = *uploadOut.ChecksumSHA256
-			}
-			finalizeCh <- finalizeJob{
-				UploadID: record.UploadId.String(),
-				Size:     fileInfo.Size(),
-				SHA256:   sha256,
-			}
+		// SHA256 is required on finalize so the server can verify content
+		// integrity against what S3 stored. For multipart uploads this is the
+		// checksum-of-checksums (suffixed with the part count, e.g.
+		// "base64==-42"); the server compares it to HEAD's ChecksumSHA256, so
+		// this round-trip is exact.
+		var sha256 string
+		if uploadOut != nil && uploadOut.ChecksumSHA256 != nil {
+			sha256 = *uploadOut.ChecksumSHA256
+		}
+		finalizeCh <- finalizeJob{
+			UploadID: record.UploadId.String(),
+			Size:     fileInfo.Size(),
+			SHA256:   sha256,
 		}
 	}
 

@@ -103,7 +103,7 @@ func (s *agentServer) Push(ctx context.Context, req *api.PushRequest) (*api.Simp
             targetPath = filepath.ToSlash(targetPath)
 
             // Add this file to the manifest using the existing addToManifest helper
-            _, err = s.addToManifest(filePath, targetPath, nil, manifestResponse.Id)
+            _, _, _, err = s.addToManifest(filePath, targetPath, nil, manifestResponse.Id)
             if err != nil {
                 log.Errorf("Error adding file %s to manifest: %v", relPath, err)
                 continue

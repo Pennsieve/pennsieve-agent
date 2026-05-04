@@ -45,6 +45,7 @@ type ManifestFileStore interface {
 	ResetStatusForManifest(manifestId int32) error
 	GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error)
 	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- ManifestFile)
+	GetManifestIDsWithFilesInStatus(statuses []manifestFile.Status) ([]int32, error)
 }
 
 func NewManifestFileStore(db *sql.DB) *manifestFileStore {
@@ -433,6 +434,39 @@ func (s *manifestFileStore) ResetStatusForManifest(manifestId int32) error {
 	}
 
 	return nil
+}
+
+// GetManifestIDsWithFilesInStatus returns the distinct manifest_ids that have
+// at least one row in any of the given statuses. Used by the reconciler to
+// skip idle manifests entirely.
+func (s *manifestFileStore) GetManifestIDsWithFilesInStatus(statuses []manifestFile.Status) ([]int32, error) {
+	if len(statuses) == 0 {
+		return nil, nil
+	}
+	placeholders := make([]string, len(statuses))
+	args := make([]interface{}, len(statuses))
+	for i, st := range statuses {
+		placeholders[i] = "?"
+		args[i] = st.String()
+	}
+	query := fmt.Sprintf(
+		"SELECT DISTINCT manifest_id FROM manifest_files WHERE status IN (%s)",
+		strings.Join(placeholders, ","),
+	)
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int32
+	for rows.Next() {
+		var id int32
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // GetNumberOfRowsForStatus returns the number of rows in a manifest that do (not) have a specific status

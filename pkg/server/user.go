@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,13 +32,6 @@ func (s *agentServer) GetUser(ctx context.Context, request *pb.GetUserRequest) (
 }
 
 func (s *agentServer) SwitchProfile(ctx context.Context, request *pb.SwitchProfileRequest) (*pb.UserResponse, error) {
-
-	s.syncCancelFncs.Range(func(key interface{}, value interface{}) bool {
-		fmt.Println("STOP SYNCING on ", key.(int32))
-		tmr := value.(chan struct{})
-		tmr <- struct{}{}
-		return true
-	})
 
 	client, err := s.PennsieveClient()
 	if err != nil {

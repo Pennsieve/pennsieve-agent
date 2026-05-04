@@ -25,7 +25,6 @@ type manifestService interface {
 	RemoveFromManifest(manifestId int32, removePath string) (models.RemoveFromManifestResponse, error)
 	RemoveManifest(manifestId int32) error
 	GetFiles(manifestId int32, limit int32, offset int32) ([]store.ManifestFile, error)
-	VerifyFinalizedStatus(ctx context.Context, manifest *store.Manifest, statusUpdates chan<- models.UploadStatusUpdateMessage) error
 	ResetStatusForManifest(manifestId int32) error
 	GetNumberOfRowsForStatus(manifestId int32, statusArr []manifestFile.Status, invert bool) (int64, error)
 	ManifestFilesToChannel(ctx context.Context, manifestId int32, statusArr []manifestFile.Status, walker chan<- store.ManifestFile)
@@ -53,9 +52,8 @@ type DependencyContainer interface {
 type agentServer struct {
 	pb.UnimplementedAgentServer
 
-	subscribers    sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
-	cancelFncs     sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
-	syncCancelFncs sync.Map // syncCancelFncs is a map that hold synctimers for each active dataset.
+	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
+	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
 
 	grpcServer *grpc.Server
 	client     *pennsieve.Client

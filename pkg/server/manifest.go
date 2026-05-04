@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	pb "github.com/pennsieve/pennsieve-agent/api/v1"
-	"github.com/pennsieve/pennsieve-agent/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/pkg/shared"
 	"github.com/pennsieve/pennsieve-agent/pkg/store"
 	"github.com/pennsieve/pennsieve-go-core/pkg/models/manifest"
@@ -123,16 +122,17 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 
 	// 2. Walk over folder and populate DB with file-paths.
 	// --------------------------------------------------
-	nrRecords, err := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
+	nrRecords, nrOSSkipped, nrSecretsSkipped, err := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, createdManifest.Id)
 	if err != nil {
 		s.messageSubscribers(fmt.Sprintf("Error with accessing files on: %s", request.BasePath))
 		response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: "Creating manifest failed."}
 		return &response, nil
 	}
 
-	s.messageSubscribers(fmt.Sprintf("Finished Adding %d files to Manifest.", nrRecords))
+	indexedMsg := manifestAddSummary(nrRecords, nrOSSkipped, nrSecretsSkipped)
+	s.messageSubscribers("Finished Adding " + indexedMsg)
 
-	response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
+	response := pb.CreateManifestResponse{ManifestId: createdManifest.Id, Message: "Successfully indexed " + indexedMsg}
 	return &response, nil
 
 }
@@ -140,12 +140,27 @@ func (s *agentServer) CreateManifest(ctx context.Context, request *pb.CreateMani
 // AddToManifest adds files to existing upload manifest.
 func (s *agentServer) AddToManifest(ctx context.Context, request *pb.AddToManifestRequest) (*pb.SimpleStatusResponse, error) {
 
-	nrRecords, _ := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
+	nrRecords, nrOSSkipped, nrSecretsSkipped, _ := s.addToManifest(request.BasePath, request.TargetBasePath, request.Files, request.ManifestId)
 
-	log.Info(fmt.Sprintf("Finished Adding %d files.", nrRecords))
+	log.Infof("Finished Adding %d files (skipped %d OS metadata, %d suspected credential).", nrRecords, nrOSSkipped, nrSecretsSkipped)
 
-	response := pb.SimpleStatusResponse{Status: fmt.Sprintf("Successfully indexed %d files.", nrRecords)}
+	response := pb.SimpleStatusResponse{Status: "Successfully indexed " + manifestAddSummary(nrRecords, nrOSSkipped, nrSecretsSkipped)}
 	return &response, nil
+}
+
+// manifestAddSummary formats the user-facing tail of an add-to-manifest
+// result, e.g. "13 files. Skipped 4 OS metadata. Skipped 1 suspected
+// credential file/dir — see agent.log to audit." Empty skip counts are
+// omitted to keep the common case clean.
+func manifestAddSummary(indexed, osSkipped, secretsSkipped int) string {
+	out := fmt.Sprintf("%d files.", indexed)
+	if osSkipped > 0 {
+		out += fmt.Sprintf(" Skipped %d OS metadata file(s)/dir(s).", osSkipped)
+	}
+	if secretsSkipped > 0 {
+		out += fmt.Sprintf(" Skipped %d suspected credential file(s)/dir(s) — see agent.log to audit.", secretsSkipped)
+	}
+	return out
 }
 
 // RemoveFromManifest removes one or more files from the index for an existing manifest.
@@ -240,27 +255,8 @@ func (s *agentServer) SyncManifest(ctx context.Context, request *pb.SyncManifest
 		return nil, err
 	}
 
-	// collect all file status updates in a single buffered channel to serialize writes
-	statusUpdates := make(chan models.UploadStatusUpdateMessage, 100)
-	var statusUpdatesWg sync.WaitGroup
-	statusUpdatesWg.Add(1)
-
-	go func() {
-		defer statusUpdatesWg.Done()
-		s.startStatusUpdateBatchWriter(statusUpdates)
-	}()
-
-	// Verify uploaded files that are in Finalized state.
-	if manifest.NodeId.Valid {
-		log.Debug("Verifying files")
-		err := s.ManifestService().VerifyFinalizedStatus(ctx, manifest, statusUpdates)
-		if err != nil {
-			log.Error("failed to verify manifest file statuses", err)
-		}
-	}
-
-	close(statusUpdates)
-	statusUpdatesWg.Wait()
+	// Verify-finalized reconciliation (server→local Verified) is owned by
+	// pkg/reconciler now; it polls every 60s for the daemon's lifetime.
 
 	// Sync local files with the server.
 	log.Debug("Syncing files.")
@@ -585,18 +581,13 @@ func (s *agentServer) syncUpdateSubscribers(total int64, nrSynced int64, workerI
 	}
 }
 
-func (f fileWalk) Walk(path string, info fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		f <- path
-	}
-	return nil
-}
-
-// addToManifest walks over provided path and adds records to DB
-func (s *agentServer) addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (int, error) {
+// addToManifest walks over provided path and adds records to DB. Returns
+// the number indexed, the number of OS-metadata entries skipped (.DS_Store,
+// __MACOSX, etc.), and the number of suspected secret-bearing entries
+// skipped (.env, .ssh/, .aws/, ...) so callers can surface the counts to
+// the user. Secret skips are logged at WARN with the full path so the user
+// can audit what was filtered.
+func (s *agentServer) addToManifest(localBasePath string, targetBasePath string, files []string, manifestId int32) (totalIndexed int, osSkipped int, secretsSkipped int, err error) {
 
 	if len(files) > 0 && len(localBasePath) > 0 {
 		err := status.Error(codes.NotFound,
@@ -604,7 +595,7 @@ func (s *agentServer) addToManifest(localBasePath string, targetBasePath string,
 				"\t You cannot specify both 'basePath' and 'files'.")
 
 		log.Error(err)
-		return 0, err
+		return 0, 0, 0, err
 
 	}
 
@@ -613,13 +604,45 @@ func (s *agentServer) addToManifest(localBasePath string, targetBasePath string,
 	errs := make(chan error, 1) // Use channel to export error if walk fails.
 	go func() {
 
+		walkFn := func(path string, info fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			name := info.Name()
+			if info.IsDir() {
+				if shared.IsOSNoiseDir(name) {
+					osSkipped++
+					log.Debugf("addToManifest: skipping OS-noise dir %s", path)
+					return filepath.SkipDir
+				}
+				if shared.IsSecretDir(name) {
+					secretsSkipped++
+					log.Warnf("addToManifest: skipping suspected credential directory %s (entire subtree excluded)", path)
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if shared.IsOSNoiseFile(name) {
+				osSkipped++
+				log.Debugf("addToManifest: skipping OS-noise file %s", path)
+				return nil
+			}
+			if shared.IsSecretFile(name) {
+				secretsSkipped++
+				log.Warnf("addToManifest: skipping suspected credential file %s", path)
+				return nil
+			}
+			walker <- path
+			return nil
+		}
+
 		if len(files) > 0 {
 			for _, f := range files {
 				walker <- f
 			}
 		} else {
 			// Gather the files to upload by walking the path recursively
-			if err := filepath.WalkDir(localBasePath, walker.Walk); err != nil {
+			if err := filepath.WalkDir(localBasePath, walkFn); err != nil {
 				log.Error("Walk failed:", err)
 				errs <- fmt.Errorf("walkError: Unable to read: %s", localBasePath)
 			}
@@ -631,16 +654,14 @@ func (s *agentServer) addToManifest(localBasePath string, targetBasePath string,
 
 	// Get paths from channel, and when <batchSize> number of paths,
 	// store these in the local DB.
-	totalIndexed := 0
 	i := 0
 	var items []string
 	for {
 		item, ok := <-walker
 		if !ok {
 			// Final batch of items
-			err := s.addUploadRecords(items, localBasePath, targetBasePath, manifestId)
-			if err != nil {
-				return 0, err
+			if addErr := s.addUploadRecords(items, localBasePath, targetBasePath, manifestId); addErr != nil {
+				return 0, 0, 0, addErr
 			}
 			totalIndexed += len(items)
 			break
@@ -650,9 +671,8 @@ func (s *agentServer) addToManifest(localBasePath string, targetBasePath string,
 		i++
 		if i == batchSize {
 			// Standard batch of items
-			err := s.addUploadRecords(items, localBasePath, targetBasePath, manifestId)
-			if err != nil {
-				return 0, err
+			if addErr := s.addUploadRecords(items, localBasePath, targetBasePath, manifestId); addErr != nil {
+				return 0, 0, 0, addErr
 			}
 
 			i = 0
@@ -661,9 +681,11 @@ func (s *agentServer) addToManifest(localBasePath string, targetBasePath string,
 		}
 	}
 
-	hasError := <-errs
-
-	return totalIndexed, hasError
+	// Safe to read osSkipped/secretsSkipped here: close(walker) happens after
+	// the walker goroutine's last write to the counters, and the consumer
+	// loop only exited because it observed walker as closed.
+	err = <-errs
+	return totalIndexed, osSkipped, secretsSkipped, err
 }
 
 // addUploadRecords adds records to the local SQLite DB.
