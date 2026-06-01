@@ -202,6 +202,10 @@ func (s *agentServer) uploadProcessor(
 	syncDone <-chan struct{},
 	onConflict string,
 ) {
+	// Re-read config so changes to config.ini take effect without restarting the daemon.
+	// viper.Set values (e.g. from PENNSIEVE_AGENT_UPLOAD_WORKERS at daemon start) still
+	// take precedence over config-file values — their priority is unaffected by ReadInConfig.
+	_ = viper.ReadInConfig()
 	uploadWorkers := viper.GetInt("agent.upload_workers")
 	chunkSize := viper.GetInt64("agent.upload_chunk_size")
 
