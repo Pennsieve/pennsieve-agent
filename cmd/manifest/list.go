@@ -3,6 +3,9 @@ package manifest
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+
 	"github.com/jedib0t/go-pretty/v6/table"
 	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/pennsieve/pennsieve-agent/v2/cmd/shared"
@@ -10,14 +13,12 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"os"
-	"strconv"
 )
 
 var ListCmd = &cobra.Command{
-	Use:   "list [flags] <manifestId> [offset] [limit]",
+	Use:   "list [flags] <manifestId> [limit] [offset]",
 	Short: "lists files for a manifest.",
-	Long:  `Creates manifest for upload.`,
+	Long:  `Lists files for a manifest.`,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
