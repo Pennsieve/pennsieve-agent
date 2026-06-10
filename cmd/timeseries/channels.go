@@ -2,6 +2,8 @@ package timeseries
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/jedib0t/go-pretty/v6/table"
 	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/pennsieve/pennsieve-agent/v2/pkg/config"
@@ -12,13 +14,16 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"os"
 )
+
+const processingNote = `Note: files must be fully processed on Pennsieve before their
+channels are available. If this package is still processing or is not a
+viewable timeseries dataset, no channels will be returned.`
 
 var ChannelsCmd = &cobra.Command{
 	Use:   "channels <package_id>",
 	Short: "Prints the channels for a given package",
-	Long:  `This methods displays a list of the channels for a given package.`,
+	Long:  "This method displays a list of the channels for a given package.\n\n" + processingNote,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
