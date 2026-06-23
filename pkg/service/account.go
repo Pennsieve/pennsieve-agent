@@ -129,6 +129,51 @@ func (a *AccountService) RequestEcrAccess(accountId string, accountType string) 
 	return nil
 }
 
+func (a *AccountService) UpdateRoleAWS(profile string, accountType string) (*api.UpdateRoleResponse, error) {
+	// 1. Resolve the external AWS account ID via STS.
+	tempManager := aws.NewAWSRoleManager(profile, "", "", "")
+	externalAccountId, err := tempManager.GetAccountId()
+	if err != nil {
+		return nil, fmt.Errorf("getting AWS account ID: %w", err)
+	}
+
+	// 2. Find the registered account so we can target its EXISTING role.
+	//    fetchRoleConfig mints a fresh random role name on every call, so we
+	//    must not use that name here — we reuse the one already on record.
+	accounts, err := a.Client.Account.GetAccounts(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("getting registered accounts: %w", err)
+	}
+
+	var roleName string
+	var matchCount int
+	for _, acct := range accounts {
+		if acct.AccountId == externalAccountId {
+			roleName = acct.RoleName
+			matchCount++
+		}
+	}
+	if matchCount == 0 {
+		return nil, fmt.Errorf("no registered account found for AWS account %s", externalAccountId)
+	}
+	if matchCount > 1 {
+		return nil, fmt.Errorf("multiple registered accounts found for AWS account %s; please contact support", externalAccountId)
+	}
+
+	// 3. Fetch the latest policy documents and apply them to the existing role.
+	config, err := a.fetchRoleConfig()
+	if err != nil {
+		return nil, fmt.Errorf("fetching role config: %w", err)
+	}
+
+	registration := aws.NewAWSRoleManager(profile, roleName, string(config.TrustPolicyDocument), string(config.PolicyDocument))
+	if err := registration.Update(); err != nil {
+		return nil, fmt.Errorf("updating role %s: %w", roleName, err)
+	}
+
+	return &api.UpdateRoleResponse{AccountId: externalAccountId, RoleName: roleName}, nil
+}
+
 func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
 	config, err := a.fetchRoleConfig()
 	if err != nil {

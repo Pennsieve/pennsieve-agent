@@ -58,6 +58,7 @@ type AgentClient interface {
 	StartWorkflow(ctx context.Context, in *StartWorkflowRequest, opts ...grpc.CallOption) (*WorkflowResponse, error)
 	// Account Endpoints
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error)
 	Deregister(ctx context.Context, in *DeregisterRequest, opts ...grpc.CallOption) (*DeregisterResponse, error)
 	// Timeseries Endpoints
 	GetTimeseriesChannels(ctx context.Context, in *GetTimeseriesChannelsRequest, opts ...grpc.CallOption) (*GetTimeseriesChannelsResponse, error)
@@ -348,6 +349,15 @@ func (c *agentClient) Register(ctx context.Context, in *RegisterRequest, opts ..
 	return out, nil
 }
 
+func (c *agentClient) UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error) {
+	out := new(UpdateRoleResponse)
+	err := c.cc.Invoke(ctx, "/v1.Agent/UpdateRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentClient) Deregister(ctx context.Context, in *DeregisterRequest, opts ...grpc.CallOption) (*DeregisterResponse, error) {
 	out := new(DeregisterResponse)
 	err := c.cc.Invoke(ctx, "/v1.Agent/Deregister", in, out, opts...)
@@ -447,6 +457,7 @@ type AgentServer interface {
 	StartWorkflow(context.Context, *StartWorkflowRequest) (*WorkflowResponse, error)
 	// Account Endpoints
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error)
 	Deregister(context.Context, *DeregisterRequest) (*DeregisterResponse, error)
 	// Timeseries Endpoints
 	GetTimeseriesChannels(context.Context, *GetTimeseriesChannelsRequest) (*GetTimeseriesChannelsResponse, error)
@@ -542,6 +553,9 @@ func (UnimplementedAgentServer) StartWorkflow(context.Context, *StartWorkflowReq
 }
 func (UnimplementedAgentServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
+}
+func (UnimplementedAgentServer) UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateRole not implemented")
 }
 func (UnimplementedAgentServer) Deregister(context.Context, *DeregisterRequest) (*DeregisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deregister not implemented")
@@ -1075,6 +1089,24 @@ func _Agent_Register_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).UpdateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Agent/UpdateRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).UpdateRole(ctx, req.(*UpdateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Agent_Deregister_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeregisterRequest)
 	if err := dec(in); err != nil {
@@ -1264,6 +1296,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Register",
 			Handler:    _Agent_Register_Handler,
+		},
+		{
+			MethodName: "UpdateRole",
+			Handler:    _Agent_UpdateRole_Handler,
 		},
 		{
 			MethodName: "Deregister",
