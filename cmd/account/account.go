@@ -32,6 +32,12 @@ func init() {
 	RegisterCmd.Flags().String("profile",
 		"default", "CLI profile")
 
+	AccountCmd.AddCommand(UpdateRoleCmd)
+	UpdateRoleCmd.Flags().String("type",
+		"AWS", "Account Type")
+	UpdateRoleCmd.Flags().String("profile",
+		"default", "CLI profile")
+
 	AccountCmd.AddCommand(DeregisterCmd)
 	DeregisterCmd.Flags().String("type",
 		"AWS", "Account Type")

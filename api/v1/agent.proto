@@ -48,6 +48,7 @@ service Agent {
 
 	// Account Endpoints
 	rpc Register(RegisterRequest) returns (RegisterResponse){}
+	rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse){}
 	rpc Deregister(DeregisterRequest) returns (DeregisterResponse){}
 
 	// Timeseries Endpoints
@@ -498,4 +499,13 @@ message packageStatus {
 
 message MapDiffResponse {
 	repeated packageStatus files = 1;
+}
+
+message UpdateRoleRequest{
+	Account account = 1;
+	Credentials credentials = 2;
+}
+message UpdateRoleResponse{
+	string account_id = 1;
+	string role_name = 2;
 }
