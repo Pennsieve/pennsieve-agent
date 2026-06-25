@@ -205,7 +205,7 @@ func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFil
 	f, err := os.Create(workOrder.FilePath + "/workflow/input.csv")
 	if err != nil {
 		errString = "Unable to create file"
-		fmt.Printf(errString)
+		fmt.Print(errString)
 		return err, errString
 	}
 	workOrder.Files = f.Name()
@@ -214,14 +214,14 @@ func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFil
 	err = w.Write(record)
 	if err != nil {
 		errString = "Unable to write header"
-		fmt.Printf(errString)
+		fmt.Print(errString)
 		return err, errString
 	}
 	for _, file := range listFilesResponse.File {
 		record := []string{strconv.Itoa(int(file.Id)), file.SourcePath, file.TargetPath}
 		if err := w.Write(record); err != nil {
 			errString = fmt.Sprintf("error writing record to file: %v", err)
-			fmt.Printf(errString)
+			fmt.Print(errString)
 			return err, errString
 		}
 	}
@@ -229,7 +229,7 @@ func createInputCSV(workOrder *WorkOrder, listFilesResponse *api.ListManifestFil
 	err = f.Close()
 	if err != nil {
 		errString = fmt.Sprintf("Error closing file Stream: %v", err)
-		fmt.Printf(errString)
+		fmt.Print(errString)
 		return err, errString
 	}
 	return err, errString
