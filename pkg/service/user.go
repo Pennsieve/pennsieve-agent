@@ -182,6 +182,17 @@ func (s *UserService) GetActiveUser() (*UserDTO, error) {
 // SwitchUser switches between profiles and returns active userInfo.
 func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 
+	// Re-read the config file before looking the profile up.
+	//
+	// The agent is a long-running daemon that loads config once at startup, so a
+	// profile added afterwards by "pennsieve profile create" is invisible to it
+	// and switching reports "Profile not found" even though the profile is
+	// present in config.ini. Users hit this immediately after creating their
+	// first profile, and the only workaround was restarting the agent.
+	if err := viper.ReadInConfig(); err != nil {
+		log.Warn("Could not re-read config file; using previously loaded values: ", err)
+	}
+
 	// Check if profile exist
 	isSet := viper.IsSet(profile + ".api_token")
 	if !isSet {
