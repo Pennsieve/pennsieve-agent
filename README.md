@@ -93,7 +93,12 @@ If you are using a profile for a non-standard environment, you can manually add 
 ```shell
 api_host = XXXX (eg. https://api.pennsieve.net)
 upload_bucket = XXXXX (eg. pennsieve-dev-uploads-v2-use1)
+api2_host = XXXX (optional; eg. https://api2.pennsieve.net)
 ```
+
+The v2 API follows `api_host`: `https://api.<domain>` uses `https://api2.<domain>` (so a profile with
+`api_host = https://api.pennsieve.ai` reaches `https://api2.pennsieve.ai`). Set `api2_host` only when it
+lives somewhere else.
 
 ## Configuration with Environment variables
 You can set agent configuration parameters by updating the configuration file or by setting the following Environment Variables:
@@ -108,6 +113,7 @@ You can use environment variables to set your profile using the following variab
 - PENNSIEVE_API_SECRET
 - PENNSIEVE_UPLOAD_BUCKET (optional)
 - PENNSIEVE_API_HOST (optional)
+- PENNSIEVE_API2_HOST (optional; defaults to api2.<domain of PENNSIEVE_API_HOST>)
 
 If you set the PENNSIEVE_API_KEY, the agent will not use the configuration file and use the profile specified in the environment variables. Note that upload bucket and api_host are optional and default to the production version of the platform.
 

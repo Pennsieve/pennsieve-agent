@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/config"
 	"github.com/pennsieve/pennsieve-agent/v2/pkg/store"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 	log "github.com/sirupsen/logrus"
@@ -220,14 +221,7 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 	}
 
 	// Directly update baseURL, so we can authenticate against new profile before setting up new Client
-	customAPIHost := viper.GetString(profile + ".api_host")
-	if customAPIHost != "" {
-		newParams.ApiHost = customAPIHost
-		newParams.ApiHost2 = "https://api2.pennsieve.net"
-	} else {
-		newParams.ApiHost = pennsieve.BaseURLV1
-		newParams.ApiHost2 = pennsieve.BaseURLV2
-	}
+	newParams.ApiHost, newParams.ApiHost2 = config.ProfileAPIHosts(profile)
 
 	s.client.Updateparams(newParams)
 

@@ -59,14 +59,9 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			return nil, errors.New(fmt.Sprintf("API Token/secret not set for profile: %s", userSettings.Profile))
 		}
 
-		// Update baseURL if config specifies a custom API-HOST (such as https://api.pennsieve.net)
-		if viper.IsSet(userSettings.Profile + ".api_host") {
-			activeConfig.ApiHost = viper.GetString(userSettings.Profile + ".api_host")
-			activeConfig.ApiHost2 = "https://api2.pennsieve.net"
-		} else {
-			activeConfig.ApiHost = pennsieve.BaseURLV1
-			activeConfig.ApiHost2 = pennsieve.BaseURLV2
-		}
+		// A custom api_host (such as https://api.pennsieve.net) brings its own
+		// v2 API: api2_host, or api2.<the same domain>.
+		activeConfig.ApiHost, activeConfig.ApiHost2 = ProfileAPIHosts(userSettings.Profile)
 
 		if viper.IsSet(userSettings.Profile + ".upload_bucket") {
 			activeConfig.UploadBucket = viper.GetString(userSettings.Profile + ".upload_bucket")
@@ -194,14 +189,7 @@ func InitPennsieveClient(usStore store.UserSettingsStore, uiStore store.UserInfo
 			activeConfig.UploadBucket = uploadBucket
 		}
 
-		apiHost, present := os.LookupEnv("PENNSIEVE_API_HOST")
-		if present {
-			activeConfig.ApiHost = apiHost
-			activeConfig.ApiHost2 = "https://api2.pennsieve.net"
-		} else {
-			activeConfig.ApiHost = pennsieve.BaseURLV1
-			activeConfig.ApiHost2 = pennsieve.BaseURLV2
-		}
+		activeConfig.ApiHost, activeConfig.ApiHost2 = EnvAPIHosts()
 
 		client = pennsieve.NewClient(activeConfig)
 
