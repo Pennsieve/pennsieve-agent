@@ -4,14 +4,13 @@ import (
     "context"
     "fmt"
     api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
-    "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
     "github.com/pennsieve/pennsieve-go/pkg/pennsieve"
+    "github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/download"
     log "github.com/sirupsen/logrus"
     "hash/crc32"
     "io"
     "net/http"
     "os"
-    "path/filepath"
     "sync"
     "time"
 )
@@ -27,9 +26,17 @@ type Downloader interface {
         url string,
         targetLocation string,
         downloadId string) (uint32, error)
-    DownloadWorker(ctx context.Context, workerId int,
-        jobs <-chan models.ManifestDTO, result <-chan int, targetFolder string,
-    )
+    DownloadManifest(ctx context.Context, d ManifestDownload, first *download.ManifestPage) (ManifestResult, error)
+}
+
+// StatusError is a download the storage server refused, such as an expired
+// link (403).
+type StatusError struct {
+    StatusCode int
+}
+
+func (e *StatusError) Error() string {
+    return fmt.Sprintf("download refused: HTTP %d", e.StatusCode)
 }
 
 type Subscriber interface {
@@ -64,40 +71,6 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
         pr.s.updateDownloadSubscribers(pr.Size, pr.Pos, pr.Name, api.SubscribeResponse_DownloadStatusResponse_IN_PROGRESS)
     }
     return n, err
-}
-
-func (s *downloader) DownloadWorker(ctx context.Context, workerId int,
-    jobs <-chan models.ManifestDTO, result <-chan int, targetFolder string,
-) {
-
-    for record := range jobs {
-        err := os.MkdirAll(filepath.Join(targetFolder, record.Path), os.ModePerm)
-
-        res, err := s.pennsieveClient.Package.GetPresignedUrl(ctx, record.PackageNodeId, false)
-        if err != nil {
-            log.Errorf("Download failed: %v", err)
-            continue
-        }
-
-        // We are iterating over list of files, but getPresignedUrl works over package so
-        // will need to figure out which file in package is current iteration
-        preURL := ""
-        for _, f := range res.Files {
-            preURL = f.URL
-            if f.Name == record.FileName.String {
-                break
-            }
-        }
-        if preURL == "" {
-            log.Error("Cannot find file in returned presigned url array")
-        }
-
-        fileLocation := filepath.Join(targetFolder, record.Path, record.FileName.String)
-        _, err = s.DownloadFileFromPresignedUrl(ctx, preURL, fileLocation, record.PackageNodeId)
-        if err != nil {
-            log.Errorf("Download failed: %v", err)
-        }
-    }
 }
 
 func (s *downloader) CancelDownload(ctx context.Context, req *api.CancelDownloadRequest) (*api.SimpleStatusResponse, error) {
@@ -148,20 +121,14 @@ func (s *downloader) DownloadFileFromPresignedUrl(ctx context.Context, url strin
     s.downloadCancelFncs.Store(downloadId, session)
     req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
     if err != nil {
-        log.Errorf("Download failed: %v", err)
+        return 0, err
     }
 
-    log.Infof("Downloading %s to %s", url, targetLocation)
+    // Not the URL: it carries a signature.
+    log.Infof("Downloading %s", targetLocation)
 
-    resp, err := http.Get(req.URL.String())
+    resp, err := http.DefaultClient.Do(req)
     if err != nil {
-        log.Errorf("Download failed: %v", err)
-    }
-
-    if resp.StatusCode != 200 {
-        log.Info(resp)
-        log.Infof("Error while downloading: %v", resp.StatusCode)
-        fmt.Println(" - Download cancelled")
         return 0, err
     }
     defer func(Body io.ReadCloser) {
@@ -171,7 +138,16 @@ func (s *downloader) DownloadFileFromPresignedUrl(ctx context.Context, url strin
         }
     }(resp.Body)
 
-    f, _ := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+    if resp.StatusCode != http.StatusOK {
+        log.Infof("Error while downloading: %v", resp.StatusCode)
+        fmt.Println(" - Download cancelled")
+        return 0, &StatusError{StatusCode: resp.StatusCode}
+    }
+
+    f, err := os.OpenFile(targetLocation, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+    if err != nil {
+        return 0, err
+    }
     defer func(f *os.File) {
         err := f.Close()
         if err != nil {

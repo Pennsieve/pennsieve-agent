@@ -126,6 +126,9 @@ func (s *agentServer) PennsieveClient() (*pennsieve.Client, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Labels the agent's requests (X-Pennsieve-Client), such as its
+		// downloads.
+		client.GetAPIParams().ClientName = "pennsieve-agent/" + Version
 		s.client = client
 	}
 

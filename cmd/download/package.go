@@ -21,10 +21,12 @@ var PackageCmd = &cobra.Command{
 		packageId := args[0]
 
 		getPresignedUrl, _ := cmd.Flags().GetBool("presigned")
+		datasetId, _ := cmd.Flags().GetString("dataset")
 
 		req := api.DownloadPackageRequest{
 			PackageId:       packageId,
 			GetPresignedUrl: getPresignedUrl,
+			DatasetId:       datasetId,
 		}
 
 		downloadReq := api.DownloadRequest{
@@ -58,4 +60,6 @@ var PackageCmd = &cobra.Command{
 }
 
 func init() {
+	PackageCmd.Flags().String("dataset", "",
+		"The package's dataset (node id). Recommended: links then come from the download service")
 }
