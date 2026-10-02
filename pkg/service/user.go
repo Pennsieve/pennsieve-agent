@@ -212,6 +212,7 @@ func (s *UserService) SwitchUser(profile string) (*store.UserInfo, error) {
 		Port:          viper.GetString("agent.port"),
 		UseConfigFile: true,
 		Profile:       profile,
+		ClientName:    s.client.GetAPIParams().ClientName,
 	}
 
 	if customUploadBucket != "" {

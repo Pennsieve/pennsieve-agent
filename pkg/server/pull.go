@@ -7,17 +7,16 @@ import (
 	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/pennsieve/pennsieve-agent/v2/pkg/models"
 	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
+	wsmodels "github.com/pennsieve/pennsieve-go-core/pkg/models/workspaceManifest"
+	"github.com/pennsieve/pennsieve-go/pkg/pennsieve/models/download"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 )
-
-type packageRecord struct {
-	PackageId string
-	Location  string
-}
 
 func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.SimpleStatusResponse, error) {
 
@@ -31,93 +30,111 @@ func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.Simp
 		return &api.SimpleStatusResponse{Status: "The provided path is not part of a Pennsieve mapped dataset."}, nil
 	}
 
-	// find packageIds associated with the provided path.
-	var packages []packageRecord
 	workspaceManifest, err := shared.ReadWorkspaceManifest(filepath.Join(datasetRoot, ".pennsieve", "manifest.json"))
 	if err != nil {
 		return nil, err
 	}
+	nodeIds, locations := pullSelection(workspaceManifest, datasetRoot, req.Path)
 
-	for _, f := range workspaceManifest.Files {
-		if f.FileName.Valid {
-
-			// Check if the file matches or the folder matches.
-			// In both cases, add the package
-			curFile := filepath.Join(datasetRoot, f.Path, f.FileName.String)
-			curFolder := filepath.Join(datasetRoot, f.Path)
-			if curFile == req.Path || curFolder == req.Path {
-				packages = append(packages, packageRecord{
-					PackageId: f.PackageNodeId,
-					Location:  curFile,
-				})
-			}
-		}
+	client, err := s.PennsieveClient()
+	if err != nil {
+		return nil, err
 	}
 
-	// Iterate over packages and download files.
-	// Run this in a goroutine to prevent blocking of the agent.
+	// Download in a goroutine to prevent blocking of the agent.
 	go func() {
-		// Open the state file so we can update as needed
-		mapState, _ := shared.ReadStateFile(filepath.Join(datasetRoot, ".pennsieve", "state.json"))
+		stateFileLocation := filepath.Join(datasetRoot, ".pennsieve", "state.json")
+		mapState, err := shared.ReadStateFile(stateFileLocation)
+		if err != nil {
+			log.Errorf("Cannot read the map state: %v", err)
+			return
+		}
 
-		for _, pkg := range packages {
-			client, err := s.PennsieveClient()
+		var mu sync.Mutex
+		pulled := func(f download.ManifestFile, location string) {
+			// Get CRC for 1st MB of file, or the entire file if less.
+			crc32, err := shared.GetFileCrc32(location, 1024*1024)
 			if err != nil {
-				log.Error("Cannot get Pennsieve client")
-
+				log.Errorf("CRC2 failed: %v", err)
 			}
-			res, err := client.Package.GetPresignedUrl(context.Background(), pkg.PackageId, false)
-			if err != nil {
-				// TODO: do correct error handling from go routine
-				log.Error("Cannot get presigned url")
-			}
+			mu.Lock()
+			defer mu.Unlock()
+			recordPull(mapState, datasetRoot, location, crc32)
+		}
 
-			downloaderImpl := shared.NewDownloader(s, client)
-			// Iterate over the files in a package and download serially
-		FILEWALK:
-			for _, f := range res.Files {
-				_, err := downloaderImpl.DownloadFileFromPresignedUrl(ctx, f.URL, pkg.Location, pkg.PackageId)
-				if err != nil {
-					log.Errorf("Download failed: %v", err)
-				}
-
-				// Get CRC for 1st MB of file, or the entire file if less.
-				crc32, err := shared.GetFileCrc32(pkg.Location, 1024*1024)
-				if err != nil {
-					log.Errorf("CRC2 failed: %v", err)
-				}
-
-				// Find if entry already exist in state and update if so
-				for i, mf := range mapState.Files {
-					if mf.Path == pkg.Location {
-						mapState.Files[i].PullTime = time.Now()
-						mapState.Files[i].Crc32 = crc32
-						continue FILEWALK
-					}
-				}
-
-				relLocation := strings.TrimPrefix(pkg.Location, datasetRoot+string(os.PathSeparator))
-
-				// First time we pull the file --> create new record in mapState.
-				mapState.Files = append(mapState.Files, models.MapStateRecord{
-					Path:     filepath.ToSlash(relLocation),
-					PullTime: time.Now(),
-					IsLocal:  true,
-					Crc32:    crc32,
-				})
-			}
+		downloader := shared.NewDownloader(s, client)
+		for start := 0; start < len(nodeIds); start += shared.MaxManifestNodeIds {
+			batch := nodeIds[start:min(start+shared.MaxManifestNodeIds, len(nodeIds))]
+			res, err := downloader.DownloadManifest(context.Background(), shared.ManifestDownload{
+				DatasetId: workspaceManifest.DatasetNodeId,
+				Request:   download.ManifestRequest{NodeIds: batch},
+				Target: func(f download.ManifestFile) string {
+					return locations[pullKey{f.NodeId, f.FileName}]
+				},
+				Done: pulled,
+			}, nil)
+			logManifestResult(workspaceManifest.DatasetNodeId, res, err)
 		}
 
 		// Update MapState file
 		stateJson, _ := json.MarshalIndent(mapState, "", "  ")
-		stateFileLocation := filepath.Join(datasetRoot, ".pennsieve", "state.json")
-		err = os.WriteFile(stateFileLocation, stateJson, 0644)
-
+		if err := os.WriteFile(stateFileLocation, stateJson, 0644); err != nil {
+			log.Errorf("Cannot update the map state: %v", err)
+		}
 	}()
 
 	resp := &api.SimpleStatusResponse{Status: "Success"}
 
 	return resp, nil
+}
+
+type pullKey struct {
+	packageNodeId string
+	fileName      string
+}
+
+// pullSelection finds the packages to pull for path, a file or folder in the
+// mapped dataset at datasetRoot, and where each of their files goes.
+func pullSelection(m *wsmodels.WorkspaceManifest, datasetRoot, path string) ([]string, map[pullKey]string) {
+	var nodeIds []string
+	locations := map[pullKey]string{}
+	for _, f := range m.Files {
+		if !f.FileName.Valid {
+			continue
+		}
+		// Check if the file matches or the folder matches.
+		// In both cases, add the package
+		curFile := filepath.Join(datasetRoot, f.Path, f.FileName.String)
+		curFolder := filepath.Join(datasetRoot, f.Path)
+		if curFile != path && curFolder != path {
+			continue
+		}
+		if !slices.Contains(nodeIds, f.PackageNodeId) {
+			nodeIds = append(nodeIds, f.PackageNodeId)
+		}
+		locations[pullKey{f.PackageNodeId, f.FileName.String}] = curFile
+	}
+	return nodeIds, locations
+}
+
+// recordPull notes in mapState that the file at location was pulled.
+func recordPull(mapState *models.MapState, datasetRoot, location string, crc32 uint32) {
+	relLocation := filepath.ToSlash(strings.TrimPrefix(location, datasetRoot+string(os.PathSeparator)))
+	for i, mf := range mapState.Files {
+		if mf.Path == relLocation || mf.Path == location {
+			mapState.Files[i].PullTime = time.Now()
+			mapState.Files[i].Crc32 = crc32
+			return
+		}
+	}
+
+	// First time we pull the file --> create new record in mapState.
+	mapState.Files = append(mapState.Files, models.MapStateRecord{
+		Path:     relLocation,
+		PullTime: time.Now(),
+		IsLocal:  true,
+		Crc32:    crc32,
+	})
 }
 
 // findMappedDatasetRoot checks if the provided path is part of a Pennsieve Mapped Dataset.

@@ -454,11 +454,15 @@ message DownloadRequest {
 message DownloadDatasetRequest {
 	string dataset_id = 1;
 	string target_folder = 2;
+	// Folders and packages to download; none downloads the whole dataset.
+	repeated string node_ids = 3;
 }
 
 message DownloadPackageRequest {
 	string package_id = 1;
 	bool get_presigned_url = 2;
+	// The package's dataset. With it, links come from download-service.
+	string dataset_id = 3;
 }
 
 message DownloadResponse {

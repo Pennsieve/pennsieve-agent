@@ -15,8 +15,12 @@ import (
 var DatasetCmd = &cobra.Command{
 	Use:   "dataset [dataset-id] [target-folder]",
 	Short: "Download dataset.",
-	Long:  `Download dataset to the selected folder. A new dataset folder will be created in the selected target folder.`,
-	Args:  cobra.MinimumNArgs(2),
+	Long: `Download dataset to the selected folder. A new dataset folder will be created in the selected target folder.
+
+Use --node to download only some folders or packages of the dataset, for example:
+
+  pennsieve download dataset N:dataset:1234 ./data --node N:collection:5678 --node N:package:9012`,
+	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		datasetId := args[0]
 
@@ -30,9 +34,12 @@ var DatasetCmd = &cobra.Command{
 			return
 		}
 
+		nodeIds, _ := cmd.Flags().GetStringSlice("node")
+
 		req := api.DownloadDatasetRequest{
 			DatasetId:    datasetId,
 			TargetFolder: absPath,
+			NodeIds:      nodeIds,
 		}
 
 		downloadReq := api.DownloadRequest{
@@ -66,4 +73,6 @@ var DatasetCmd = &cobra.Command{
 }
 
 func init() {
+	DatasetCmd.Flags().StringSlice("node", nil,
+		"Download only these folders or packages (node ids; repeat or separate with commas)")
 }
