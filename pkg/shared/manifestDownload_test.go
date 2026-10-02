@@ -147,3 +147,41 @@ func TestSafeJoin(t *testing.T) {
 	assert.Equal(t, filepath.FromSlash("/data/_/_/etc_passwd"), SafeJoin(root, "..", "", "etc/passwd"))
 	assert.Equal(t, filepath.FromSlash("/data/a_b"), SafeJoin(root, `a\b`))
 }
+
+func TestDownloadManifestCancelledMidFile(t *testing.T) {
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	mux.HandleFunc("/downloads/manifests", func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewEncoder(w).Encode(download.ManifestPage{Data: []download.ManifestFile{{
+			NodeId: "N:package:1", FileId: 1, FileName: "big.edf", URL: srv.URL + "/s3/1", Size: 1 << 30,
+		}}}))
+	})
+	mux.HandleFunc("/s3/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "partial")
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	})
+
+	root := t.TempDir()
+	target := filepath.Join(root, "big.edf")
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			if b, err := os.ReadFile(target); err == nil && len(b) > 0 {
+				cancel()
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	d := testDownloader(srv)
+	res, err := d.DownloadManifest(ctx, ManifestDownload{
+		DatasetId: "N:dataset:1",
+		Target:    func(download.ManifestFile) string { return target },
+	}, nil)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, res.Failed)
+	assert.NoFileExists(t, target, "a file the download didn't finish is removed")
+}
