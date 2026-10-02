@@ -181,6 +181,21 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - name: Read version
+        id: read-version
+        run: |
+          PS_VERSION=${{needs.read-tag.outputs.tag}}
+          # WiX ProductVersion must be numeric, so drop the leading "v" and any
+          # pre-release suffix: "v2.1.0" and "2.1.0-test" both become "2.1.0".
+          # Fail loudly rather than fall back to a constant, because a wrong
+          # version here silently breaks MSI upgrades rather than erroring.
+          MSI_VERSION=$(echo "${PS_VERSION#v}" | grep -oE '^[0-9]+(\.[0-9]+){0,2}')
+          if [ -z "$MSI_VERSION" ]; then
+            echo "Cannot derive a numeric MSI version from tag '$PS_VERSION'"
+            exit 1
+          fi
+          echo "PS_VERSION=$PS_VERSION  MSI_VERSION=$MSI_VERSION"
+          echo "msi-version=$MSI_VERSION" >> "$GITHUB_OUTPUT"
       - name: Build release
         id: build-release
         run: |
@@ -195,7 +210,7 @@ jobs:
         run: |
           echo "::debug:: pwd: " pwd
           echo ":::debug:: " ls
-          candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension -dVersion='1.0.20'           
+          candle.exe ci\windows\wix\main.wxs -o obj\ -ext WixUtilExtension -ext WixUIExtension -dVersion='${{ steps.read-version.outputs.msi-version }}'
           light.exe obj\*.wixobj -o pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi -ext WixUtilExtension -ext WixUIExtension
           echo "::set-output name=asset-file::pennsieve-${{ needs.read-tag.outputs.tag }}-x86_64.msi"
       - name: Publish assets
