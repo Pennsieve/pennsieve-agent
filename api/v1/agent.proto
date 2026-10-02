@@ -456,6 +456,8 @@ message DownloadDatasetRequest {
 	string target_folder = 2;
 	// Folders and packages to download; none downloads the whole dataset.
 	repeated string node_ids = 3;
+	// Download even when the target folder's disk has too little free space.
+	bool force = 4;
 }
 
 message DownloadPackageRequest {
@@ -474,6 +476,9 @@ message DownloadResponse {
 	ResponseType type = 1;
 	string status = 2;
 	repeated string url = 3;
+	// What a download fetches: its files and their total size.
+	int64 file_count = 4;
+	int64 total_bytes = 5;
 }
 
 message MapDiffRequest {

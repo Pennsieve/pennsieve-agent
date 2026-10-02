@@ -117,6 +117,17 @@ func (s *downloader) downloadManifestFile(ctx context.Context, datasetId string,
 	if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
 		return err
 	}
+	// A file this download created and couldn't finish is removed, so a
+	// cancelled download leaves only whole files.
+	_, statErr := os.Stat(target)
+	err := s.downloadOrResign(ctx, datasetId, f, target)
+	if err != nil && os.IsNotExist(statErr) {
+		os.Remove(target)
+	}
+	return err
+}
+
+func (s *downloader) downloadOrResign(ctx context.Context, datasetId string, f download.ManifestFile, target string) error {
 	_, err := s.DownloadFileFromPresignedUrl(ctx, f.URL, target, f.NodeId)
 	var status *StatusError
 	if !errors.As(err, &status) || status.StatusCode != http.StatusForbidden {

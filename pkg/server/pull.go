@@ -41,8 +41,9 @@ func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.Simp
 		return nil, err
 	}
 
-	// Download in a goroutine to prevent blocking of the agent.
-	go func() {
+	// Download in the background to prevent blocking of the agent;
+	// CancelDownload with the dataset id stops it.
+	s.startDownload(workspaceManifest.DatasetNodeId, func(ctx context.Context) {
 		stateFileLocation := filepath.Join(datasetRoot, ".pennsieve", "state.json")
 		mapState, err := shared.ReadStateFile(stateFileLocation)
 		if err != nil {
@@ -63,9 +64,9 @@ func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.Simp
 		}
 
 		downloader := shared.NewDownloader(s, client)
-		for start := 0; start < len(nodeIds); start += shared.MaxManifestNodeIds {
+		for start := 0; start < len(nodeIds) && ctx.Err() == nil; start += shared.MaxManifestNodeIds {
 			batch := nodeIds[start:min(start+shared.MaxManifestNodeIds, len(nodeIds))]
-			res, err := downloader.DownloadManifest(context.Background(), shared.ManifestDownload{
+			res, err := downloader.DownloadManifest(ctx, shared.ManifestDownload{
 				DatasetId: workspaceManifest.DatasetNodeId,
 				Request:   download.ManifestRequest{NodeIds: batch},
 				Target: func(f download.ManifestFile) string {
@@ -81,7 +82,7 @@ func (s *agentServer) Pull(ctx context.Context, req *api.PullRequest) (*api.Simp
 		if err := os.WriteFile(stateFileLocation, stateJson, 0644); err != nil {
 			log.Errorf("Cannot update the map state: %v", err)
 		}
-	}()
+	})
 
 	resp := &api.SimpleStatusResponse{Status: "Success"}
 

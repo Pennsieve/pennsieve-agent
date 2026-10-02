@@ -5,6 +5,7 @@ import (
 	"fmt"
 	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/pennsieve/pennsieve-agent/v2/cmd/shared"
+	pkgshared "github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -35,11 +36,13 @@ Use --node to download only some folders or packages of the dataset, for example
 		}
 
 		nodeIds, _ := cmd.Flags().GetStringSlice("node")
+		force, _ := cmd.Flags().GetBool("force")
 
 		req := api.DownloadDatasetRequest{
 			DatasetId:    datasetId,
 			TargetFolder: absPath,
 			NodeIds:      nodeIds,
+			Force:        force,
 		}
 
 		downloadReq := api.DownloadRequest{
@@ -62,9 +65,11 @@ Use --node to download only some folders or packages of the dataset, for example
 			shared.HandleAgentError(err, fmt.Sprintf("Error: Unable to complete Download command: %v", err))
 			return
 		}
-		fmt.Println(downloadResponse)
 		if downloadResponse.Status == "Success" {
-			fmt.Println("Requested Download of dataset: ", datasetId)
+			fmt.Printf("Downloading %d files (%s) of %s to %s\n",
+				downloadResponse.FileCount, pkgshared.HumanBytes(downloadResponse.TotalBytes), datasetId, absPath)
+			fmt.Println("Follow progress with: pennsieve agent subscribe")
+			fmt.Println("Cancel with: pennsieve download cancel " + datasetId)
 		} else {
 			fmt.Println("Unable to request download command: ", downloadResponse.Status)
 			log.Errorf("Unable to request download command: %v", downloadResponse.Status)
@@ -75,4 +80,6 @@ Use --node to download only some folders or packages of the dataset, for example
 func init() {
 	DatasetCmd.Flags().StringSlice("node", nil,
 		"Download only these folders or packages (node ids; repeat or separate with commas)")
+	DatasetCmd.Flags().Bool("force", false,
+		"Download even when the target folder's disk has too little free space")
 }

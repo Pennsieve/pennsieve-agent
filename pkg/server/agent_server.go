@@ -54,6 +54,7 @@ type agentServer struct {
 
 	subscribers sync.Map // subscribers is a concurrent map that holds mapping from a client ID to it's subscriber.
 	cancelFncs  sync.Map // cancelFncs is a concurrent map that holds cancel functions for upload routines.
+	downloads   sync.Map // downloads holds the cancel function of each running download, by downloadKey.
 
 	grpcServer *grpc.Server
 	client     *pennsieve.Client

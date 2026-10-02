@@ -112,7 +112,9 @@ func (s *downloader) DownloadFileFromPresignedUrl(ctx context.Context, url strin
 
     start := time.Now().UnixMilli()
 
-    ctx, cancelFnc := context.WithCancel(context.Background())
+    // Cancelled with ctx: the caller's download, or CancelDownload.
+    ctx, cancelFnc := context.WithCancel(ctx)
+    defer cancelFnc()
     session := downloadSession{
         id:        downloadId,
         cancelFnc: cancelFnc,

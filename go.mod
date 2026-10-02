@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty/v6 v6.5.9
 	github.com/mattn/go-sqlite3 v1.14.23
-	github.com/pennsieve/pennsieve-go v1.8.1
+	github.com/pennsieve/pennsieve-go v1.8.2
 	github.com/pennsieve/pennsieve-go-core v1.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
@@ -26,6 +26,7 @@ require (
 	github.com/vbauerster/mpb/v8 v8.8.3
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	golang.org/x/net v0.48.0
+	golang.org/x/sys v0.39.0
 	golang.org/x/term v0.38.0
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.10
@@ -74,7 +75,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
