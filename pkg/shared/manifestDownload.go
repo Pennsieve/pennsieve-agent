@@ -69,58 +69,66 @@ func (s *downloader) DownloadManifest(ctx context.Context, d ManifestDownload, f
 }
 
 func (s *downloader) downloadPage(ctx context.Context, d ManifestDownload, files []download.ManifestFile, res *ManifestResult) {
-	workers := d.Workers
+	var mu sync.Mutex
+	inParallel(ctx, d.Workers, files, func(f download.ManifestFile) {
+		target := d.Target(f)
+		if target == "" {
+			mu.Lock()
+			res.Skipped++
+			mu.Unlock()
+			return
+		}
+		err := downloadTo(target, func() error { return s.downloadOrResign(ctx, d.DatasetId, f, target) })
+		if err == nil && d.Done != nil {
+			d.Done(f, target)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			log.Errorf("Download of %s failed: %v", target, err)
+			res.Failed++
+		} else {
+			res.Downloaded++
+		}
+	})
+}
+
+// inParallel runs fn on items with workers goroutines (default 5), and
+// stops handing out items once ctx is done.
+func inParallel[T any](ctx context.Context, workers int, items []T, fn func(T)) {
 	if workers <= 0 {
 		workers = 5
 	}
-	jobs := make(chan download.ManifestFile)
-	var mu sync.Mutex
+	jobs := make(chan T)
 	var wg sync.WaitGroup
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for f := range jobs {
-				target := d.Target(f)
-				if target == "" {
-					mu.Lock()
-					res.Skipped++
-					mu.Unlock()
-					continue
-				}
-				err := s.downloadManifestFile(ctx, d.DatasetId, f, target)
-				if err == nil && d.Done != nil {
-					d.Done(f, target)
-				}
-				mu.Lock()
-				if err != nil {
-					log.Errorf("Download of %s failed: %v", target, err)
-					res.Failed++
-				} else {
-					res.Downloaded++
-				}
-				mu.Unlock()
+			for item := range jobs {
+				fn(item)
 			}
 		}()
 	}
-	for _, f := range files {
+	for _, item := range items {
 		if ctx.Err() != nil {
 			break
 		}
-		jobs <- f
+		jobs <- item
 	}
 	close(jobs)
 	wg.Wait()
 }
 
-func (s *downloader) downloadManifestFile(ctx context.Context, datasetId string, f download.ManifestFile, target string) error {
+// downloadTo makes target's folder and runs fetch. A file fetch created and
+// couldn't finish is removed, so a cancelled download leaves only whole
+// files.
+func downloadTo(target string, fetch func() error) error {
 	if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
 		return err
 	}
-	// A file this download created and couldn't finish is removed, so a
-	// cancelled download leaves only whole files.
 	_, statErr := os.Stat(target)
-	err := s.downloadOrResign(ctx, datasetId, f, target)
+	err := fetch()
 	if err != nil && os.IsNotExist(statErr) {
 		os.Remove(target)
 	}
@@ -134,15 +142,16 @@ func (s *downloader) downloadOrResign(ctx context.Context, datasetId string, f d
 		return err
 	}
 
-	// The link expired before its turn: sign this file again.
+	// The link expired before its turn: sign this file again. A package is
+	// one file, so its node id is enough.
 	page, err := s.pennsieveClient.Download.GetManifestPage(ctx, datasetId, download.ManifestRequest{
-		NodeIds: []string{f.NodeId}, FileIds: []int64{f.FileId},
+		NodeIds: []string{f.NodeId},
 	})
 	if err != nil {
 		return err
 	}
 	for _, again := range page.Data {
-		if again.FileId == f.FileId {
+		if again.NodeId == f.NodeId {
 			_, err = s.DownloadFileFromPresignedUrl(ctx, again.URL, target, f.NodeId)
 			return err
 		}

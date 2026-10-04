@@ -441,6 +441,10 @@ message DownloadRequest {
 	enum DownloadType {
 		PACKAGE = 0;
 		DATASET = 1;
+		// A published (Discover) dataset version.
+		PUBLIC = 2;
+		// A selection saved in the app or on Discover.
+		SELECTION = 3;
 	}
 
 	DownloadType type = 1;
@@ -448,6 +452,8 @@ message DownloadRequest {
 	oneof data {
 		DownloadDatasetRequest dataset = 9;
 		DownloadPackageRequest package = 10;
+		DownloadPublicRequest public = 11;
+		DownloadSelectionRequest selection = 12;
 	}
 }
 
@@ -458,6 +464,28 @@ message DownloadDatasetRequest {
 	repeated string node_ids = 3;
 	// Download even when the target folder's disk has too little free space.
 	bool force = 4;
+}
+
+// DownloadPublicRequest downloads files of a published (Discover) dataset.
+message DownloadPublicRequest {
+	// The published dataset's id.
+	int64 dataset_id = 1;
+	// The version; 0 downloads the latest.
+	int32 version = 2;
+	string target_folder = 3;
+	// Files and folders of the version; none downloads the whole version.
+	repeated string paths = 4;
+	// Download even when the target folder's disk has too little free space.
+	bool force = 5;
+}
+
+// DownloadSelectionRequest downloads a selection saved in the app or on
+// Discover, by its id (sel_...).
+message DownloadSelectionRequest {
+	string selection_id = 1;
+	string target_folder = 2;
+	// Download even when the target folder's disk has too little free space.
+	bool force = 3;
 }
 
 message DownloadPackageRequest {
@@ -479,6 +507,9 @@ message DownloadResponse {
 	// What a download fetches: its files and their total size.
 	int64 file_count = 4;
 	int64 total_bytes = 5;
+	// A published download's dataset and version (the latest resolved).
+	int64 public_dataset_id = 6;
+	int32 public_version = 7;
 }
 
 message MapDiffRequest {

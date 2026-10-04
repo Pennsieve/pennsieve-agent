@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty/v6 v6.5.9
 	github.com/mattn/go-sqlite3 v1.14.23
-	github.com/pennsieve/pennsieve-go v1.8.2
+	github.com/pennsieve/pennsieve-go v1.9.0
 	github.com/pennsieve/pennsieve-go-core v1.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
