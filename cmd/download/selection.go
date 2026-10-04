@@ -42,7 +42,7 @@ A selection lasts two days. It downloads with your own access: you get the files
 		}
 		of := "the selection"
 		if resp.PublicDatasetId != 0 {
-			of = fmt.Sprintf("dataset %d, version %d", resp.PublicDatasetId, resp.PublicVersion)
+			of = fmt.Sprintf("dataset %d, version %d,", resp.PublicDatasetId, resp.PublicVersion)
 		}
 		fmt.Printf("Downloading %d files (%s) of %s to %s\n",
 			resp.FileCount, pkgshared.HumanBytes(resp.TotalBytes), of, absPath)
