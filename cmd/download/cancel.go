@@ -12,10 +12,11 @@ import (
 )
 
 var CancelCmd = &cobra.Command{
-	Use:   "cancel [dataset-or-package-id]",
+	Use:   "cancel [id]",
 	Short: "Cancel a download.",
-	Long: `Cancel the running download of a dataset (including map pull) or package, or
-all downloads with --all. Files being downloaded stop too; files already
+	Long: `Cancel the running download of a dataset (including map pull), a package,
+a published dataset (its number) or a selection (sel_...), or all downloads
+with --all. Files being downloaded stop too; files already
 downloaded are kept.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

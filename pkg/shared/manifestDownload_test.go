@@ -46,7 +46,7 @@ func manifestServer(t *testing.T) (*httptest.Server, *[]download.ManifestRequest
 
 		page := download.ManifestPage{Header: download.ManifestHeader{Count: 3, Size: 12, BlockedCount: 1}}
 		switch {
-		case len(req.FileIds) == 1 && req.FileIds[0] == 2:
+		case len(req.NodeIds) == 1 && req.NodeIds[0] == "N:package:2":
 			page.Data = []download.ManifestFile{file(2, "b.csv", []string{"study"}, "fresh")}
 		case req.Cursor == "":
 			page.Data = []download.ManifestFile{file(1, "a.csv", []string{"study"}, "sig"), file(2, "b.csv", []string{"study"}, "old")}
@@ -110,8 +110,8 @@ func TestDownloadManifest(t *testing.T) {
 	require.Len(t, *requests, 3, "two pages, and the expired link signed again")
 	var cursors []string
 	for _, r := range *requests {
-		if len(r.FileIds) > 0 {
-			assert.Equal(t, download.ManifestRequest{NodeIds: []string{"N:package:2"}, FileIds: []int64{2}}, r)
+		if len(r.NodeIds) > 0 {
+			assert.Equal(t, download.ManifestRequest{NodeIds: []string{"N:package:2"}}, r, "signed again by its package: a package is one file")
 			continue
 		}
 		cursors = append(cursors, r.Cursor)

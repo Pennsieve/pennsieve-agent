@@ -69,8 +69,8 @@ func TestCancelDownload(t *testing.T) {
 
 func TestCheckFreeSpace(t *testing.T) {
 	dir := t.TempDir()
-	assert.NoError(t, checkFreeSpace(dir, 1024))
-	err := checkFreeSpace(dir+"/new", 1<<62)
+	assert.NoError(t, checkFreeSpace(dir, 1024, "download less"))
+	err := checkFreeSpace(dir+"/new", 1<<62, "download less")
 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	assert.Contains(t, err.Error(), "--force")
 }
