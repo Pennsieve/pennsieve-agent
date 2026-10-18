@@ -6,6 +6,7 @@ import (
 	"time"
 
 	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
+	"github.com/pennsieve/pennsieve-agent/v2/pkg/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -73,4 +74,12 @@ func TestCheckFreeSpace(t *testing.T) {
 	err := checkFreeSpace(dir+"/new", 1<<62, "download less")
 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	assert.Contains(t, err.Error(), "--force")
+}
+
+func TestPendingMessage(t *testing.T) {
+	assert.Empty(t, pendingMessage(shared.ManifestResult{Downloaded: 3, Blocked: 1}))
+	assert.Equal(t, "1 file is still being scanned for malware and was not downloaded; run the download again later.",
+		pendingMessage(shared.ManifestResult{Pending: 1}))
+	assert.Equal(t, "2 files are still being scanned for malware and were not downloaded; run the download again later.",
+		pendingMessage(shared.ManifestResult{Downloaded: 1, Pending: 2}))
 }

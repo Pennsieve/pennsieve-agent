@@ -39,6 +39,9 @@ type ManifestResult struct {
 	Skipped    int
 	// Blocked files didn't pass the malware scan and aren't served.
 	Blocked int
+	// Pending files are still being scanned for malware: they aren't served
+	// yet, and a later download gets them.
+	Pending int
 }
 
 // DownloadManifest downloads every file of a selection. It asks
@@ -53,6 +56,10 @@ func (s *downloader) DownloadManifest(ctx context.Context, d ManifestDownload, f
 			log.Warnf("Not downloading %s: it didn't pass the malware scan (%s)", b.FileName, b.ScanStatus)
 		}
 		res.Blocked += len(page.Blocked)
+		for _, p := range page.Pending {
+			log.Warnf("Not downloading %s yet: it is still being scanned for malware (%s)", p.FileName, p.ScanStatus)
+		}
+		res.Pending += len(page.Pending)
 		s.downloadPage(ctx, d, page.Data, &res)
 		return ctx.Err()
 	}
