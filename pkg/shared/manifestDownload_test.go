@@ -139,7 +139,7 @@ func TestDownloadManifestContinuesFromAFirstPage(t *testing.T) {
 		},
 	}, first)
 	require.NoError(t, err)
-	assert.Equal(t, ManifestResult{Skipped: 1}, res)
+	assert.Equal(t, ManifestResult{Skipped: 1, Pending: 1}, res, "c1 holds c.csv, skipped, and new.edf, still being scanned")
 	require.Len(t, *requests, 1)
 	assert.Equal(t, "c1", (*requests)[0].Cursor, "the first page isn't requested again")
 }
