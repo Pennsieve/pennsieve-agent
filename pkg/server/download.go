@@ -401,4 +401,17 @@ func logManifestResult(id string, res shared.ManifestResult, err error) {
 	}
 	log.Infof("Download of %s: %d files downloaded, %d failed, %d skipped, %d blocked by the malware scan",
 		id, res.Downloaded, res.Failed, res.Skipped, res.Blocked)
+	if msg := pendingMessage(res); msg != "" {
+		log.Warnf("Download of %s: %s", id, msg)
+	}
+}
+
+// pendingMessage tells the user to download again for the files left out
+// because their malware scan hadn't finished; "" if there were none.
+func pendingMessage(res shared.ManifestResult) string {
+	if res.Pending == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d %s still being scanned for malware and %s not downloaded; run the download again later.",
+		res.Pending, plural(res.Pending, "file is", "files are"), plural(res.Pending, "was", "were"))
 }

@@ -22,8 +22,9 @@ type noSubscribers struct{}
 
 func (noSubscribers) GetSubscribers() sync.Map { return sync.Map{} }
 
-// manifestServer serves a two-page manifest of three files and one blocked
-// file. The first link to f2 has expired; signing it again works.
+// manifestServer serves a two-page manifest of three files, one blocked file
+// and one file still being scanned. The first link to f2 has expired;
+// signing it again works.
 func manifestServer(t *testing.T) (*httptest.Server, *[]download.ManifestRequest) {
 	var mu sync.Mutex
 	var requests []download.ManifestRequest
@@ -44,7 +45,7 @@ func manifestServer(t *testing.T) (*httptest.Server, *[]download.ManifestRequest
 		requests = append(requests, req)
 		mu.Unlock()
 
-		page := download.ManifestPage{Header: download.ManifestHeader{Count: 3, Size: 12, BlockedCount: 1}}
+		page := download.ManifestPage{Header: download.ManifestHeader{Count: 3, Size: 12, BlockedCount: 1, PendingCount: 1}}
 		switch {
 		case len(req.NodeIds) == 1 && req.NodeIds[0] == "N:package:2":
 			page.Data = []download.ManifestFile{file(2, "b.csv", []string{"study"}, "fresh")}
@@ -54,6 +55,7 @@ func manifestServer(t *testing.T) (*httptest.Server, *[]download.ManifestRequest
 			page.Next = "c1"
 		case req.Cursor == "c1":
 			page.Data = []download.ManifestFile{file(3, "c.csv", []string{"study", "sub"}, "sig")}
+			page.Pending = []download.PendingFile{{NodeId: "N:package:8", FileName: "new.edf", ScanStatus: "scanning"}}
 		}
 		require.NoError(t, json.NewEncoder(w).Encode(page))
 	})
@@ -96,7 +98,7 @@ func TestDownloadManifest(t *testing.T) {
 		},
 	}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, ManifestResult{Downloaded: 3, Blocked: 1}, res)
+	assert.Equal(t, ManifestResult{Downloaded: 3, Blocked: 1, Pending: 1}, res)
 	assert.ElementsMatch(t, []string{"a.csv", "b.csv", "c.csv"}, done)
 
 	for _, p := range []string{"study/a.csv", "study/b.csv", "study/sub/c.csv"} {
@@ -106,6 +108,7 @@ func TestDownloadManifest(t *testing.T) {
 		}
 	}
 	assert.NoFileExists(t, filepath.Join(root, "virus.exe"))
+	assert.NoFileExists(t, filepath.Join(root, "new.edf"))
 
 	require.Len(t, *requests, 3, "two pages, and the expired link signed again")
 	var cursors []string
@@ -136,9 +139,52 @@ func TestDownloadManifestContinuesFromAFirstPage(t *testing.T) {
 		},
 	}, first)
 	require.NoError(t, err)
-	assert.Equal(t, ManifestResult{Skipped: 1}, res)
+	assert.Equal(t, ManifestResult{Skipped: 1, Pending: 1}, res, "c1 holds c.csv, skipped, and new.edf, still being scanned")
 	require.Len(t, *requests, 1)
 	assert.Equal(t, "c1", (*requests)[0].Cursor, "the first page isn't requested again")
+}
+
+// The manifest download-service sends while files are still being scanned:
+// they have no link, and the header counts them across the selection.
+const pendingManifestPage = `{
+	"header": {"count": 1, "size": 4, "blockedCount": 0, "pendingCount": 2, "expiresAt": "2026-10-17T12:00:00Z"},
+	"data": [{"nodeId": "N:package:1", "fileId": 1, "fileName": "a.csv", "packageName": "a", "path": [], "url": "https://s3/a", "size": 4}],
+	"blocked": [],
+	"pending": [
+		{"nodeId": "N:package:7", "fileName": "new.edf", "packageName": "new", "scanStatus": "pending"},
+		{"nodeId": "N:package:8", "fileName": "newer.edf", "packageName": "newer", "scanStatus": "scanning"}
+	]
+}`
+
+func TestManifestPageDecodesPendingFiles(t *testing.T) {
+	var page download.ManifestPage
+	require.NoError(t, json.Unmarshal([]byte(pendingManifestPage), &page))
+	assert.Equal(t, 2, page.Header.PendingCount)
+	assert.Equal(t, []download.PendingFile{
+		{NodeId: "N:package:7", FileName: "new.edf", PackageName: "new", ScanStatus: "pending"},
+		{NodeId: "N:package:8", FileName: "newer.edf", PackageName: "newer", ScanStatus: "scanning"},
+	}, page.Pending)
+
+	var old download.ManifestPage
+	require.NoError(t, json.Unmarshal([]byte(`{"header": {"count": 0}, "data": [], "blocked": []}`), &old),
+		"a download-service without the scan wait gate sends no pending files")
+	assert.Zero(t, old.Header.PendingCount)
+	assert.Empty(t, old.Pending)
+}
+
+func TestDownloadManifestCountsPendingFiles(t *testing.T) {
+	var first download.ManifestPage
+	require.NoError(t, json.Unmarshal([]byte(pendingManifestPage), &first))
+	d := NewDownloader(noSubscribers{}, pennsieve.NewClient(pennsieve.APIParams{}))
+
+	// The only page is already here, so nothing is requested; the one file
+	// with a link is skipped to keep the test offline.
+	res, err := d.DownloadManifest(context.Background(), ManifestDownload{
+		DatasetId: "N:dataset:1",
+		Target:    func(download.ManifestFile) string { return "" },
+	}, &first)
+	require.NoError(t, err, "files still being scanned don't fail the download")
+	assert.Equal(t, ManifestResult{Skipped: 1, Pending: 2}, res)
 }
 
 func TestSafeJoin(t *testing.T) {
