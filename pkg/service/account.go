@@ -18,6 +18,9 @@ type roleConfig struct {
 	RoleName            string          `json:"roleName"`
 	PolicyDocument      json.RawMessage `json:"policyDocument"`
 	TrustPolicyDocument json.RawMessage `json:"trustPolicyDocument"`
+	// ExternalId is the sts:ExternalId the trust policy requires, issued when
+	// asked for; empty from an account-service that doesn't issue them yet.
+	ExternalId string `json:"externalId,omitempty"`
 }
 
 type AccountService struct {
@@ -37,9 +40,14 @@ func (a *AccountService) PostAccounts(accountId string, accountType string, role
 	return resp.Uuid, nil
 }
 
-func (a *AccountService) fetchRoleConfig() (*roleConfig, error) {
+// fetchRoleConfig gets the role name and policies for a new role, with an
+// external ID issued for it when withExternalId.
+func (a *AccountService) fetchRoleConfig(withExternalId bool) (*roleConfig, error) {
 	apiParams := a.Client.GetAPIParams()
 	url := fmt.Sprintf("%s/compute/resources/role-policy", apiParams.ApiHost2)
+	if withExternalId {
+		url += "?externalId=true"
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -145,11 +153,12 @@ func (a *AccountService) UpdateRoleAWS(profile string, accountType string) (*api
 		return nil, fmt.Errorf("getting registered accounts: %w", err)
 	}
 
-	var roleName string
+	var roleName, externalId string
 	var matchCount int
 	for _, acct := range accounts {
 		if acct.AccountId == externalAccountId {
 			roleName = acct.RoleName
+			externalId = acct.ExternalId
 			matchCount++
 		}
 	}
@@ -161,12 +170,21 @@ func (a *AccountService) UpdateRoleAWS(profile string, accountType string) (*api
 	}
 
 	// 3. Fetch the latest policy documents and apply them to the existing role.
-	config, err := a.fetchRoleConfig()
+	//    The trust policy keeps the account's external ID condition: a fresh
+	//    one would be issued for a new role, not this one.
+	config, err := a.fetchRoleConfig(false)
 	if err != nil {
 		return nil, fmt.Errorf("fetching role config: %w", err)
 	}
+	trustPolicy := string(config.TrustPolicyDocument)
+	if externalId != "" {
+		trustPolicy, err = requireExternalId(trustPolicy, externalId)
+		if err != nil {
+			return nil, fmt.Errorf("building trust policy: %w", err)
+		}
+	}
 
-	registration := aws.NewAWSRoleManager(profile, roleName, string(config.TrustPolicyDocument), string(config.PolicyDocument))
+	registration := aws.NewAWSRoleManager(profile, roleName, trustPolicy, string(config.PolicyDocument))
 	if err := registration.Update(); err != nil {
 		return nil, fmt.Errorf("updating role %s: %w", roleName, err)
 	}
@@ -175,7 +193,7 @@ func (a *AccountService) UpdateRoleAWS(profile string, accountType string) (*api
 }
 
 func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
-	config, err := a.fetchRoleConfig()
+	config, err := a.fetchRoleConfig(true)
 	if err != nil {
 		return nil, fmt.Errorf("fetching role config: %w", err)
 	}
@@ -197,9 +215,11 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 		return nil, err
 	}
 
-	_, err = a.PostAccounts(externalAccountId, accountType, roleName, "")
+	// Pennsieve checks it can use the role (and, with an external ID, that
+	// the role requires it) before registering it; its refusal says why.
+	_, err = a.PostAccounts(externalAccountId, accountType, roleName, config.ExternalId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("registering role %s in AWS account %s with Pennsieve: %w", roleName, externalAccountId, err)
 	}
 
 	// Request ECR pull access for the newly registered account.
@@ -208,4 +228,31 @@ func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.R
 	}
 
 	return &api.RegisterResponse{AccountId: externalAccountId}, nil
+}
+
+// requireExternalId adds an sts:ExternalId condition to every statement of a
+// trust policy, so an updated role still requires its account's external ID.
+func requireExternalId(trustPolicy string, externalId string) (string, error) {
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(trustPolicy), &doc); err != nil {
+		return "", err
+	}
+	statements, ok := doc["Statement"].([]any)
+	if !ok {
+		return "", fmt.Errorf("trust policy has no statements")
+	}
+	for _, st := range statements {
+		m, ok := st.(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("unexpected trust policy statement")
+		}
+		m["Condition"] = map[string]any{
+			"StringEquals": map[string]any{"sts:ExternalId": externalId},
+		}
+	}
+	out, err := json.Marshal(doc)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
