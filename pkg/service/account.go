@@ -1,24 +1,48 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"log"
+	"net/http"
+	"strings"
 
 	api "github.com/pennsieve/pennsieve-agent/v2/api/v1"
 	"github.com/pennsieve/pennsieve-agent/v2/internal/aws"
 	"github.com/pennsieve/pennsieve-go/pkg/pennsieve"
 )
 
-// roleConfig is the response from the account-service /role-policy endpoint.
+// roleConfig is a role setup from account-service (GET /role-policy): the
+// role's name, the external ID Pennsieve issued for it (to this user, for 24
+// hours), and how to create it from Pennsieve's CloudFormation template.
 type roleConfig struct {
-	RoleName            string          `json:"roleName"`
-	PolicyDocument      json.RawMessage `json:"policyDocument"`
-	TrustPolicyDocument json.RawMessage `json:"trustPolicyDocument"`
+	RoleName           string          `json:"roleName"`
+	PolicyDocument     json.RawMessage `json:"policyDocument"`
+	ExternalId         string          `json:"externalId,omitempty"`
+	PennsieveAccountId string          `json:"pennsieveAccountId,omitempty"`
+	CloudFormation     *struct {
+		TemplateUrl     string `json:"templateUrl"`
+		TemplateVersion string `json:"templateVersion"`
+	} `json:"cloudFormation,omitempty"`
 }
+
+// accountRecord is an account as account-service returns it to its owner,
+// with how its role was made.
+type accountRecord struct {
+	Uuid                  string `json:"uuid"`
+	AccountId             string `json:"accountId"`
+	RoleName              string `json:"roleName"`
+	ExternalId            string `json:"externalId"`
+	Connection            string `json:"connection"`
+	TemplateVersion       string `json:"templateVersion"`
+	LatestTemplateVersion string `json:"latestTemplateVersion"`
+}
+
+const connectionCloudFormation = "cloudformation"
 
 type AccountService struct {
 	Client *pennsieve.Client
@@ -28,97 +52,142 @@ func NewAccountService(client *pennsieve.Client) *AccountService {
 	return &AccountService{Client: client}
 }
 
-func (a *AccountService) PostAccounts(accountId string, accountType string, roleName string, externalId string) (string, error) {
-	resp, err := a.Client.Account.CreateAccount(context.Background(), accountId, accountType, roleName, externalId)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.Uuid, nil
-}
-
-func (a *AccountService) fetchRoleConfig() (*roleConfig, error) {
+// apiCall sends a request to account-service with the user's session and
+// decodes a 2xx answer into out (when not nil). A refusal comes back as its
+// {"message": …}, which says why.
+func (a *AccountService) apiCall(method, path string, body any, out any) error {
 	apiParams := a.Client.GetAPIParams()
-	url := fmt.Sprintf("%s/compute/resources/role-policy", apiParams.ApiHost2)
-
-	req, err := http.NewRequest("GET", url, nil)
+	var reader io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		reader = bytes.NewReader(b)
+	}
+	req, err := http.NewRequest(method, apiParams.ApiHost2+"/compute/resources"+path, reader)
 	if err != nil {
-		return nil, fmt.Errorf("creating role-policy request: %w", err)
+		return fmt.Errorf("creating %s request: %w", path, err)
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", a.Client.APISession.Token))
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fetching role-policy: %w", err)
+		return fmt.Errorf("calling %s: %w", path, err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("role-policy endpoint returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading role-policy response: %w", err)
+		return fmt.Errorf("reading %s response: %w", path, err)
 	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return refusal(resp.StatusCode, respBody)
+	}
+	if out == nil {
+		return nil
+	}
+	if err := json.Unmarshal(respBody, out); err != nil {
+		return fmt.Errorf("parsing %s response: %w", path, err)
+	}
+	return nil
+}
 
+// refusal is account-service's reason for a non-2xx answer: its "message",
+// else the body, else the status.
+func refusal(status int, body []byte) error {
+	var m struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &m) == nil && m.Message != "" {
+		return errors.New(m.Message)
+	}
+	if text := strings.TrimSpace(string(body)); text != "" {
+		return fmt.Errorf("status %d: %s", status, text)
+	}
+	return fmt.Errorf("status %d", status)
+}
+
+// fetchRoleConfig gets a role setup: a new role name with an external ID
+// issued for it, and the CloudFormation template to create it from.
+func (a *AccountService) fetchRoleConfig() (*roleConfig, error) {
 	var config roleConfig
-	if err := json.Unmarshal(body, &config); err != nil {
-		return nil, fmt.Errorf("parsing role-policy response: %w", err)
+	if err := a.apiCall("GET", "/role-policy?externalId=true", nil, &config); err != nil {
+		return nil, fmt.Errorf("fetching the role setup: %w", err)
 	}
-
+	if config.CloudFormation == nil || config.CloudFormation.TemplateUrl == "" || config.ExternalId == "" || config.PennsieveAccountId == "" {
+		return nil, errors.New("Pennsieve didn't return a CloudFormation template for the role; this Pennsieve can't connect accounts with this agent yet")
+	}
 	return &config, nil
 }
 
-func (a *AccountService) DeregisterAWS(profile string, accountType string, force bool) (*api.DeregisterResponse, error) {
-	// 1. Get the external AWS account ID via STS
-	tempManager := aws.NewAWSRoleManager(profile, "", "", "")
-	externalAccountId, err := tempManager.GetAccountId()
-	if err != nil {
-		return nil, fmt.Errorf("getting AWS account ID: %w", err)
-	}
-
-	// 2. Get user's registered accounts
-	accounts, err := a.Client.Account.GetAccounts(context.Background())
-	if err != nil {
+// findAccount is the user's one account for externalAccountId.
+func (a *AccountService) findAccount(externalAccountId string) (*accountRecord, error) {
+	var accounts []accountRecord
+	if err := a.apiCall("GET", "/accounts", nil, &accounts); err != nil {
 		return nil, fmt.Errorf("getting registered accounts: %w", err)
 	}
-
-	// 3. Find the account matching the external AWS account ID
-	var matchedUuid string
-	var matchCount int
+	var found []accountRecord
 	for _, acct := range accounts {
 		if acct.AccountId == externalAccountId {
-			matchedUuid = acct.Uuid
-			matchCount++
+			found = append(found, acct)
 		}
 	}
-
-	if matchCount == 0 {
+	switch len(found) {
+	case 0:
 		return nil, fmt.Errorf("no registered account found for AWS account %s", externalAccountId)
-	}
-	if matchCount > 1 {
+	case 1:
+		return &found[0], nil
+	default:
 		return nil, fmt.Errorf("multiple registered accounts found for AWS account %s; please contact support", externalAccountId)
 	}
+}
 
-	// 4. Delete the Pennsieve account record
-	deleteResp, err := a.Client.Account.DeleteAccount(context.Background(), matchedUuid, force)
+// createRoleStack creates the role setup's role as a CloudFormation stack
+// (named after the role) and waits for it.
+func createRoleStack(stacks *aws.StackManager, config *roleConfig) error {
+	if err := stacks.Create(config.RoleName, config.CloudFormation.TemplateUrl, config.RoleName, config.ExternalId, config.PennsieveAccountId); err != nil {
+		return err
+	}
+	return stacks.Wait(config.RoleName, "CREATE_COMPLETE")
+}
+
+// DeregisterAWS removes the user's registration of the AWS account. A
+// legacy role (made by an older agent) is deleted with it. A role from the
+// CloudFormation template belongs to its stack, so stackName names it for the
+// caller to offer deleting (deleting the role alone would leave the stack
+// broken).
+func (a *AccountService) DeregisterAWS(profile string, accountType string, force bool) (resp *api.DeregisterResponse, stackName string, err error) {
+	// 1. Get the external AWS account ID via STS
+	externalAccountId, err := aws.NewAWSRoleManager(profile, "").GetAccountId()
 	if err != nil {
-		return nil, fmt.Errorf("deleting account record: %w", err)
+		return nil, "", fmt.Errorf("getting AWS account ID: %w", err)
 	}
 
-	// 5. Delete the IAM role
-	registration := aws.NewAWSRoleManager(profile, deleteResp.RoleName, "", "")
-	if err := registration.Delete(); err != nil {
+	// 2. The user's registration of it
+	acct, err := a.findAccount(externalAccountId)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// 3. Delete the Pennsieve account record
+	deleteResp, err := a.Client.Account.DeleteAccount(context.Background(), acct.Uuid, force)
+	if err != nil {
+		return nil, "", fmt.Errorf("deleting account record: %w", err)
+	}
+	resp = &api.DeregisterResponse{AccountId: externalAccountId, RoleName: deleteResp.RoleName}
+
+	// 4. The role
+	stacks := aws.NewStackManager(profile)
+	if acct.Connection == connectionCloudFormation || stacks.Exists(deleteResp.RoleName) {
+		return resp, deleteResp.RoleName, nil
+	}
+	if err := aws.NewAWSRoleManager(profile, deleteResp.RoleName).Delete(); err != nil {
 		// Pennsieve record is already deleted — warn but don't fail
 		fmt.Printf("Warning: Pennsieve account record deleted, but failed to delete IAM role %s: %v\n", deleteResp.RoleName, err)
 		fmt.Println("You may need to manually delete the IAM role from your AWS account.")
 	}
-
-	return &api.DeregisterResponse{
-		AccountId: externalAccountId,
-		RoleName:  deleteResp.RoleName,
-	}, nil
+	return resp, "", nil
 }
 
 func (a *AccountService) RequestEcrAccess(accountId string, accountType string) error {
@@ -129,77 +198,96 @@ func (a *AccountService) RequestEcrAccess(accountId string, accountType string) 
 	return nil
 }
 
-func (a *AccountService) UpdateRoleAWS(profile string, accountType string) (*api.UpdateRoleResponse, error) {
-	// 1. Resolve the external AWS account ID via STS.
-	tempManager := aws.NewAWSRoleManager(profile, "", "", "")
-	externalAccountId, err := tempManager.GetAccountId()
+// UpdateRoleAWS brings the account's role up to Pennsieve's latest template.
+// A role from the template is a stack, updated in place (update-stack). A
+// legacy role is replaced: a new stack from the template, then the account
+// switches to it, and oldRoleName is the role for the user to delete
+// (Pennsieve's own policy forbids it to delete Pennsieve-Compute-* roles).
+func (a *AccountService) UpdateRoleAWS(profile string, accountType string) (resp *api.UpdateRoleResponse, oldRoleName string, err error) {
+	externalAccountId, err := aws.NewAWSRoleManager(profile, "").GetAccountId()
 	if err != nil {
-		return nil, fmt.Errorf("getting AWS account ID: %w", err)
+		return nil, "", fmt.Errorf("getting AWS account ID: %w", err)
 	}
-
-	// 2. Find the registered account so we can target its EXISTING role.
-	//    fetchRoleConfig mints a fresh random role name on every call, so we
-	//    must not use that name here — we reuse the one already on record.
-	accounts, err := a.Client.Account.GetAccounts(context.Background())
+	acct, err := a.findAccount(externalAccountId)
 	if err != nil {
-		return nil, fmt.Errorf("getting registered accounts: %w", err)
+		return nil, "", err
 	}
-
-	var roleName string
-	var matchCount int
-	for _, acct := range accounts {
-		if acct.AccountId == externalAccountId {
-			roleName = acct.RoleName
-			matchCount++
-		}
-	}
-	if matchCount == 0 {
-		return nil, fmt.Errorf("no registered account found for AWS account %s", externalAccountId)
-	}
-	if matchCount > 1 {
-		return nil, fmt.Errorf("multiple registered accounts found for AWS account %s; please contact support", externalAccountId)
-	}
-
-	// 3. Fetch the latest policy documents and apply them to the existing role.
+	// The template to update to. A role setup also issues a code, which, if
+	// unused, simply expires.
 	config, err := a.fetchRoleConfig()
 	if err != nil {
-		return nil, fmt.Errorf("fetching role config: %w", err)
+		return nil, "", err
+	}
+	stacks := aws.NewStackManager(profile)
+
+	if acct.Connection == connectionCloudFormation {
+		updated, err := stacks.Update(acct.RoleName, config.CloudFormation.TemplateUrl)
+		if err != nil {
+			return nil, "", err
+		}
+		if updated {
+			if err := stacks.Wait(acct.RoleName, "UPDATE_COMPLETE"); err != nil {
+				return nil, "", err
+			}
+		}
+		version := config.CloudFormation.TemplateVersion
+		if version != "" && version != acct.TemplateVersion {
+			if err := a.apiCall("PATCH", "/accounts/"+acct.Uuid, map[string]string{"templateVersion": version}, nil); err != nil {
+				return nil, "", fmt.Errorf("recording template v%s for the account: %w", version, err)
+			}
+		}
+		return &api.UpdateRoleResponse{AccountId: externalAccountId, RoleName: acct.RoleName}, "", nil
 	}
 
-	registration := aws.NewAWSRoleManager(profile, roleName, string(config.TrustPolicyDocument), string(config.PolicyDocument))
-	if err := registration.Update(); err != nil {
-		return nil, fmt.Errorf("updating role %s: %w", roleName, err)
+	// A legacy role: a new one from the template, then the account uses it.
+	if err := createRoleStack(stacks, config); err != nil {
+		return nil, "", err
 	}
-
-	return &api.UpdateRoleResponse{AccountId: externalAccountId, RoleName: roleName}, nil
+	var switched struct {
+		OldRoleName string `json:"oldRoleName"`
+		RoleName    string `json:"roleName"`
+	}
+	body := map[string]string{"roleName": config.RoleName, "externalId": config.ExternalId, "templateVersion": config.CloudFormation.TemplateVersion}
+	if err := a.apiCall("POST", "/accounts/"+acct.Uuid+"/role", body, &switched); err != nil {
+		return nil, "", fmt.Errorf("switching the account to role %s (stack %s is in your account; delete it if you don't retry): %w", config.RoleName, config.RoleName, err)
+	}
+	return &api.UpdateRoleResponse{AccountId: externalAccountId, RoleName: config.RoleName}, switched.OldRoleName, nil
 }
 
+// RegisterAWS connects the AWS account the profile is for: it creates the
+// role from Pennsieve's CloudFormation template (a stack named after the
+// role), waits for it, and registers the account, which Pennsieve does only
+// once it can use the role.
 func (a *AccountService) RegisterAWS(profile string, accountType string) (*api.RegisterResponse, error) {
 	config, err := a.fetchRoleConfig()
 	if err != nil {
-		return nil, fmt.Errorf("fetching role config: %w", err)
+		return nil, err
 	}
 
-	roleName := config.RoleName
-	trustPolicy := string(config.TrustPolicyDocument)
-	permissionPolicy := string(config.PolicyDocument)
-	registration := aws.NewAWSRoleManager(profile, roleName, trustPolicy, permissionPolicy)
-
-	// Get External AccountId
-	externalAccountId, err := registration.GetAccountId()
+	externalAccountId, err := aws.NewAWSRoleManager(profile, "").GetAccountId()
 	if err != nil {
 		return nil, err
 	}
 
-	// registration
-	_, err = registration.Create()
-	if err != nil {
+	if err := createRoleStack(aws.NewStackManager(profile), config); err != nil {
 		return nil, err
 	}
 
-	_, err = a.PostAccounts(externalAccountId, accountType, roleName, "")
-	if err != nil {
-		return nil, err
+	// Pennsieve checks it can use the role (and that the role requires its
+	// external ID) before registering it; its refusal says why.
+	var created struct {
+		Uuid string `json:"uuid"`
+	}
+	body := map[string]string{
+		"accountId":       externalAccountId,
+		"accountType":     accountType,
+		"roleName":        config.RoleName,
+		"externalId":      config.ExternalId,
+		"templateVersion": config.CloudFormation.TemplateVersion,
+	}
+	if err := a.apiCall("POST", "/accounts", body, &created); err != nil {
+		return nil, fmt.Errorf("registering role %s in AWS account %s with Pennsieve (its stack %s is in your account; delete it if you don't retry): %w",
+			config.RoleName, externalAccountId, config.RoleName, err)
 	}
 
 	// Request ECR pull access for the newly registered account.

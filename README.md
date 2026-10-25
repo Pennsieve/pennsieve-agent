@@ -140,10 +140,14 @@ upload_workers          The number of files that are uploaded simultaneously.
 
 ### Registering an account (as a compute resource)
 
- * Install [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
- * Run the account register command to register an AWS account
-   * `pennsieve account register --type <accountType> --profile <profile>`  
- *  To create a profile reference `https://docs.aws.amazon.com/cli/latest/reference/configure/`
+The easiest way is **Connect AWS account** in the Pennsieve app, which needs no local setup. The CLI does the same thing, with the same CloudFormation template:
+
+ * Install [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) and create a profile (`https://docs.aws.amazon.com/cli/latest/reference/configure/`) that may create CloudFormation stacks and IAM roles.
+ * `pennsieve account register --type AWS --profile <profile>` creates Pennsieve's role in that account from Pennsieve's CloudFormation template (a stack named after the role), waits for it, and registers the account.
+ * `pennsieve account update-role --profile <profile>` updates the role to Pennsieve's latest template. An account connected before the template gets a new role from it; the command then names the old role, for you to delete.
+ * `pennsieve account deregister --profile <profile>` removes the registration and offers to delete the role's stack (`--delete-stack` to skip the question).
+
+Older agents wrote `~/.pennsieve/TRUST_POLICY_*.json` and `PERMISSION_POLICY_*.json`; they're no longer used and can be deleted.
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.
 
