@@ -45,4 +45,6 @@ func init() {
 		"default", "CLI profile")
 	DeregisterCmd.Flags().Bool("force",
 		false, "Force deregister even if compute nodes exist")
+	DeregisterCmd.Flags().Bool("delete-stack",
+		false, "Also delete the role's CloudFormation stack (and the role) without asking")
 }
