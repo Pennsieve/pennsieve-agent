@@ -3,6 +3,7 @@ package aws
 import (
 	"errors"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,10 @@ func TestWithPolicyFile_RemovesTheFile(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+		// Windows has no Unix permission bits to check.
+		if runtime.GOOS != "windows" {
+			assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+		}
 		b, err := os.ReadFile(p)
 		assert.Equal(t, `{"Version":"2012-10-17"}`, string(b))
 		return err
