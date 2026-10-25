@@ -14,13 +14,15 @@ import (
 
 var RegisterCmd = &cobra.Command{
 	Use:   "register",
-	Short: "Register accounts as compute nodes",
-	Long: `Connects the AWS account of the profile to Pennsieve: creates Pennsieve's role
-in it from Pennsieve's CloudFormation template (a stack named after the role),
-with the profile's credentials, then registers the account. The profile needs
-permission to create CloudFormation stacks and IAM roles.
+	Short: "Connect an AWS account to Pennsieve from the command line (the app is the recommended way)",
+	Long: `The recommended way to connect an AWS account is in the Pennsieve app:
+Analysis → Compute Nodes → Connect AWS account. This command does the same
+from the command line, with your local AWS profile, for scripts and automation.
 
-The same template is what the Pennsieve app's "Connect AWS account" uses.`,
+It creates Pennsieve's role in the profile's AWS account from Pennsieve's
+CloudFormation template (a stack named after the role), with the profile's
+credentials, then registers the account. The profile needs permission to
+create CloudFormation stacks and IAM roles.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		accountType, _ := cmd.Flags().GetString("type")
 		profile, _ := cmd.Flags().GetString("profile")
@@ -51,5 +53,6 @@ The same template is what the Pennsieve app's "Connect AWS account" uses.`,
 		}
 
 		fmt.Printf("Account %s Registered\n", registerResponse.AccountId)
+		fmt.Println("The account is connected; manage it in the Pennsieve app (Analysis → Compute Nodes).")
 	},
 }
