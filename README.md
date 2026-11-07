@@ -140,16 +140,13 @@ upload_workers          The number of files that are uploaded simultaneously.
 
 ### Connecting an AWS account (as a compute resource)
 
-**In the Pennsieve app (recommended):** Analysis → Compute Nodes → **Connect AWS account**. It opens your AWS console on Pennsieve's CloudFormation template; you create the stack there, signed in to your own account, and give the app your account ID to verify. No local setup, and no AWS keys leave your AWS account. The same dialog offers an **AWS CloudShell** command, if you prefer a terminal that's already signed in.
+AWS accounts are connected, updated and disconnected in the Pennsieve app, under **Your compute resources**:
 
-**From the command line (automation):** the agent does the same, with the same template, using your local AWS profile.
+ * **Connect AWS account** opens your AWS console on Pennsieve's CloudFormation template; you create the stack there, signed in to the account you're connecting. The template creates the role only in that account. The same dialog offers an **AWS CloudShell** command, if you prefer a terminal that's already signed in. No AWS keys leave your AWS account.
+ * **Upgrade** (an account connected before the template) or **Update** (an older template) on an account moves it to a new role from the latest template; the app then links to the old role or stack to delete.
+ * **Disconnect** on the account's page removes it.
 
- * It needs the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) and a profile in your own AWS CLI config ([`aws configure`](https://docs.aws.amazon.com/cli/latest/reference/configure/)) that may create CloudFormation stacks and IAM roles. Your keys stay in that config; the agent never sends them to Pennsieve.
- * `pennsieve account register --type AWS --profile <profile>` creates Pennsieve's role in that account from Pennsieve's CloudFormation template (a stack named after the role), waits for it, and registers the account.
- * `pennsieve account update-role --profile <profile>` updates the role to Pennsieve's latest template. An account connected before the template gets a new role from it; the command then names the old role, for you to delete.
- * `pennsieve account deregister --profile <profile>` removes the registration and offers to delete the role's stack (`--delete-stack` to skip the question).
-
-Older agents wrote `~/.pennsieve/TRUST_POLICY_*.json` and `PERMISSION_POLICY_*.json`; they're no longer used and can be deleted.
+The agent's `pennsieve account register`, `update-role` and `deregister` are retired: they print where to do this in the app and exit with an error. Older agents wrote `~/.pennsieve/TRUST_POLICY_*.json` and `PERMISSION_POLICY_*.json`; they're no longer used and can be deleted.
 
 ## Logging
 We are using the [logrus](https://github.com/sirupsen/logrus) library for logging.

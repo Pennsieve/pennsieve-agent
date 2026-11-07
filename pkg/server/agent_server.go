@@ -44,7 +44,6 @@ type DependencyContainer interface {
 	ManifestStore() store.ManifestStore
 	ManifestService() manifestService
 	UserService() *service.UserService
-	AccountService() *service.AccountService
 	messageSubscribers(message string)
 	GetSubscribers() sync.Map
 }
@@ -68,7 +67,6 @@ type agentServer struct {
 
 	manifest          manifestService
 	user              *service.UserService
-	account           *service.AccountService
 	timeseriesService service.TimeseriesService
 
 	getManifestParamsOverride func() (store.ManifestParams, error)
@@ -144,16 +142,6 @@ func (s *agentServer) SqliteDB() *sql.DB {
 		s.sqliteDB = db
 	}
 	return s.sqliteDB
-}
-func (s *agentServer) AccountService() *service.AccountService {
-	if s.account == nil {
-		client, _ := s.PennsieveClient()
-		s.account = service.NewAccountService(
-			client,
-		)
-	}
-
-	return s.account
 }
 func (s *agentServer) UserService() *service.UserService {
 	if s.user == nil {

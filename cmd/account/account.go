@@ -19,32 +19,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// AccountCmd keeps the retired account commands so scripts that run them get
+// a pointer to the Pennsieve app instead of "unknown command". AWS accounts
+// are connected, upgraded and disconnected in the app now: its CloudFormation
+// template makes the role only in the account being connected, which the
+// agent's stacks (made without that account's ID) no longer satisfy.
 var AccountCmd = &cobra.Command{
 	Use:   "account [flags]",
-	Short: "Manage Registered accounts",
-	Long:  `Manage Registered accounts`,
+	Short: "Retired: manage AWS accounts in the Pennsieve app",
+	Long:  retiredLong,
+	// The commands only point to the app, so they need no agent config.
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return nil },
 }
 
 func init() {
-	AccountCmd.AddCommand(RegisterCmd)
-	RegisterCmd.Flags().String("type",
-		"AWS", "Account Type")
-	RegisterCmd.Flags().String("profile",
-		"default", "CLI profile")
-
-	AccountCmd.AddCommand(UpdateRoleCmd)
-	UpdateRoleCmd.Flags().String("type",
-		"AWS", "Account Type")
-	UpdateRoleCmd.Flags().String("profile",
-		"default", "CLI profile")
-
-	AccountCmd.AddCommand(DeregisterCmd)
-	DeregisterCmd.Flags().String("type",
-		"AWS", "Account Type")
-	DeregisterCmd.Flags().String("profile",
-		"default", "CLI profile")
-	DeregisterCmd.Flags().Bool("force",
-		false, "Force deregister even if compute nodes exist")
-	DeregisterCmd.Flags().Bool("delete-stack",
-		false, "Also delete the role's CloudFormation stack (and the role) without asking")
+	AccountCmd.AddCommand(RegisterCmd, UpdateRoleCmd, DeregisterCmd)
+	// The old flags are still accepted, so an old script reaches the pointer
+	// instead of failing on an unknown flag.
+	for _, c := range []*cobra.Command{RegisterCmd, UpdateRoleCmd, DeregisterCmd} {
+		c.Flags().String("type", "AWS", "Account Type (ignored: retired)")
+		c.Flags().String("profile", "default", "CLI profile (ignored: retired)")
+	}
+	DeregisterCmd.Flags().Bool("force", false, "ignored: retired")
+	DeregisterCmd.Flags().Bool("delete-stack", false, "ignored: retired")
 }
